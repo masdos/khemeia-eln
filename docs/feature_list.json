@@ -4,7 +4,12 @@
   "rules": {
     "one_feature_at_a_time": true,
     "require_tests_to_close": true,
-    "valid_status": ["pending", "in_progress", "done", "blocked"]
+    "valid_status": [
+      "pending",
+      "in_progress",
+      "done",
+      "blocked"
+    ]
   },
   "features": [
     {
@@ -13,14 +18,16 @@
       "title": "Setup del entorno e infraestructura de carpetas",
       "description": "Crear la estructura de carpetas del proyecto e instalar todas las dependencias del stack (NiceGUI, RDKit, rocrate-py, pytest).",
       "acceptance": [
+        "El proyecto se inicializa como aplicación con `uv init` (sin --package)",
         "Existe la estructura de carpetas: src/, src/database/, src/repositories/, src/services/, src/services/ai/, src/ui/pages/, src/ui/components/, data/attachments/, tests/services/, tests/repositories/",
         "main.py arranca la aplicación con NiceGUI en modo native=True sin errores de importación",
-        "El fichero .env opcional existe con comentarios sobre las variables disponibles",
-        "pyproject.toml contiene todos los metadatos",
-        "uv.lock está generado",
-        ".gitignore excluye entornos virtuales y archivos de caché",
-        "README.md documenta la instalación y el uso",
-        "Existe el directorio Tests",
+        "pyproject.toml declara requires-python = '>=3.12' y contiene [tool.pytest.ini_options] y [tool.ruff] con la configuración definida en CLAUDE.md",
+        "pytest y ruff están en [dependency-groups] como dev dependencies",
+        "uv.lock está generado y commiteado",
+        ".gitignore excluye .venv/, __pycache__/, .pytest_cache/, .coverage, config.json y .env",
+        "README.md documenta instalación (uv sync) y comandos de desarrollo (uv run pytest, uv run ruff check .)",
+        "Existe el directorio tests/ sin __init__.py",
+        "Pre-commit configurado con .pre-commit-config.yaml y hooks instalados via `uvx prek install`",
         "uv run ruff check . pasa sin errores",
         "uv run pytest descubre y ejecuta las pruebas con éxito"
       ],
