@@ -31,7 +31,7 @@
         "uv run ruff check . pasa sin errores",
         "uv run pytest descubre y ejecuta las pruebas con éxito"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 2,
