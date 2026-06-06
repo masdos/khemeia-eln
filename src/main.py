@@ -1,5 +1,3 @@
-from multiprocessing import freeze_support
-
 from nicegui import ui
 
 from database.connection import close_connection, get_connection
@@ -19,5 +17,4 @@ def main() -> None:
 
 
 if __name__ in ("__main__", "__mp_main__"):
-    freeze_support()
     main()
