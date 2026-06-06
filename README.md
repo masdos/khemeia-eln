@@ -28,5 +28,5 @@ uv run ruff check .
 Start the desktop app:
 
 ```powershell
-uv run python main.py
+uv run python -m main
 ```

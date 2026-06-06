@@ -18,6 +18,9 @@ dev = [
     "ruff>=0.15.16",
 ]
 
+[tool.uv]
+package = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -29,3 +32,6 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.ty.environment]
+root = ["./src"]

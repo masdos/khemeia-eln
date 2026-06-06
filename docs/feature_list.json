@@ -44,7 +44,7 @@
         "La migración se aplica automáticamente al arrancar si la base de datos no existe",
         "tests/repositories/test_connection.py verifica que get_connection() devuelve una conexión válida y que el esquema se aplica sobre :memory:"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 3,
