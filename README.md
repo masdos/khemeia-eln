@@ -30,3 +30,13 @@ Start the desktop app:
 ```powershell
 uv run python -m main
 ```
+
+## First Launch
+
+If `config.json` is missing or incomplete, Khemeia ELN shows a blocking
+welcome form before loading the app. Use it to enter your profile and choose
+the local data folder.
+
+The `Data folder` field can be filled with the native folder picker or by
+typing the path manually. This folder becomes the base location for local data,
+attachments, and exports.

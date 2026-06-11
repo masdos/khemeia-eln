@@ -54,11 +54,12 @@
       "acceptance": [
         "Existe un módulo src/config.py que lee/escribe config.json con los campos: user_name, user_email, base_dir, ai_provider",
         "Si config.json no existe o le faltan campos obligatorios, la UI muestra un formulario bloqueante que impide acceder al resto de la app",
+        "El formulario de bienvenida permite seleccionar base_dir mediante un selector nativo de carpeta y mantiene entrada manual como alternativa",
         "Al guardar el formulario, se crea/actualiza config.json y se carga la aplicación normalmente",
         "user_name y user_email quedan accesibles globalmente para auditoría sin pasarlos como parámetro",
         "tests/services/test_config.py cubre: lectura con fichero existente, lectura sin fichero, escritura y validación de campos obligatorios"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 4,

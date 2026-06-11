@@ -153,11 +153,12 @@ La aplicación es monousuario. No existe tabla `users`. El perfil se gestiona me
 {
   "user_name": "Ada Lovelace",
   "user_email": "ada@lab.edu",
-  "base_dir": "/home/ada/khemeia"
+  "base_dir": "/home/ada/khemeia",
+  "ai_provider": "lmstudio"
 }
 ```
 
-Al arrancar la aplicación, si `config.json` no existe o está incompleto, se muestra un formulario de bienvenida bloqueante. El nombre de usuario queda disponible globalmente para auditoría (`created_by`, `modified_by`) sin necesidad de pasarlo como parámetro en cada operación.
+Al arrancar la aplicación, si `config.json` no existe o está incompleto, se muestra un formulario de bienvenida bloqueante. En modo escritorio (`native=True`), el campo `base_dir` puede seleccionarse con el diálogo nativo de carpetas o escribirse manualmente. El nombre de usuario queda disponible globalmente para auditoría (`created_by`, `modified_by`) sin necesidad de pasarlo como parámetro en cada operación.
 
 ### **B. Patrón Repository**
 
