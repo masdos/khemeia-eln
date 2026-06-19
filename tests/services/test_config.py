@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from config import (
+from app.config import (
     ConfigValidationError,
     clear_current_config,
     get_current_config,

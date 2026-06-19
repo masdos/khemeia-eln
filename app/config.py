@@ -43,22 +43,26 @@ def load_config(
     config_path: str | Path = CONFIG_PATH,
     env: Mapping[str, str] | None = None,
     load_env_file: bool = True,
+    pre_loaded_config: dict | None = None,
 ) -> AppConfig | None:
-    """Load the user profile, applying developer environment overrides."""
     if load_env_file:
         load_dotenv()
 
-    path = Path(config_path)
-    if not path.exists():
-        return None
+    # Use pre-loaded config if provided; otherwise load from disk
+    if pre_loaded_config is not None:
+        raw_config = pre_loaded_config
+    else:
+        path = Path(config_path)
+        if not path.exists():
+            return None
 
-    try:
-        raw_config = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return None
+        try:
+            raw_config = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return None
 
-    if not isinstance(raw_config, dict):
-        return None
+        if not isinstance(raw_config, dict):
+            return None
 
     raw_config.update(_env_overrides(env or os.environ))
 

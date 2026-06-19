@@ -1,5 +1,3 @@
-
-
 class FolderPickerWindow:
     def __init__(self, selected_paths):
         self.selected_paths = selected_paths

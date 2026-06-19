@@ -1,6 +1,6 @@
 import sqlite3
 
-from database.connection import close_connection, get_connection
+from app.database.connection import close_connection, get_connection
 
 
 def test_returns_valid_sqlite_connection_for_memory_database() -> None:

@@ -68,12 +68,6 @@ Always use `uv run` to execute Python code and tools. Never call `python`, `pyte
 - Check formatting: `uv run ruff format --check .`
 - Configuration lives in `pyproject.toml` under `[tool.ruff]`
 
-## Type Checking
-
-- Tool: **ty** (this project uses ty exclusively — do not use pyrefly or mypy)
-- Run: `uv run ty check`
-- Configuration lives in `pyproject.toml` under `[tool.ty]`
-
 ## Code Style
 
 - Follow ruff's defaults for formatting (88 char line length, double quotes, spaces)

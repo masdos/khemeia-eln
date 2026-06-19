@@ -1,14 +1,40 @@
+import logging
+from pathlib import Path
+
 from nicegui import ui
 
-from config import AI_PROVIDERS, load_config, write_config
-from database.connection import close_connection, get_connection
+from app.bootstrap import run_bootstrap
+from app.config import AI_PROVIDERS, load_config, write_config
+from app.database.connection import close_connection, get_connection
+
+logger = logging.getLogger(__name__)
+
+
+def _initialize_app() -> tuple[Path, dict]:
+    """Initialize bootstrap, database connection, and return base_dir and config.
+
+    Raises:
+        Exception: If bootstrap or database connection fails.
+    """
+    # Step 1: Bootstrap (prepare directories and load config.json)
+    bootstrap_result = run_bootstrap()
+    logger.info("Bootstrap completed base_dir=%s", bootstrap_result.base_dir)
+
+    # Step 2: Connect to database (applies schema if database doesn't exist)
+    get_connection(bootstrap_result.db_path)
+    logger.info("Database connection established db_path=%s", bootstrap_result.db_path)
+
+    return bootstrap_result.base_dir, bootstrap_result.config
 
 
 def build_ui() -> None:
-    if load_config() is None:
+    config = load_config()
+    if config is None:
+        logger.info("UI building started config_complete=false (showing welcome form)")
         build_welcome_form()
         return
 
+    logger.info("UI building started config_complete=true (showing app)")
     build_app_ui()
 
 
@@ -62,12 +88,20 @@ def build_welcome_form() -> None:
 
 
 def main() -> None:
-    get_connection()
-    build_ui()
     try:
-        ui.run(native=True, title="Khemeia ELN")
+        _initialize_app()
+        build_ui()
+        ui.run(
+            title="Khemeia ELN",
+            reload=False,
+            native=True,
+        )
+    except Exception as e:
+        logger.critical("Application startup failed error=%s", str(e), exc_info=True)
+        raise
     finally:
         close_connection()
+        logger.info("Application shutdown complete")
 
 
 if __name__ in ("__main__", "__mp_main__"):

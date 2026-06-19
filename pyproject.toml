@@ -1,11 +1,12 @@
 [project]
 name = "khemeia-eln"
 version = "0.1.0"
-description = "Add your description here"
+description = "Local-first laboratory management system for chemistry researchers"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "nicegui>=3.12.1",
+    "platformdirs>=4.10.0",
     "python-dotenv>=1.2.2",
     "pywebview>=6.2.1",
     "rdkit>=2026.3.2",
@@ -15,16 +16,18 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.15.16",
 ]
 
 [tool.uv]
-package = true
+package = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 line-length = 88
@@ -32,6 +35,3 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
-
-[tool.ty.environment]
-root = ["./src"]
