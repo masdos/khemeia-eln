@@ -16,10 +16,10 @@
       "id": 1,
       "name": "setup_environment",
       "title": "Setup del entorno e infraestructura de carpetas",
-      "description": "Crear la estructura de carpetas del proyecto e instalar todas las dependencias del stack (NiceGUI, RDKit, rocrate-py, pytest).",
+      "description": "Crear la estructura de carpetas del proyecto e instalar todas las dependencias del stack (NiceGUI, RDKit, rocrate-py, pytest, platformdirs).",
       "acceptance": [
         "El proyecto se inicializa como aplicación con `uv init` (sin --package)",
-        "Existe la estructura de carpetas: src/, src/database/, src/repositories/, src/services/, src/services/ai/, src/ui/pages/, src/ui/components/, data/attachments/, tests/services/, tests/repositories/",
+        "Existe la estructura de carpetas: app/, app/database/, app/repositories/, app/services/, app/services/ai/, app/ui/pages/, app/ui/components/, data/attachments/, tests/services/, tests/repositories/",
         "main.py arranca la aplicación con NiceGUI en modo native=True sin errores de importación",
         "pyproject.toml declara requires-python = '>=3.12' y contiene [tool.pytest.ini_options] y [tool.ruff] con la configuración definida en CLAUDE.md",
         "pytest y ruff están en [dependency-groups] como dev dependencies",
@@ -35,24 +35,40 @@
     },
     {
       "id": 2,
+      "name": "bootstrap",
+      "title": "Módulo de arranque (bootstrap)",
+      "description": "Inicialización ordenada al arranque: resolver BASE_DIR via platformdirs, crear directorios de datos, leer config.json y aplicar schema SQL. El usuario nunca interactúa con BASE_DIR.",
+      "acceptance": [
+        "Existe src/bootstrap.py con una función run_bootstrap() que ejecuta los pasos en orden",
+        "BASE_DIR se resuelve exclusivamente con platformdirs.user_data_dir('khemeia'), sin override posible",
+        "Crea BASE_DIR/attachments/ y BASE_DIR/exports/ si no existen",
+        "Aplica schema.sql si database.db no existe en BASE_DIR",
+        "Devuelve indicación de si config.json está completo para que main.py decida si mostrar el formulario bloqueante",
+        "tests/test_bootstrap.py usa tmp_path con monkeypatch de platformdirs y verifica creación de directorios y detección de config incompleto"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 3,
       "name": "database_connection",
       "title": "Conexión a SQLite y migración inicial",
       "description": "Implementar el ciclo de vida de la conexión a SQLite y el script de migración que crea todas las tablas del modelo de datos.",
       "acceptance": [
-        "Existe src/database/connection.py con funciones get_connection() y close_connection()",
-        "Existe src/database/schema.sql con las tablas: projects, protocols, experiments, reagents, equipment, experiment_reagents, experiment_equipment, attachments",
+        "Existe app/database/connection.py con funciones get_connection() y close_connection()",
+        "Existe app/database/schema.sql con las tablas: projects, protocols, experiments, reagents, equipment, experiment_reagents, experiment_equipment, attachments",
         "La migración se aplica automáticamente al arrancar si la base de datos no existe",
         "tests/repositories/test_connection.py verifica que get_connection() devuelve una conexión válida y que el esquema se aplica sobre :memory:"
       ],
       "status": "done"
     },
     {
-      "id": 3,
+      "id": 4,
       "name": "config_profile",
       "title": "Configuración de perfil de usuario (config.json)",
       "description": "Gestionar el perfil monousuario mediante config.json. Si el fichero no existe o está incompleto, mostrar un formulario de bienvenida bloqueante en NiceGUI antes de cargar la app.",
       "acceptance": [
-        "Existe un módulo src/config.py que lee/escribe config.json con los campos: user_name, user_email, ai_provider",
+        "Existe un módulo app/config.py que lee/escribe config.json con los campos: user_name, user_email, ai_provider",
+        "base_dir no es configurable; lo resuelve platformdirs en bootstrap.py",
         "Si config.json no existe o le faltan campos obligatorios, la UI muestra un formulario bloqueante que impide acceder al resto de la app",
         "Al guardar el formulario, se crea/actualiza config.json y se carga la aplicación normalmente",
         "user_name y user_email quedan accesibles globalmente para auditoría sin pasarlos como parámetro",
@@ -61,12 +77,12 @@
       "status": "done"
     },
     {
-      "id": 4,
+      "id": 5,
       "name": "experiment_repository",
       "title": "ExperimentRepository",
       "description": "Capa de acceso a datos para la entidad experiments. Ningún servicio ejecuta SQL directamente contra esta tabla.",
       "acceptance": [
-        "Existe src/repositories/experiment_repository.py con métodos: create(), get_by_id(), get_all(), update(), lock(experiment_id, hash_sha256)",
+        "Existe app/repositories/experiment_repository.py con métodos: create(), get_by_id(), get_all(), update(), lock(experiment_id, hash_sha256)",
         "lock() persiste hash_sha256 y activa is_locked=True en una sola operación atómica",
         "get_all() admite filtros opcionales por estado y texto (búsqueda en title y notes)",
         "tests/repositories/test_experiment_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
@@ -74,47 +90,47 @@
       "status": "pending"
     },
     {
-      "id": 5,
+      "id": 6,
       "name": "reagent_repository",
       "title": "ReagentRepository",
       "description": "Capa de acceso a datos para reagents y la tabla de relación experiment_reagents.",
       "acceptance": [
-        "Existe src/repositories/reagent_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, reagent_id, amount, unit), get_by_experiment(experiment_id), get_experiment_history(reagent_id)",
+        "Existe app/repositories/reagent_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, reagent_id, amount, unit), get_by_experiment(experiment_id), get_experiment_history(reagent_id)",
         "get_experiment_history() devuelve la lista de experimentos en los que se usó un reactivo concreto",
         "tests/repositories/test_reagent_repository.py cubre CRUD, vinculación y consulta histórica usando SQLite :memory:"
       ],
       "status": "pending"
     },
     {
-      "id": 6,
+      "id": 7,
       "name": "equipment_repository",
       "title": "EquipmentRepository",
       "description": "Capa de acceso a datos para equipment y la tabla de relación experiment_equipment.",
       "acceptance": [
-        "Existe src/repositories/equipment_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, equipment_id), get_by_experiment(experiment_id)",
+        "Existe app/repositories/equipment_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, equipment_id), get_by_experiment(experiment_id)",
         "tests/repositories/test_equipment_repository.py cubre CRUD y vinculación usando SQLite :memory:"
       ],
       "status": "pending"
     },
     {
-      "id": 7,
+      "id": 8,
       "name": "attachment_repository",
       "title": "AttachmentRepository",
       "description": "Capa de acceso a datos para la tabla attachments. Solo almacena experiment_id y stored_name; nunca rutas absolutas.",
       "acceptance": [
-        "Existe src/repositories/attachment_repository.py con métodos: create(experiment_id, file_name, stored_name), get_by_experiment(experiment_id), delete(attachment_id)",
+        "Existe app/repositories/attachment_repository.py con métodos: create(experiment_id, file_name, stored_name), get_by_experiment(experiment_id), delete(attachment_id)",
         "Ningún método almacena ni devuelve rutas absolutas; la resolución de rutas es responsabilidad de FileService",
         "tests/repositories/test_attachment_repository.py cubre los tres métodos usando SQLite :memory:"
       ],
       "status": "pending"
     },
     {
-      "id": 8,
+      "id": 9,
       "name": "experiment_service",
       "title": "ExperimentService",
       "description": "Orquesta el ciclo de vida completo del experimento: creación, actualización de estado y delegación al repositorio. No ejecuta SQL directamente.",
       "acceptance": [
-        "Existe src/services/experiment_service.py con métodos: create_experiment(), update_experiment(), change_state(experiment_id, new_state), get_experiment(experiment_id), list_experiments(filters)",
+        "Existe app/services/experiment_service.py con métodos: create_experiment(), update_experiment(), change_state(experiment_id, new_state), get_experiment(experiment_id), list_experiments(filters)",
         "change_state() con Success o Fail delega en SecurityService para calcular el hash y en ExperimentRepository.lock() para persistirlo",
         "change_state() a Running no genera hash ni bloquea el registro",
         "Un experimento bloqueado (is_locked=True) no puede ser modificado; update_experiment() lanza una excepción si se intenta",
@@ -123,12 +139,12 @@
       "status": "pending"
     },
     {
-      "id": 9,
+      "id": 10,
       "name": "inventory_service",
       "title": "InventoryService",
       "description": "Gestiona reactivos y equipos: alta, consulta de stock, vinculación a experimentos y consulta de uso histórico.",
       "acceptance": [
-        "Existe src/services/inventory_service.py con métodos: add_reagent(), add_equipment(), link_reagent_to_experiment(), link_equipment_to_experiment(), get_reagent_history(reagent_id), get_experiment_resources(experiment_id)",
+        "Existe app/services/inventory_service.py con métodos: add_reagent(), add_equipment(), link_reagent_to_experiment(), link_equipment_to_experiment(), get_reagent_history(reagent_id), get_experiment_resources(experiment_id)",
         "add_reagent() acepta todos los campos GHS del modelo de datos (is_explosive, is_flammable, etc.)",
         "get_reagent_history() devuelve la lista de experimentos donde se usó ese reactivo",
         "tests/services/test_inventory_service.py usa repositorios en memoria y cubre vinculación e historial"
@@ -136,12 +152,12 @@
       "status": "pending"
     },
     {
-      "id": 10,
+      "id": 11,
       "name": "security_service",
       "title": "SecurityService",
       "description": "Genera el hash SHA-256 del contenido completo de un experimento y gestiona el bloqueo del registro.",
       "acceptance": [
-        "Existe src/services/security_service.py con el método calculate_hash(experiment_data) que devuelve un string hexadecimal SHA-256",
+        "Existe app/services/security_service.py con el método calculate_hash(experiment_data) que devuelve un string hexadecimal SHA-256",
         "El input al hash concatena: todos los campos de texto del experimento + IDs de reactivos vinculados ordenados + stored_name de cada adjunto ordenado",
         "El mismo experiment_data siempre produce el mismo hash (función pura, sin efectos secundarios)",
         "tests/services/test_security_service.py verifica determinismo, sensibilidad a cambios en cualquier campo y que un campo vacío no produce el mismo hash que un campo con valor"
@@ -149,12 +165,12 @@
       "status": "pending"
     },
     {
-      "id": 11,
+      "id": 12,
       "name": "file_service",
       "title": "FileService",
       "description": "Único componente con conocimiento del sistema de archivos. Resuelve rutas absolutas y gestiona el ciclo de vida de los adjuntos en disco.",
       "acceptance": [
-        "Existe src/services/file_service.py con métodos: save_attachment(experiment_id, uploaded_file) → stored_name, resolve_path(experiment_id, stored_name) → Path, delete_attachment(experiment_id, stored_name)",
+        "Existe app/services/file_service.py con métodos: save_attachment(experiment_id, uploaded_file) → stored_name, resolve_path(experiment_id, stored_name) → Path, delete_attachment(experiment_id, stored_name)",
         "save_attachment() crea el directorio BASE_DIR/attachments/{experiment_id}/ si no existe y guarda el fichero con un stored_name único (UUID + extensión original)",
         "resolve_path() construye la ruta absoluta combinando BASE_DIR desde config y nunca lee rutas desde la base de datos",
         "tests/services/test_file_service.py usa un directorio temporal (tmp_path de pytest) y cubre guardado, resolución y borrado"
@@ -162,12 +178,12 @@
       "status": "pending"
     },
     {
-      "id": 12,
+      "id": 13,
       "name": "chemistry_service",
       "title": "ChemistryService",
       "description": "Convierte strings SMILES en imágenes SVG usando RDKit para renderizado inline en la interfaz.",
       "acceptance": [
-        "Existe src/services/chemistry_service.py con el método smiles_to_svg(smiles: str) → str que devuelve un string SVG válido",
+        "Existe app/services/chemistry_service.py con el método smiles_to_svg(smiles: str) → str que devuelve un string SVG válido",
         "Si el SMILES es inválido, devuelve None sin lanzar excepción",
         "Si RDKit no está disponible, el módulo importa correctamente y smiles_to_svg() devuelve None (degradación elegante)",
         "tests/services/test_chemistry_service.py cubre: SMILES válido produce SVG no vacío, SMILES inválido devuelve None"
@@ -175,13 +191,13 @@
       "status": "pending"
     },
     {
-      "id": 13,
+      "id": 14,
       "name": "ai_providers",
       "title": "Interfaz AIProvider e implementaciones",
       "description": "Definir la interfaz AIProvider y sus tres implementaciones concretas (LMStudio, Ollama, RemoteAPI) para desacoplar el backend de IA del resto del sistema.",
       "acceptance": [
-        "Existe src/services/ai/ai_provider.py con la clase abstracta AIProvider con el método generate(prompt: str) → str",
-        "Existen src/services/ai/lmstudio_provider.py (endpoint http://localhost:1234/v1), ollama_provider.py (http://localhost:11434/v1) y remote_provider.py (endpoint configurable desde config.json)",
+        "Existe app/services/ai/ai_provider.py con la clase abstracta AIProvider con el método generate(prompt: str) → str",
+        "Existen app/services/ai/lmstudio_provider.py (endpoint http://localhost:1234/v1), ollama_provider.py (http://localhost:11434/v1) y remote_provider.py (endpoint configurable desde config.json)",
         "Si el endpoint no responde, el provider lanza una excepción AIProviderUnavailableError (no bloquea el resto de la app)",
         "El provider activo se instancia en función del campo ai_provider de config.json",
         "tests/services/test_ai_providers.py usa mock del endpoint HTTP y verifica que cada provider construye la petición correctamente y maneja el error de conexión"
@@ -189,12 +205,12 @@
       "status": "pending"
     },
     {
-      "id": 14,
+      "id": 15,
       "name": "ai_service",
       "title": "AIService",
       "description": "Orquesta la generación de informes científicos: selecciona el proveedor activo, construye el prompt con los datos del experimento y devuelve el borrador en Markdown.",
       "acceptance": [
-        "Existe src/services/ai_service.py con el método generate_report(experiment_data) → str que devuelve Markdown",
+        "Existe app/services/ai_service.py con el método generate_report(experiment_data) → str que devuelve Markdown",
         "El system prompt instruye al modelo a generar un informe técnico científico estructurado",
         "Si el AIProvider lanza AIProviderUnavailableError, generate_report() devuelve None y no propaga la excepción",
         "tests/services/test_ai_service.py inyecta un provider mock y verifica: generación exitosa, degradación elegante ante provider no disponible"
@@ -202,12 +218,12 @@
       "status": "pending"
     },
     {
-      "id": 15,
+      "id": 16,
       "name": "export_service",
       "title": "ExportService",
       "description": "Genera exportaciones del experimento en formato .eln (RO-Crate) y PDF.",
       "acceptance": [
-        "Existe src/services/export_service.py con métodos: export_eln(experiment_id) → Path y export_pdf(markdown_content) → Path",
+        "Existe app/services/export_service.py con métodos: export_eln(experiment_id) → Path y export_pdf(markdown_content) → Path",
         "export_eln() usa rocrate-py para empaquetar el JSON-LD de metadatos del experimento junto con sus adjuntos en un fichero .eln",
         "export_pdf() convierte el contenido Markdown del informe IA en un PDF exportable",
         "Ambos métodos escriben el fichero de salida en BASE_DIR/exports/ y devuelven la ruta absoluta",
@@ -216,12 +232,12 @@
       "status": "pending"
     },
     {
-      "id": 16,
+      "id": 17,
       "name": "ui_dashboard",
       "title": "Página Dashboard (UI)",
       "description": "Pantalla principal de la aplicación: lista de experimentos activos con filtros por estado y búsqueda por texto o etiquetas.",
       "acceptance": [
-        "Existe src/ui/pages/dashboard.py con una página NiceGUI que lista todos los experimentos",
+        "Existe app/ui/pages/dashboard.py con una página NiceGUI que lista todos los experimentos",
         "La página muestra para cada experimento: título, proyecto, estado (con badge de color) y fecha de creación",
         "Hay un input de búsqueda por texto y un selector de filtro por estado (Running, Success, Fail, Todos)",
         "Hacer clic en un experimento navega a su página de detalle",
@@ -231,12 +247,12 @@
       "status": "pending"
     },
     {
-      "id": 17,
+      "id": 18,
       "name": "ui_experiment_detail",
       "title": "Página Experiment Detail (UI)",
       "description": "Formulario completo de un experimento: editor Markdown, LaTeX, visualización SMILES, gestión de reactivos/equipos vinculados y adjuntos.",
       "acceptance": [
-        "Existe src/ui/pages/experiment_detail.py con el formulario completo de creación y edición",
+        "Existe app/ui/pages/experiment_detail.py con el formulario completo de creación y edición",
         "El editor de contenido renderiza Markdown y fórmulas LaTeX en tiempo real",
         "Al introducir un SMILES válido, se muestra la estructura química SVG generada por ChemistryService debajo del campo",
         "Hay un selector de reactivos y equipos existentes (con opción de añadir uno nuevo al vuelo sin salir del formulario)",
@@ -247,12 +263,12 @@
       "status": "pending"
     },
     {
-      "id": 18,
+      "id": 19,
       "name": "ui_inventory",
       "title": "Página Inventory (UI)",
       "description": "Gestión del inventario de reactivos y equipos: alta, consulta de stock, pictogramas GHS y vista de uso histórico por reactivo.",
       "acceptance": [
-        "Existe src/ui/pages/inventory.py con dos secciones: Reactivos y Equipos",
+        "Existe app/ui/pages/inventory.py con dos secciones: Reactivos y Equipos",
         "El formulario de alta de reactivo incluye todos los campos del modelo (CAS, SMILES, lote, proveedor, caducidad, estado físico, pureza) y los 9 checkboxes GHS con sus pictogramas",
         "Cada reactivo tiene una vista de 'Uso histórico' que lista los experimentos donde fue utilizado con fecha y cantidad",
         "Smoke test manual: dar de alta un reactivo con pictogramas GHS, asociarlo a un experimento y verificar que aparece en el historial"
@@ -260,12 +276,12 @@
       "status": "pending"
     },
     {
-      "id": 19,
+      "id": 20,
       "name": "ui_ai_assistant",
       "title": "Página AI Assistant (UI)",
       "description": "Interfaz para generar borradores de informes científicos a partir de experimentos seleccionados y exportarlos a Markdown o PDF.",
       "acceptance": [
-        "Existe src/ui/pages/ai_assistant.py con un selector múltiple de experimentos",
+        "Existe app/ui/pages/ai_assistant.py con un selector múltiple de experimentos",
         "Al pulsar 'Generar borrador', se llama a AIService y el resultado se muestra en un área de texto editable",
         "Si AIService devuelve None (provider no disponible), se muestra un mensaje de aviso sin romper la interfaz",
         "Hay un botón 'Exportar Markdown' que descarga el borrador como fichero .md",

@@ -153,12 +153,12 @@ La aplicación es monousuario. No existe tabla `users`. El perfil se gestiona me
 {
   "user_name": "Ada Lovelace",
   "user_email": "ada@lab.edu",
-  "base_dir": "/home/ada/khemeia",
   "ai_provider": "lmstudio"
 }
 ```
 
-Al arrancar la aplicación, si `config.json` no existe o está incompleto, se muestra un formulario de bienvenida bloqueante. En modo escritorio (`native=True`), el campo `base_dir` puede seleccionarse con el diálogo nativo de carpetas o escribirse manualmente. El nombre de usuario queda disponible globalmente para auditoría (`created_by`, `modified_by`) sin necesidad de pasarlo como parámetro en cada operación.
+Al arrancar la aplicación, si `config.json` no existe o está incompleto, se muestra un formulario de bienvenida bloqueante. En modo escritorio (`native=True`). El nombre de usuario queda disponible globalmente para auditoría (`created_by`, `modified_by`) sin necesidad de pasarlo como parámetro en cada operación.
+
 
 ### **B. Patrón Repository**
 
@@ -193,7 +193,16 @@ El proveedor activo se configura en `config.json`. `AIService` solo conoce la in
 BASE_DIR/attachments/{experiment_id}/{stored_name}
 ```
 
-La base de datos solo almacena `experiment_id` + `stored_name`. Si el usuario mueve la carpeta del proyecto, basta con actualizar `BASE_DIR` en `config.json`.
+La base de datos solo almacena `experiment_id` + `stored_name`. `BASE_DIR` se resuelve siempre mediante `platformdirs`, nunca configurable por el usuario.
+
+`BASE_DIR` resuelto en tiempo de ejecución por platformdirs.user_data_dir("khemeia")
+FileService nunca lee base_dir de config.json
+
+Al arrancar, bootstrap.py ejecuta en orden:
+   1. Resolver BASE_DIR via platformdirs.user_data_dir("khemeia")
+   2. Crear BASE_DIR/attachments/ y BASE_DIR/exports/ si no existen
+   3. Leer config.json; si falta o le faltan user_name/user_email, mostrar formulario bloqueante
+   4. Aplicar schema.sql si database.db no existe
 
 ### **E. Seguridad e Integridad**
 
@@ -221,10 +230,7 @@ khemeia_eln/
 ├── main.py                     # Entrada principal (NiceGUI native=True)
 ├── config.json                 # Perfil de usuario y BASE_DIR
 ├── docs/                       # Documentación
-├── data/
-│   ├── database.db             # SQLite
-│   └── attachments/            # {experiment_id}/{stored_name}
-├── src/
+├── app/
 │   ├── database/
 │   │   ├── connection.py       # Ciclo de vida de la conexión SQLite
 │   │   └── schema.sql          # Migración inicial
@@ -257,6 +263,15 @@ khemeia_eln/
 │   └── repositories/           # Tests de integración contra SQLite en memoria
 └── .env                        # Variables de entorno opcionales (override de config.json)
 ```
+
+Datos del usuario (fuera del proyecto, gestionado por platformdirs):
+Linux:   ~/.local/share/khemeia/
+macOS:   ~/Library/Application Support/khemeia/
+Windows: %APPDATA%\khemeia\
+   ├── config.json
+   ├── database.db
+   ├── attachments/{experiment_id}/
+   └── exports/
 
 ---
 
