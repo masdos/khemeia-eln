@@ -10,8 +10,14 @@ from app.database.connection import close_connection, get_connection
 logger = logging.getLogger(__name__)
 
 
-def _initialize_app() -> tuple[Path, dict]:
-    # Step 1: Bootstrap (prepare directories and load config.json)
+def _initialize_app() -> object:
+    """Initialize application: bootstrap directories and database.
+
+    Returns:
+        BootstrapResult with base_dir, db_path, config_path, config, and
+        config_complete flag
+    """
+    # Step 1: Bootstrap (prepare directories)
     bootstrap_result = run_bootstrap()
     logger.info("Bootstrap completed base_dir=%s", bootstrap_result.base_dir)
 
@@ -19,14 +25,19 @@ def _initialize_app() -> tuple[Path, dict]:
     get_connection(bootstrap_result.db_path)
     logger.info("Database connection established db_path=%s", bootstrap_result.db_path)
 
-    return bootstrap_result.base_dir, bootstrap_result.config
+    return bootstrap_result
 
 
-def build_ui() -> None:
-    config = load_config()
+def build_ui(base_dir: Path) -> None:
+    """Build UI: show welcome form if config incomplete, otherwise show app.
+
+    Args:
+        base_dir: Application data directory (from BootstrapResult.base_dir)
+    """
+    config = load_config(base_dir, load_env_file=False)
     if config is None:
         logger.info("UI building started config_complete=false (showing welcome form)")
-        build_welcome_form()
+        build_welcome_form(base_dir)
         return
 
     logger.info("UI building started config_complete=true (showing app)")
@@ -38,7 +49,12 @@ def build_app_ui() -> None:
     ui.label("Khemeia ELN")
 
 
-def build_welcome_form() -> None:
+def build_welcome_form(base_dir: Path) -> None:
+    """Show blocking welcome form for initial profile setup.
+
+    Args:
+        base_dir: Application data directory (from BootstrapResult.base_dir)
+    """
     dialog = ui.dialog().props("persistent")
 
     with dialog, ui.card().classes("w-[32rem] max-w-full"):
@@ -55,7 +71,8 @@ def build_welcome_form() -> None:
                     {
                         "user_name": user_name.value,
                         "user_email": user_email.value,
-                    }
+                    },
+                    base_dir=base_dir,
                 )
             except ValueError as error:
                 message.text = str(error)
@@ -72,8 +89,8 @@ def build_welcome_form() -> None:
 
 def main() -> None:
     try:
-        _initialize_app()
-        build_ui()
+        bootstrap_result = _initialize_app()
+        build_ui(bootstrap_result.base_dir)
         ui.run(
             title="Khemeia ELN",
             reload=False,

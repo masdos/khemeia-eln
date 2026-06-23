@@ -20,7 +20,7 @@ class BootstrapResult:
 
 
 def _resolve_base_dir() -> Path:
-    return Path(platformdirs.user_data_dir(APP_NAME))
+    return Path(platformdirs.user_data_dir(appname=APP_NAME, appauthor=False))
 
 
 def _create_directories(base_dir: Path) -> None:

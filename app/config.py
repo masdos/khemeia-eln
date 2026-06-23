@@ -6,7 +6,6 @@ from typing import Mapping
 
 from dotenv import load_dotenv
 
-CONFIG_PATH = Path("config.json")
 REQUIRED_FIELDS = ("user_name", "user_email")
 AI_PROVIDERS = ("lmstudio", "ollama", "remote")
 ENV_KEYS = {
@@ -37,11 +36,22 @@ class AppConfig:
 
 
 def load_config(
-    config_path: str | Path = CONFIG_PATH,
+    base_dir: Path,
     env: Mapping[str, str] | None = None,
     load_env_file: bool = True,
     pre_loaded_config: dict | None = None,
 ) -> AppConfig | None:
+    """Load user profile from BASE_DIR/config.json.
+
+    Args:
+        base_dir: Application data directory (typically from BootstrapResult.base_dir)
+        env: Environment variables for overrides (defaults to os.environ)
+        load_env_file: Whether to load .env file via python-dotenv
+        pre_loaded_config: Pre-loaded config dict for testing (bypasses file I/O)
+
+    Returns:
+        AppConfig if config.json exists and is valid, None otherwise
+    """
     if load_env_file:
         load_dotenv()
 
@@ -49,12 +59,12 @@ def load_config(
     if pre_loaded_config is not None:
         raw_config = pre_loaded_config
     else:
-        path = Path(config_path)
-        if not path.exists():
+        config_path = base_dir / "config.json"
+        if not config_path.exists():
             return None
 
         try:
-            raw_config = json.loads(path.read_text(encoding="utf-8"))
+            raw_config = json.loads(config_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             return None
 
@@ -74,12 +84,23 @@ def load_config(
 
 def write_config(
     config_data: Mapping[str, object],
-    config_path: str | Path = CONFIG_PATH,
+    base_dir: Path,
 ) -> AppConfig:
-    """Validate and persist the user profile as config.json."""
+    """Validate and persist the user profile to BASE_DIR/config.json.
+
+    Args:
+        config_data: Configuration dict with user_name, user_email, ai_provider
+        base_dir: Application data directory (typically from BootstrapResult.base_dir)
+
+    Returns:
+        AppConfig if validation succeeds
+
+    Raises:
+        ConfigValidationError: If required fields are missing or invalid
+    """
     config = validate_config(config_data)
-    path = Path(config_path)
-    path.write_text(
+    config_path = base_dir / "config.json"
+    config_path.write_text(
         json.dumps(config.to_json_data(), indent=2) + "\n",
         encoding="utf-8",
     )

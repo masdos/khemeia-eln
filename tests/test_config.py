@@ -22,18 +22,24 @@ def test_validate_config_allows_missing_ai_provider_and_defaults_to_none() -> No
 
     # then
     assert config.ai_provider is None
+    clear_current_config()
 
 
 def test_write_config_persists_ai_provider_as_null(tmp_path) -> None:
     # given
-    config_path = tmp_path / "config.json"
+    base_dir = tmp_path
 
     # when
-    write_config({"user_name": "Ada", "user_email": "ada@example.com"}, config_path)
+    write_config(
+        {"user_name": "Ada", "user_email": "ada@example.com"}, base_dir=base_dir
+    )
 
     # then
+    config_path = base_dir / "config.json"
+    assert config_path.exists()
     saved_config = json.loads(config_path.read_text(encoding="utf-8"))
     assert saved_config["ai_provider"] is None
+    clear_current_config()
 
 
 def test_validate_config_rejects_unsupported_ai_provider() -> None:
@@ -47,6 +53,7 @@ def test_validate_config_rejects_unsupported_ai_provider() -> None:
     # when / then
     with pytest.raises(ConfigValidationError, match="unsupported AI provider"):
         validate_config(config_data)
+    clear_current_config()
 
 
 def test_load_config_returns_none_when_required_fields_are_missing(tmp_path) -> None:
@@ -55,22 +62,24 @@ def test_load_config_returns_none_when_required_fields_are_missing(tmp_path) -> 
     config_path.write_text(json.dumps({"user_name": "Ada"}), encoding="utf-8")
 
     # when
-    config = load_config(config_path=config_path, load_env_file=False)
+    config = load_config(base_dir=tmp_path, load_env_file=False)
 
     # then
     assert config is None
 
 
-def test_load_config_uses_environment_overrides() -> None:
+def test_load_config_uses_environment_overrides(tmp_path) -> None:
     # given
     clear_current_config()
 
     # when
     config = load_config(
-        config_path="/tmp/nonexistent-config.json",
-        env={"USER_NAME": "Grace",
-         "USER_EMAIL": "grace@example.com",
-          "AI_PROVIDER": "ollama"},
+        base_dir=tmp_path,
+        env={
+            "USER_NAME": "Grace",
+            "USER_EMAIL": "grace@example.com",
+            "AI_PROVIDER": "ollama",
+        },
         load_env_file=False,
         pre_loaded_config={},
     )
@@ -80,6 +89,7 @@ def test_load_config_uses_environment_overrides() -> None:
     assert config.user_name == "Grace"
     assert config.user_email == "grace@example.com"
     assert config.ai_provider == "ollama"
+    clear_current_config()
 
 
 def test_current_config_state_can_be_set_and_cleared() -> None:

@@ -72,7 +72,7 @@
         "user_name y user_email quedan accesibles para AIService sin pasarlos como parámetro en cada operación",
         "tests/services/test_config.py cubre: lectura con fichero existente, lectura sin fichero, escritura y validación de campos obligatorios"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": 5,
