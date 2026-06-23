@@ -4,18 +4,13 @@ from pathlib import Path
 from nicegui import ui
 
 from app.bootstrap import run_bootstrap
-from app.config import AI_PROVIDERS, load_config, write_config
+from app.config import load_config, write_config
 from app.database.connection import close_connection, get_connection
 
 logger = logging.getLogger(__name__)
 
 
 def _initialize_app() -> tuple[Path, dict]:
-    """Initialize bootstrap, database connection, and return base_dir and config.
-
-    Raises:
-        Exception: If bootstrap or database connection fails.
-    """
     # Step 1: Bootstrap (prepare directories and load config.json)
     bootstrap_result = run_bootstrap()
     logger.info("Bootstrap completed base_dir=%s", bootstrap_result.base_dir)
@@ -50,18 +45,8 @@ def build_welcome_form() -> None:
         ui.label("Welcome to Khemeia ELN").classes("text-2xl font-semibold")
         ui.label("Create your local profile to continue.").classes("text-slate-600")
 
-        user_name = ui.input("Name").props("outlined").classes("w-full")
+        user_name = ui.input("Full name").props("outlined").classes("w-full")
         user_email = ui.input("Email").props("outlined").classes("w-full")
-        base_dir = ui.input("Data folder").props("outlined").classes("w-full")
-        ai_provider = (
-            ui.select(
-                options=list(AI_PROVIDERS),
-                value="lmstudio",
-                label="AI provider",
-            )
-            .props("outlined")
-            .classes("w-full")
-        )
         message = ui.label().classes("text-negative")
 
         def save_profile() -> None:
@@ -70,8 +55,6 @@ def build_welcome_form() -> None:
                     {
                         "user_name": user_name.value,
                         "user_email": user_email.value,
-                        "base_dir": base_dir.value,
-                        "ai_provider": ai_provider.value,
                     }
                 )
             except ValueError as error:

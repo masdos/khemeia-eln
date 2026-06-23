@@ -7,12 +7,11 @@ from typing import Mapping
 from dotenv import load_dotenv
 
 CONFIG_PATH = Path("config.json")
-REQUIRED_FIELDS = ("user_name", "user_email", "base_dir", "ai_provider")
+REQUIRED_FIELDS = ("user_name", "user_email")
 AI_PROVIDERS = ("lmstudio", "ollama", "remote")
 ENV_KEYS = {
     "user_name": ("USER_NAME", "KHEMEIA_USER_NAME"),
     "user_email": ("USER_EMAIL", "KHEMEIA_USER_EMAIL"),
-    "base_dir": ("BASE_DIR", "KHEMEIA_BASE_DIR"),
     "ai_provider": ("AI_PROVIDER", "KHEMEIA_AI_PROVIDER"),
 }
 
@@ -27,14 +26,12 @@ class ConfigValidationError(ValueError):
 class AppConfig:
     user_name: str
     user_email: str
-    base_dir: Path
-    ai_provider: str
+    ai_provider: str | None
 
-    def to_json_data(self) -> dict[str, str]:
+    def to_json_data(self) -> dict[str, str | None]:
         return {
             "user_name": self.user_name,
             "user_email": self.user_email,
-            "base_dir": str(self.base_dir),
             "ai_provider": self.ai_provider,
         }
 
@@ -96,14 +93,14 @@ def validate_config(config_data: Mapping[str, object]) -> AppConfig:
     if missing_fields:
         raise ConfigValidationError("Profile is missing required fields")
 
-    ai_provider = values["ai_provider"].lower()
-    if ai_provider not in AI_PROVIDERS:
+    ai_provider_value = _clean_value(config_data.get("ai_provider"))
+    ai_provider = None if not ai_provider_value else ai_provider_value.lower()
+    if ai_provider is not None and ai_provider not in AI_PROVIDERS:
         raise ConfigValidationError("Profile has an unsupported AI provider")
 
     return AppConfig(
         user_name=values["user_name"],
         user_email=values["user_email"],
-        base_dir=Path(values["base_dir"]),
         ai_provider=ai_provider,
     )
 
