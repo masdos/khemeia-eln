@@ -10,7 +10,6 @@ dependencies = [
     "python-dotenv>=1.2.2",
     "pywebview>=6.2.1",
     "rdkit>=2026.3.2",
-    "rocrate>=0.15.0",
 ]
 
 [dependency-groups]
