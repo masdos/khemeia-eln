@@ -259,6 +259,12 @@ Write all generated text in clear English, including code comments, documentatio
 - Keep comments focused on intent and behavior, not obvious line-by-line restatements
 - Domain terms from the data model (e.g. `experiment`, `reagent`, `smiles`) may be used as-is in code and comments without translation
 
+# Commit Message Guidelines
+- Generate commit messages in English. 
+- Format: type(scope): description. 
+- Subject line: imperative mood, less than or equal to 50 characters. Blank Line between subject and body. 
+- Body: explain *why*, wrap at 72 characters, use `-` bullets.
+
 ---
 
 <!--[1] Tim Hopper, "How to Set Up CLAUDE.md for a Python Project," pydevtools.com, 2024. [Online]. Available: https://pydevtools.com/handbook/how-to/how-to-use-the-pydevtools-claude-md-template/. Accessed: Jun. 6, 2026. -->
