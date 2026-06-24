@@ -45,7 +45,7 @@
         "Devuelve indicación de si config.json está completo para que main.py decida si mostrar el formulario bloqueante",
         "tests/test_bootstrap.py usa tmp_path con monkeypatch de platformdirs y verifica creación de directorios y detección de config incompleto"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 3,
@@ -84,7 +84,7 @@
         "get_all() admite filtros opcionales por estado y texto (búsqueda en title y notes)",
         "tests/repositories/test_experiment_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 6,
