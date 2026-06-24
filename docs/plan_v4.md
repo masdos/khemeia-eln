@@ -142,7 +142,12 @@ erDiagram
 
 ### **A. Configuración y Perfil de Usuario**
 
-La aplicación es monousuario. No existe tabla `users`. El perfil se gestiona mediante un fichero `config.json` en el directorio raíz:
+La aplicación es monousuario. No existe tabla `users`. El perfil se gestiona mediante un fichero `config.json` en el `BASE_DIR`.
+
+```json
+{
+  "user_name": "Ada Lovelace",
+  "user_email": "
 
 ```json
 {

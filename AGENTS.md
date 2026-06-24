@@ -8,7 +8,6 @@ Stack: Python 3.12+, NiceGUI, SQLite, RDKit, LM Studio.
 Key project dependencies (install with `uv add`):
 - `nicegui` — desktop UI framework (requires `pywebview` for `native=True` mode)
 - `rdkit` — cheminformatics; install via `uv add rdkit`. If unavailable on PyPI for the target platform, use the `rdkit-pypi` package or a conda-forge channel.
-- `rocrate` — RO-Crate packaging for `.eln` export
 - `python-dotenv` — `.env` loading for developer overrides
 
 > **RDKit note:** On some platforms RDKit is not available on PyPI. If `uv add rdkit` fails, try `uv add rdkit-pypi`. All code that imports RDKit must degrade gracefully when the package is absent (return `None`, do not raise).
@@ -98,22 +97,21 @@ The application uses **two separate configuration mechanisms** with distinct res
 ### config.json — User profile (primary configuration)
 
 Written and managed by the application itself when the user fills in the welcome form.
-Location: project root (`config.json`).
+Location: `BASE_DIR/config.json`.
+
+- `BASE_DIR` is the root for all local data (`BASE_DIR/database.db`, `BASE_DIR/attachments/`, `BASE_DIR/exports/`) is resolved by `platformdirs`.
 
 ```json
 {
   "user_name": "Ada Lovelace",
   "user_email": "ada@lab.edu",
-  "base_dir": "/home/ada/khemeia",
   "ai_provider": "lmstudio"
 }
 ```
 
-- `base_dir` is the root for all local data (`data/database.db`, `data/attachments/`, `data/exports/`).
 - `ai_provider` selects the active AI backend: `lmstudio`, `ollama`, or `remote`.
 - `user_name` and `user_email` are available globally for auditing without being passed as parameters.
 - If `config.json` is missing or has missing required fields, the UI shows a blocking welcome form before loading the rest of the app.
-- `config.json` must **not** be committed to version control (add to `.gitignore`).
 
 ### .env — Developer overrides (optional)
 
@@ -130,13 +128,13 @@ LOG_LEVEL=DEBUG
 
 - `.env` must **never** be committed to version control.
 - Do not store secrets (API keys, passwords) in `config.json`. Use `.env` for those.
-- `src/config.py` is the single module responsible for reading both sources and exposing a unified config object to the rest of the application.
+- `BASE_DIR/config.py` is the single module responsible for reading both sources and exposing a unified config object to the rest of the application.
 
 ## Critical Operational Rules
 
 1. **NEVER** use bare system commands like `pip install` or `python`. **ALWAYS** use the `uv run` or `uv add` prefix.
 2. **NEVER** modify `pyproject.toml` or `uv.lock` manually. Use `uv add <package>` to update dependencies.
-3. **NEVER** commit sensitive data, secrets, `config.json`, or `.env` files.
+3. **NEVER** commit sensitive data, secrets or `.env` files.
 4. **ALWAYS** ensure that `uv run ruff check .` and `uv run pytest` pass with zero errors before considering a task complete.
 
 
@@ -259,7 +257,7 @@ Write all generated text in clear English, including code comments, documentatio
 - Prefer short, direct sentences and plain language
 - Avoid unnecessary jargon; if a technical term is required, explain it briefly
 - Keep comments focused on intent and behavior, not obvious line-by-line restatements
-- Domain terms from the data model (e.g. `experiment`, `reagent`, `smiles`, `hash_sha256`) may be used as-is in code and comments without translation
+- Domain terms from the data model (e.g. `experiment`, `reagent`, `smiles`) may be used as-is in code and comments without translation
 
 ---
 
