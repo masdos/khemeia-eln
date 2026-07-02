@@ -107,7 +107,7 @@
         "Existe app/repositories/equipment_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, equipment_id), get_by_experiment(experiment_id)",
         "tests/repositories/test_equipment_repository.py cubre CRUD y vinculación usando SQLite :memory:"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 8,
