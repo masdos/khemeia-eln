@@ -1,5 +1,8 @@
+import datetime
 import sqlite3
 from pathlib import Path
+
+sqlite3.register_adapter(datetime.date, lambda d: d.isoformat())
 
 DEFAULT_DATABASE_PATH = Path("data/database.db")
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
