@@ -44,6 +44,8 @@ Read the following project reference files:
 | `/docs/plan.md` | Always. Contains layered architecture, data model, and technical strategy. |
 | `/docs/spec.md` | If the feature implements a User Story (UI, business services). |
 | `/docs/feature_list.json` | Already read in step 1. Contains all acceptance criteria. |
+| `/docs/AGENTS.md` | Always. Contains testing, logging, and code conventions. |
+| `/docs/DESIGN.md` | If the layer identified in step 4 is UI. |
 
 ## 4. Build the implementation context
 
