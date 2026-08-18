@@ -141,7 +141,7 @@
         "get_experiment_history() devuelve la lista de experimentos en los que se usó un reactivo concreto",
         "tests/repositories/test_reagent_repository.py cubre CRUD, vinculación y consulta histórica usando SQLite :memory:"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 9,
