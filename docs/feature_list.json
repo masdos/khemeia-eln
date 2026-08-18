@@ -128,7 +128,7 @@
         "get_all() admite filtros opcionales por estado (Running, Success, Fail), project_id y texto (búsqueda en title y notes)",
         "tests/repositories/test_experiment_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 8,
