@@ -1,6 +1,8 @@
 # **Spec: Khemeia ELN**
 
-**Descripción General**: Sistema de gestión de laboratorio para investigadores químicos. Centraliza experimentos, asegura la trazabilidad de reactivos/equipos y usa IA local para reportes, priorizando la integridad mediante firmas digitales (hashing).
+**Versión:** 5.0
+
+**Descripción General**: Sistema de gestión de laboratorio para investigadores químicos. Centraliza experimentos, asegura la trazabilidad de reactivos/equipos y usa IA local para reportes.
 
 ## **Historias de Usuario (El "Qué")**
 
@@ -17,8 +19,7 @@
 **Como** químico, **quiero** usar Markdown, fórmulas LaTeX y ver estructuras SMILES, **para** registrar datos técnicos precisos.
 
 * **Criterios de Aceptación:**  
-  * Renderizado en tiempo real de fórmulas.  
-  * Posibilidad de adjuntar imágenes y documentos directamente a la entrada del experimento.
+  * Subir y listar adjuntos desde la ficha del experimento.
 
 ### **Historia 3: Trazabilidad de Inventario (Simplificado)**
 

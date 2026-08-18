@@ -41,7 +41,7 @@ Read the following project reference files:
 
 | File | When to read |
 |---|---|
-| `/docs/plan-v2.md` | Always. Contains layered architecture, data model, and technical strategy. |
+| `/docs/plan.md` | Always. Contains layered architecture, data model, and technical strategy. |
 | `/docs/spec.md` | If the feature implements a User Story (UI, business services). |
 | `/docs/feature_list.json` | Already read in step 1. Contains all acceptance criteria. |
 
@@ -53,7 +53,7 @@ Before generating code, extract the following from the selected feature:
 - `description` → the module's purpose
 - `acceptance` → list of criteria the code must satisfy (functional and test requirements)
 
-Cross-reference the `acceptance` items with `plan-v2.md` to identify:
+Cross-reference the `acceptance` items with `plan.md` to identify:
 - Which layer it implements (Repository / Service / UI)
 - Which other modules it depends on
 - Which patterns apply (Repository Pattern, `AIProvider` interface, `FileService`, etc.)
@@ -62,14 +62,13 @@ Cross-reference the `acceptance` items with `plan-v2.md` to identify:
 
 ### Implementation rules
 
-1. **One file per entity** — Follow the folder structure described in `plan-v2.md` section 4.
+1. **One file per entity** — Follow the folder structure described in `plan.md`.
 2. **No service executes SQL directly** — Services must only call repositories.
 3. **Tests are mandatory** — Every feature includes its test file. A feature is not `done` without tests.
 4. **Repository tests** use SQLite `:memory:` with the real schema (`schema.sql`).
 5. **Service tests** use in-memory repositories (no SQLite).
 6. **Graceful degradation** — If an external component (AI, RDKit) is unavailable, the system must not raise an unhandled exception.
 7. **FileService** is the only component aware of the filesystem. Never store absolute paths in the database.
-8. **is_locked** — A locked experiment cannot be modified. Raise an exception if modification is attempted.
 
 ### Generation order
 
@@ -118,6 +117,5 @@ UI (NiceGUI)
   outside `AIService`.
 - `FileService` resolves paths by combining `BASE_DIR` (from config.json)
   with relative paths.
-- `SecurityService.calculate_hash()` is a pure function (same input → same output).
 - User configuration lives in `config.json`, not in the database.
 - There is no `users` table; the author is read from `config.json` at runtime.

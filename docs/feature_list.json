@@ -1,0 +1,445 @@
+{
+  "version": "6.0",
+  "project": "khemeia-eln",
+  "description": "Sistema de gestión de laboratorio local-first para investigadores químicos. Stack: Python, NiceGUI, SQLite, RDKit, LM Studio.",
+  "current_phase": "mvp",
+  "phase_order": ["mvp", "ai_reports"],
+  "phases": {
+    "mvp": "Fase 1: cuaderno de laboratorio funcional al 100% sin IA. CRUD completo de proyectos, protocolos, experimentos, reactivos, equipos y adjuntos, con exportación a Markdown/PDF del propio experimento.",
+    "ai_reports": "Fase 2: añade generación de informes con IA local/remota (AIProvider, AIService) y su exportación, sobre la base ya completa del MVP."
+  },
+  "rules": {
+    "one_feature_at_a_time": true,
+    "require_tests_to_close": true,
+    "only_pending_features_in_current_phase": true,
+    "valid_status": [
+      "pending",
+      "in_progress",
+      "done"
+    ]
+  },
+  "features": [
+    {
+      "id": 1,
+      "name": "setup_environment",
+      "phase": "mvp",
+      "title": "Setup del entorno e infraestructura de carpetas",
+      "description": "Crear la estructura de carpetas del proyecto e instalar las dependencias del stack base (NiceGUI, RDKit, pytest, platformdirs). No instalar dependencias de IA en esta fase.",
+      "acceptance": [
+        "El proyecto se inicializa como aplicación con `uv init` (sin --package)",
+        "Existe la estructura de carpetas: app/, app/database/, app/repositories/, app/services/, app/ui/pages/, app/ui/components/, data/attachments/, tests/services/, tests/repositories/",
+        "app/services/ai/ NO se crea en esta fase; se crea al iniciar la fase ai_reports",
+        "main.py arranca la aplicación con NiceGUI en modo native=True sin errores de importación",
+        "pyproject.toml declara requires-python = '>=3.12' y contiene [tool.pytest.ini_options] y [tool.ruff] con la configuración definida en AGENTS.md",
+        "pytest y ruff están en [dependency-groups] como dev dependencies",
+        "uv.lock está generado y commiteado",
+        ".gitignore excluye .venv/, __pycache__/, .pytest_cache/, .coverage, config.json y .env",
+        "README.md documenta instalación (uv sync) y comandos de desarrollo (uv run pytest, uv run ruff check .)",
+        "Existe el directorio tests/ sin __init__.py",
+        "Pre-commit configurado con .pre-commit-config.yaml y hooks instalados via `uvx prek install`",
+        "uv run ruff check . pasa sin errores",
+        "uv run pytest descubre y ejecuta las pruebas con éxito"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 2,
+      "name": "bootstrap",
+      "phase": "mvp",
+      "title": "Módulo de arranque (bootstrap)",
+      "description": "Inicialización ordenada al arranque: resolver BASE_DIR via platformdirs, crear directorios de datos, leer config.json y aplicar schema SQL. El usuario nunca interactúa con BASE_DIR.",
+      "acceptance": [
+        "Existe app/bootstrap.py con una función run_bootstrap() que ejecuta los pasos en orden",
+        "BASE_DIR se resuelve exclusivamente con platformdirs.user_data_dir('khemeia'), sin override posible desde la UI",
+        "Crea BASE_DIR/attachments/ y BASE_DIR/exports/ si no existen (no crea BASE_DIR/reports/: los informes generados se exportan también bajo exports/)",
+        "Aplica schema.sql completo (incluidas las tablas reports y experiment_reports) si database.db no existe en BASE_DIR, aunque no se usen hasta la fase ai_reports",
+        "Devuelve indicación de si config.json está completo para que main.py decida si mostrar el formulario bloqueante",
+        "tests/test_bootstrap.py usa tmp_path con monkeypatch de platformdirs y verifica creación de directorios y detección de config incompleto"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 3,
+      "name": "database_connection",
+      "phase": "mvp",
+      "title": "Conexión a SQLite y migración inicial",
+      "description": "Implementar el ciclo de vida de la conexión a SQLite y el script de migración que crea todas las tablas del modelo de datos, incluidas las que usará la fase ai_reports.",
+      "acceptance": [
+        "Existe app/database/connection.py con funciones get_connection() y close_connection()",
+        "Existe app/database/schema.sql con las tablas: projects, protocols, experiments, reagents, equipment, experiment_reagents, experiment_equipment, attachments, reports, experiment_reports",
+        "La migración se aplica automáticamente al arrancar si la base de datos no existe",
+        "tests/repositories/test_connection.py verifica que get_connection() devuelve una conexión válida y que el esquema completo se aplica sobre :memory:"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 4,
+      "name": "config_profile",
+      "phase": "mvp",
+      "title": "Configuración de perfil de usuario (config.json)",
+      "description": "Gestionar el perfil monousuario mediante config.json. Si el fichero no existe o está incompleto, mostrar un formulario de bienvenida bloqueante en NiceGUI antes de cargar la app. En esta fase el perfil solo contiene datos de autoría, sin proveedor de IA.",
+      "acceptance": [
+        "Existe app/config.py que lee/escribe config.json con los campos obligatorios: user_name, user_email",
+        "config.py acepta un campo opcional ai_provider aunque no lo exige ni lo usa en esta fase (se activará en ai_reports)",
+        "Si config.json no existe o le faltan user_name o user_email, la UI muestra un formulario bloqueante que impide acceder al resto de la app",
+        "Al guardar el formulario, se crea config.json en BASE_DIR/config.json y se carga la aplicación normalmente",
+        "user_name y user_email quedan accesibles globalmente sin pasarlos como parámetro en cada operación",
+        "tests/services/test_config.py cubre: lectura con fichero existente, lectura sin fichero, escritura y validación de campos obligatorios"
+      ],
+      "status": "done"
+    },
+    {
+      "id": 5,
+      "name": "project_repository",
+      "phase": "mvp",
+      "title": "ProjectRepository",
+      "description": "Capa de acceso a datos para la entidad projects. Un experimento no puede crearse sin un proyecto existente.",
+      "acceptance": [
+        "Existe app/repositories/project_repository.py con métodos: create(), get_by_id(), get_all(), update(), delete()",
+        "delete() rechaza el borrado si existen experimentos asociados al proyecto (o documenta explícitamente el comportamiento de cascada elegido)",
+        "get_all() admite filtro opcional por texto (búsqueda en name)",
+        "tests/repositories/test_project_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 6,
+      "name": "protocol_repository",
+      "phase": "mvp",
+      "title": "ProtocolRepository",
+      "description": "Capa de acceso a datos para la entidad protocols. Un experimento no puede crearse sin un protocolo existente.",
+      "acceptance": [
+        "Existe app/repositories/protocol_repository.py con métodos: create(), get_by_id(), get_all(), update(), delete()",
+        "delete() rechaza el borrado si existen experimentos asociados al protocolo (o documenta explícitamente el comportamiento de cascada elegido)",
+        "get_all() admite filtro opcional por texto (búsqueda en name y content_markdown)",
+        "tests/repositories/test_protocol_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "name": "experiment_repository",
+      "phase": "mvp",
+      "title": "ExperimentRepository",
+      "description": "Capa de acceso a datos para la entidad experiments. Ningún servicio ejecuta SQL directamente contra esta tabla.",
+      "acceptance": [
+        "Existe app/repositories/experiment_repository.py con métodos: create(), get_by_id(), get_all(), update()",
+        "create() exige project_id y protocol_id válidos (FK NOT NULL según data_model.md)",
+        "get_all() admite filtros opcionales por estado (Running, Success, Fail), project_id y texto (búsqueda en title y notes)",
+        "tests/repositories/test_experiment_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "name": "reagent_repository",
+      "phase": "mvp",
+      "title": "ReagentRepository",
+      "description": "Capa de acceso a datos para reagents y la tabla de relación experiment_reagents.",
+      "acceptance": [
+        "Existe app/repositories/reagent_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, reagent_id, amount, unit), get_by_experiment(experiment_id), get_experiment_history(reagent_id)",
+        "get_experiment_history() devuelve la lista de experimentos en los que se usó un reactivo concreto",
+        "tests/repositories/test_reagent_repository.py cubre CRUD, vinculación y consulta histórica usando SQLite :memory:"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 9,
+      "name": "equipment_repository",
+      "phase": "mvp",
+      "title": "EquipmentRepository",
+      "description": "Capa de acceso a datos para equipment y la tabla de relación experiment_equipment.",
+      "acceptance": [
+        "Existe app/repositories/equipment_repository.py con métodos: create(), get_by_id(), get_all(), update(), link_to_experiment(experiment_id, equipment_id), get_by_experiment(experiment_id)",
+        "tests/repositories/test_equipment_repository.py cubre CRUD y vinculación usando SQLite :memory:"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 10,
+      "name": "attachment_repository",
+      "phase": "mvp",
+      "title": "AttachmentRepository",
+      "description": "Capa de acceso a datos para la tabla attachments. Solo almacena experiment_id y stored_name; nunca rutas absolutas.",
+      "acceptance": [
+        "Existe app/repositories/attachment_repository.py con métodos: create(experiment_id, file_name, stored_name), get_by_experiment(experiment_id), delete(attachment_id)",
+        "Ningún método almacena ni devuelve rutas absolutas; la resolución de rutas es responsabilidad de FileService",
+        "tests/repositories/test_attachment_repository.py cubre los tres métodos usando SQLite :memory:"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 11,
+      "name": "project_service",
+      "phase": "mvp",
+      "title": "ProjectService",
+      "description": "Orquesta el ciclo de vida de proyectos: creación, edición y borrado con validación de dependencias. No ejecuta SQL directamente.",
+      "acceptance": [
+        "Existe app/services/project_service.py con métodos: create_project(), update_project(), delete_project(), get_project(project_id), list_projects(filters)",
+        "delete_project() impide borrar un proyecto con experimentos asociados y devuelve un error de negocio claro",
+        "tests/services/test_project_service.py usa un repositorio en memoria (sin SQLite) y cubre el ciclo de vida completo, incluida la validación de borrado"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 12,
+      "name": "protocol_service",
+      "phase": "mvp",
+      "title": "ProtocolService",
+      "description": "Orquesta el ciclo de vida de protocolos: creación, edición y borrado con validación de dependencias. No ejecuta SQL directamente.",
+      "acceptance": [
+        "Existe app/services/protocol_service.py con métodos: create_protocol(), update_protocol(), delete_protocol(), get_protocol(protocol_id), list_protocols(filters)",
+        "delete_protocol() impide borrar un protocolo con experimentos asociados y devuelve un error de negocio claro",
+        "tests/services/test_protocol_service.py usa un repositorio en memoria (sin SQLite) y cubre el ciclo de vida completo, incluida la validación de borrado"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 13,
+      "name": "experiment_service",
+      "phase": "mvp",
+      "title": "ExperimentService",
+      "description": "Orquesta el ciclo de vida completo del experimento: creación (validando project_id y protocol_id existentes), actualización de estado y delegación a los repositorios. No ejecuta SQL directamente.",
+      "acceptance": [
+        "Existe app/services/experiment_service.py con métodos: create_experiment(), update_experiment(), change_state(experiment_id, new_state), get_experiment(experiment_id), list_experiments(filters)",
+        "create_experiment() valida que project_id y protocol_id existan antes de delegar en ExperimentRepository",
+        "change_state() solo admite los valores Running, Success, Fail definidos en data_model.md",
+        "tests/services/test_experiment_service.py usa repositorios en memoria (sin SQLite) y cubre el ciclo de vida completo, incluida la validación de FKs"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 14,
+      "name": "inventory_service",
+      "phase": "mvp",
+      "title": "InventoryService",
+      "description": "Gestiona reactivos y equipos: alta, consulta de stock, vinculación a experimentos y consulta de uso histórico.",
+      "acceptance": [
+        "Existe app/services/inventory_service.py con métodos: add_reagent(), add_equipment(), link_reagent_to_experiment(), link_equipment_to_experiment(), get_reagent_history(reagent_id), get_experiment_resources(experiment_id)",
+        "add_reagent() acepta todos los campos GHS del modelo de datos (is_explosive, is_flammable, etc.)",
+        "get_reagent_history() devuelve la lista de experimentos donde se usó ese reactivo",
+        "tests/services/test_inventory_service.py usa repositorios en memoria y cubre vinculación e historial"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 15,
+      "name": "file_service",
+      "phase": "mvp",
+      "title": "FileService",
+      "description": "Único componente con conocimiento del sistema de archivos. Resuelve rutas absolutas y gestiona el ciclo de vida de los adjuntos en disco.",
+      "acceptance": [
+        "Existe app/services/file_service.py con métodos: save_attachment(experiment_id, uploaded_file) → stored_name, resolve_path(experiment_id, stored_name) → Path, delete_attachment(experiment_id, stored_name)",
+        "save_attachment() crea el directorio BASE_DIR/attachments/{experiment_id}/ si no existe y guarda el fichero con un stored_name único (UUID + extensión original)",
+        "resolve_path() construye la ruta absoluta combinando BASE_DIR desde config y nunca lee rutas desde la base de datos",
+        "tests/services/test_file_service.py usa un directorio temporal (tmp_path de pytest) y cubre guardado, resolución y borrado"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 16,
+      "name": "chemistry_service",
+      "phase": "mvp",
+      "title": "ChemistryService",
+      "description": "Convierte strings SMILES en imágenes SVG usando RDKit para renderizado inline en la interfaz. No depende de IA.",
+      "acceptance": [
+        "Existe app/services/chemistry_service.py con el método smiles_to_svg(smiles: str) → str que devuelve un string SVG válido",
+        "Si el SMILES es inválido, devuelve None sin lanzar excepción",
+        "Si RDKit no está disponible, el módulo importa correctamente y smiles_to_svg() devuelve None (degradación elegante)",
+        "tests/services/test_chemistry_service.py cubre: SMILES válido produce SVG no vacío, SMILES inválido devuelve None"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 17,
+      "name": "export_service",
+      "phase": "mvp",
+      "title": "ExportService (exportación básica de experimento)",
+      "description": "Genera exportaciones del propio experimento (sin informe de IA) en formato Markdown y PDF.",
+      "acceptance": [
+        "Existe app/services/export_service.py con métodos: export_experiment_markdown(experiment_id) → Path y export_experiment_pdf(experiment_id) → Path",
+        "Ambos métodos vuelcan título, estado, notas, reactivos y equipos vinculados del experimento, sin depender de AIService ni de la tabla reports",
+        "Ambos métodos escriben el fichero de salida en BASE_DIR/exports/ y devuelven la ruta absoluta",
+        "tests/services/test_export_service.py usa un experimento de prueba con reactivos y equipos simulados y verifica que los ficheros de salida existen y no están vacíos"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 18,
+      "name": "ui_profile",
+      "phase": "mvp",
+      "title": "Página Profile (UI)",
+      "description": "Pantalla de ajustes donde el usuario puede editar su nombre y email en cualquier momento. El selector de proveedor de IA no aparece hasta la fase ai_reports.",
+      "acceptance": [
+        "Existe app/ui/pages/profile.py con un formulario que muestra los valores actuales de config.json",
+        "El formulario permite editar user_name y user_email",
+        "El formulario NO muestra ningún campo de proveedor de IA en esta fase",
+        "Al guardar, se actualiza config.json y los cambios son efectivos inmediatamente",
+        "La pantalla es accesible desde la navegación principal en cualquier momento"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 19,
+      "name": "ui_projects",
+      "phase": "mvp",
+      "title": "Página Projects (UI)",
+      "description": "Gestión CRUD de proyectos siguiendo el patrón definido en DESIGN.md sección 11 (Título, Búsqueda + Nuevo, Tabla, Editar/Borrar).",
+      "acceptance": [
+        "Existe app/ui/pages/projects.py con listado, alta, edición y borrado de proyectos",
+        "El borrado muestra confirmación modal y respeta la validación de ProjectService (no borrar con experimentos asociados)",
+        "Sigue el layout estándar de DESIGN.md: título, toolbar (búsqueda + Nuevo), tabla con columna Acciones al final",
+        "Smoke test manual: crear un proyecto, editarlo, intentar borrarlo con un experimento asociado y verificar el bloqueo"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 20,
+      "name": "ui_protocols",
+      "phase": "mvp",
+      "title": "Página Protocols (UI)",
+      "description": "Gestión CRUD de protocolos siguiendo el patrón definido en DESIGN.md sección 11.",
+      "acceptance": [
+        "Existe app/ui/pages/protocols.py con listado, alta, edición y borrado de protocolos",
+        "El campo content_markdown se edita y previsualiza en Markdown",
+        "El borrado muestra confirmación modal y respeta la validación de ProtocolService (no borrar con experimentos asociados)",
+        "Sigue el layout estándar de DESIGN.md: título, toolbar (búsqueda + Nuevo), tabla con columna Acciones al final",
+        "Smoke test manual: crear un protocolo, editarlo, intentar borrarlo con un experimento asociado y verificar el bloqueo"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 21,
+      "name": "ui_dashboard",
+      "phase": "mvp",
+      "title": "Página Dashboard (UI)",
+      "description": "Pantalla principal de la aplicación: lista de experimentos activos con filtros por estado y búsqueda por texto.",
+      "acceptance": [
+        "Existe app/ui/pages/dashboard.py con una página NiceGUI que lista todos los experimentos",
+        "La página muestra para cada experimento: título, proyecto, estado (con badge de color) y fecha de creación",
+        "Hay un input de búsqueda por texto y un selector de filtro por estado (Running, Success, Fail, Todos)",
+        "Hacer clic en un experimento navega a su página de detalle",
+        "El menú de navegación principal incluye Projects, Protocols, Dashboard/Experiments, Inventory y Profile; el ítem 'AI Assistant' no existe todavía en esta fase",
+        "Smoke test manual: la página carga sin errores con la base de datos vacía y con al menos un experimento en cada estado"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 22,
+      "name": "ui_experiment_detail",
+      "phase": "mvp",
+      "title": "Página Experiment Detail (UI)",
+      "description": "Formulario completo de un experimento: selección de proyecto/protocolo, editor Markdown, LaTeX, visualización SMILES, gestión de reactivos/equipos vinculados y adjuntos.",
+      "acceptance": [
+        "Existe app/ui/pages/experiment_detail.py con el formulario completo de creación y edición",
+        "El formulario exige seleccionar un project_id y un protocol_id existentes antes de guardar",
+        "El editor de contenido renderiza Markdown y fórmulas LaTeX en tiempo real",
+        "Al introducir un SMILES válido en un reactivo, se muestra la estructura química SVG generada por ChemistryService",
+        "Hay un selector de reactivos y equipos existentes (con opción de añadir uno nuevo al vuelo sin salir del formulario)",
+        "Hay una sección de adjuntos: subir fichero (usa FileService/AttachmentRepository), listar adjuntos del experimento y borrarlos",
+        "Hay un botón para exportar el experimento a Markdown/PDF usando ExportService (versión básica, sin IA)"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 23,
+      "name": "ui_inventory",
+      "phase": "mvp",
+      "title": "Página Inventory (UI)",
+      "description": "Gestión del inventario de reactivos y equipos: alta, consulta de stock, pictogramas GHS y vista de uso histórico por reactivo.",
+      "acceptance": [
+        "Existe app/ui/pages/inventory.py con dos secciones: Reactivos y Equipos",
+        "El formulario de alta de reactivo incluye todos los campos del modelo (CAS, SMILES, lote, proveedor, caducidad, estado físico, pureza) y los 9 checkboxes GHS con sus pictogramas",
+        "Cada reactivo tiene una vista de 'Uso histórico' que lista los experimentos donde fue utilizado con fecha y cantidad",
+        "Smoke test manual: dar de alta un reactivo con pictogramas GHS, asociarlo a un experimento y verificar que aparece en el historial"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 24,
+      "name": "report_repository",
+      "phase": "ai_reports",
+      "title": "ReportRepository",
+      "description": "Capa de acceso a datos para reports y la tabla de relación experiment_reports. No se implementa hasta iniciar la fase ai_reports aunque el esquema ya exista desde el MVP.",
+      "acceptance": [
+        "Existe app/repositories/report_repository.py con métodos: create(file_name, stored_name, extension), link_to_experiments(report_id, experiment_ids), get_by_experiment(experiment_id), get_by_id(report_id)",
+        "Ningún método almacena ni devuelve rutas absolutas; la resolución de rutas sigue siendo responsabilidad de FileService/ExportService",
+        "tests/repositories/test_report_repository.py cubre creación, vinculación múltiple a experimentos y consulta usando SQLite :memory:"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 25,
+      "name": "ai_providers",
+      "phase": "ai_reports",
+      "title": "Interfaz AIProvider e implementaciones",
+      "description": "Definir la interfaz AIProvider y sus tres implementaciones concretas (LMStudio, Ollama, RemoteAPI) para desacoplar el backend de IA del resto del sistema.",
+      "acceptance": [
+        "Existe app/services/ai/ai_provider.py con la clase abstracta AIProvider con el método generate(prompt: str) → str",
+        "Existen app/services/ai/lmstudio_provider.py (endpoint http://localhost:1234/v1), ollama_provider.py (http://localhost:11434/v1) y remote_provider.py (endpoint configurable desde config.json)",
+        "Si el endpoint no responde, el provider lanza una excepción AIProviderUnavailableError (no bloquea el resto de la app)",
+        "El provider activo se instancia en función del campo ai_provider de config.json",
+        "tests/services/test_ai_providers.py usa mock del endpoint HTTP y verifica que cada provider construye la petición correctamente y maneja el error de conexión"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 26,
+      "name": "ai_service",
+      "phase": "ai_reports",
+      "title": "AIService",
+      "description": "Orquesta la generación de informes científicos: selecciona el proveedor activo, construye el prompt con los datos de uno o varios experimentos y devuelve el borrador en Markdown.",
+      "acceptance": [
+        "Existe app/services/ai_service.py con el método generate_report(experiments_data) → str que devuelve Markdown, aceptando uno o varios experimentos",
+        "El system prompt instruye al modelo a generar un informe técnico científico estructurado",
+        "Si el AIProvider lanza AIProviderUnavailableError, generate_report() devuelve None y no propaga la excepción",
+        "tests/services/test_ai_service.py inyecta un provider mock y verifica: generación exitosa, degradación elegante ante provider no disponible, generación a partir de varios experimentos"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 27,
+      "name": "ui_profile_ai_settings",
+      "phase": "ai_reports",
+      "title": "Ampliación de Profile: selección de proveedor de IA (UI)",
+      "description": "Amplía la página Profile del MVP añadiendo el selector de proveedor de IA activo, ahora que ai_providers y ai_service existen.",
+      "acceptance": [
+        "app/ui/pages/profile.py añade un campo ai_provider (lmstudio, ollama, remote) al formulario existente",
+        "Al guardar, se actualiza config.json y el cambio es efectivo en la siguiente llamada a AIService sin reiniciar la aplicación",
+        "Smoke test manual: cambiar el proveedor de IA y verificar que el siguiente informe generado usa el proveedor actualizado"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 28,
+      "name": "export_service_ai_report",
+      "phase": "ai_reports",
+      "title": "Ampliación de ExportService: exportación de informes generados por IA",
+      "description": "Amplía ExportService para exportar el Markdown generado por AIService a PDF y registrar el informe en la tabla reports vinculado a los experimentos usados.",
+      "acceptance": [
+        "app/services/export_service.py añade export_ai_report_markdown(markdown_content, experiment_ids) → Path y export_ai_report_pdf(markdown_content, experiment_ids) → Path",
+        "Ambos métodos usan ReportRepository para registrar el informe (file_name, stored_name, extension) y vincularlo a experiment_ids",
+        "Ambos métodos escriben el fichero de salida en BASE_DIR/exports/ y devuelven la ruta absoluta",
+        "tests/services/test_export_service.py (ampliado) cubre la exportación de un informe IA y su registro en ReportRepository con un repositorio en memoria"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": 29,
+      "name": "ui_ai_assistant",
+      "phase": "ai_reports",
+      "title": "Página AI Assistant (UI)",
+      "description": "Interfaz para generar borradores de informes científicos a partir de experimentos seleccionados y exportarlos a Markdown o PDF.",
+      "acceptance": [
+        "Existe app/ui/pages/ai_assistant.py con un selector múltiple de experimentos",
+        "El ítem 'AI Assistant' se añade a la navegación principal solo a partir de esta fase",
+        "Al pulsar 'Generar borrador', se llama a AIService y el resultado se muestra en un área de texto editable",
+        "Si AIService devuelve None (provider no disponible), se muestra un mensaje de aviso sin romper la interfaz",
+        "Hay un botón 'Exportar Markdown' que llama a ExportService.export_ai_report_markdown",
+        "Hay un botón 'Exportar PDF' que llama a ExportService.export_ai_report_pdf",
+        "Smoke test manual: generar un informe con LM Studio activo, editar el borrador y exportar a PDF"
+      ],
+      "status": "pending"
+    }
+  ]
+}
