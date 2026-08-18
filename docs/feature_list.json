@@ -100,7 +100,7 @@
         "get_all() admite filtro opcional por texto (búsqueda en name)",
         "tests/repositories/test_project_repository.py cubre todos los métodos usando SQLite :memory: con el esquema real"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 6,
