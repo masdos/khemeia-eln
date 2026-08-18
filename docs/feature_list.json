@@ -166,7 +166,7 @@
         "Ningún método almacena ni devuelve rutas absolutas; la resolución de rutas es responsabilidad de FileService",
         "tests/repositories/test_attachment_repository.py cubre los tres métodos usando SQLite :memory:"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 11,
