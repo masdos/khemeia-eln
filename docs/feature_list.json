@@ -206,7 +206,7 @@
         "change_state() solo admite los valores Running, Success, Fail definidos en data_model.md",
         "tests/services/test_experiment_service.py usa repositorios en memoria (sin SQLite) y cubre el ciclo de vida completo, incluida la validación de FKs"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 14,
