@@ -262,7 +262,7 @@
         "Ambos métodos escriben el fichero de salida en BASE_DIR/exports/ y devuelven la ruta absoluta",
         "tests/services/test_export_service.py usa un experimento de prueba con reactivos y equipos simulados y verifica que los ficheros de salida existen y no están vacíos"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 18,
