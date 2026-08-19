@@ -248,7 +248,7 @@
         "Si RDKit no está disponible, el módulo importa correctamente y smiles_to_svg() devuelve None (degradación elegante)",
         "tests/services/test_chemistry_service.py cubre: SMILES válido produce SVG no vacío, SMILES inválido devuelve None"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 17,
