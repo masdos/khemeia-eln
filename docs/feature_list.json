@@ -220,7 +220,7 @@
         "get_reagent_history() devuelve la lista de experimentos donde se usó ese reactivo",
         "tests/services/test_inventory_service.py usa repositorios en memoria y cubre vinculación e historial"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 15,
