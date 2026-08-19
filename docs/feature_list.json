@@ -179,7 +179,7 @@
         "delete_project() impide borrar un proyecto con experimentos asociados y devuelve un error de negocio claro",
         "tests/services/test_project_service.py usa un repositorio en memoria (sin SQLite) y cubre el ciclo de vida completo, incluida la validación de borrado"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 12,
