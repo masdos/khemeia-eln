@@ -234,7 +234,7 @@
         "resolve_path() construye la ruta absoluta combinando BASE_DIR desde config y nunca lee rutas desde la base de datos",
         "tests/services/test_file_service.py usa un directorio temporal (tmp_path de pytest) y cubre guardado, resolución y borrado"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 16,
