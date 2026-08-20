@@ -30,3 +30,10 @@ Start the desktop app:
 ```powershell
 uv run python -m main
 ```
+
+## Credits and Attributions
+
+This project uses third-party graphical assets:
+* **Logo design:** Based on the `test tube` emoji by **Tonia Reinhardt** from the [OpenMoji](https://openmoji.org/library/emoji-1F9EA/) project.
+* **License:** [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/).
+* **Modifications:** None.
