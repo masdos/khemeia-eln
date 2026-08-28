@@ -277,7 +277,7 @@
         "Al guardar, se actualiza config.json y los cambios son efectivos inmediatamente",
         "La pantalla es accesible desde la navegación principal en cualquier momento"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 19,
