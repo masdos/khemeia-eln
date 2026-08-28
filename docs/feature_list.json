@@ -306,7 +306,7 @@
         "Sigue el layout estándar de DESIGN.md: título, toolbar (búsqueda + Nuevo), tabla con columna Acciones al final",
         "Smoke test manual: crear un protocolo, editarlo, intentar borrarlo con un experimento asociado y verificar el bloqueo"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 21,
@@ -322,7 +322,7 @@
         "El menú de navegación principal incluye Projects, Protocols, Dashboard/Experiments, Inventory y Profile; el ítem 'AI Assistant' no existe todavía en esta fase",
         "Smoke test manual: la página carga sin errores con la base de datos vacía y con al menos un experimento en cada estado"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 22,
@@ -339,7 +339,7 @@
         "Hay una sección de adjuntos: subir fichero (usa FileService/AttachmentRepository), listar adjuntos del experimento y borrarlos",
         "Hay un botón para exportar el experimento a Markdown/PDF usando ExportService (versión básica, sin IA)"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 23,
@@ -353,7 +353,7 @@
         "Cada reactivo tiene una vista de 'Uso histórico' que lista los experimentos donde fue utilizado con fecha y cantidad",
         "Smoke test manual: dar de alta un reactivo con pictogramas GHS, asociarlo a un experimento y verificar que aparece en el historial"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 24,
