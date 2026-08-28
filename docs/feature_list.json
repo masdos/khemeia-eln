@@ -291,7 +291,7 @@
         "Sigue el layout estándar de DESIGN.md: título, toolbar (búsqueda + Nuevo), tabla con columna Acciones al final",
         "Smoke test manual: crear un proyecto, editarlo, intentar borrarlo con un experimento asociado y verificar el bloqueo"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 20,
