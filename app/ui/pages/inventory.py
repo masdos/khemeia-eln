@@ -141,7 +141,7 @@ def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
     with dialog, ui.card().classes("w-[40rem] max-w-full max-h-[80vh] overflow-y-auto"):
         ui.label("Add Reagent").classes("text-xl font-semibold")
 
-        name = ui.input("Name").props("outlined").classes("w-full")
+        name = ui.input("Name *").props("outlined").classes("w-full")
         cas = ui.input("CAS Number").props("outlined").classes("w-full")
         smiles = ui.input("SMILES").props("outlined").classes("w-full")
         lot = ui.input("Lot Number").props("outlined").classes("w-full")
@@ -317,7 +317,7 @@ def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None
     with dialog, ui.card().classes("w-[32rem] max-w-full"):
         ui.label("Add Equipment").classes("text-xl font-semibold")
 
-        name = ui.input("Name").props("outlined").classes("w-full")
+        name = ui.input("Name *").props("outlined").classes("w-full")
         desc = ui.textarea("Description").props("outlined").classes("w-full")
         message = ui.label().classes("text-negative mt-2")
 

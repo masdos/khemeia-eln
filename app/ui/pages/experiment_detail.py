@@ -98,7 +98,7 @@ def build_experiment_detail_page(
             ui.select(
                 options=project_options,
                 value=experiment["project_id"] if experiment else None,
-                label="Project",
+                label="Project *",
             )
             .props("outlined")
             .classes("w-full")
@@ -108,7 +108,7 @@ def build_experiment_detail_page(
             ui.select(
                 options=protocol_options,
                 value=experiment["protocol_id"] if experiment else None,
-                label="Protocol",
+                label="Protocol *",
             )
             .props("outlined")
             .classes("w-full")
@@ -116,7 +116,7 @@ def build_experiment_detail_page(
 
         title_input = (
             ui.input(
-                "Title",
+                "Title *",
                 value=experiment["title"] if experiment else "",
             )
             .props("outlined")
@@ -127,7 +127,7 @@ def build_experiment_detail_page(
             ui.select(
                 options=["Running", "Success", "Fail"],
                 value=experiment["state"] if experiment else "Running",
-                label="State",
+                label="State *",
             )
             .props("outlined")
             .classes("w-full")

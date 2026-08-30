@@ -120,9 +120,9 @@ def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
 
     with dialog, ui.card().classes("w-[40rem] max-w-full"):
         ui.label("New Protocol").classes("text-xl font-semibold")
-        name_input = ui.input("Name").props("outlined").classes("w-full")
+        name_input = ui.input("Name *").props("outlined").classes("w-full")
         content_input = (
-            ui.textarea("Content (Markdown)").props("outlined").classes("w-full")
+            ui.textarea("Content (Markdown) *").props("outlined").classes("w-full")
         )
         preview = ui.markdown("").classes("w-full mt-2 border rounded p-2")
         message = ui.label().classes("text-negative mt-2")
@@ -163,12 +163,12 @@ def _open_edit_dialog(
 
     with dialog, ui.card().classes("w-[40rem] max-w-full"):
         ui.label("Edit Protocol").classes("text-xl font-semibold")
-        name_input = (
-            ui.input("Name", value=protocol["name"]).props("outlined").classes("w-full")
-        )
+        name_input = ui.input(
+            "Name *", value=protocol["name"]
+        ).props("outlined").classes("w-full")
         content_input = (
             ui.textarea(
-                "Content (Markdown)",
+                "Content (Markdown) *",
                 value=protocol.get("content_markdown", ""),
             )
             .props("outlined")
