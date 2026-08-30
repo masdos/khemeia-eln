@@ -66,7 +66,7 @@ def build_app_ui(base_dir: Path) -> None:
     ]
 
     def _build_sidebar() -> ui.column:
-        sidebar = ui.column().classes("w-60 min-h-screen bg-white border-r p-4 gap-1")
+        sidebar = ui.column().classes("w-60 min-h-screen border-r p-4 gap-1")
         with sidebar:
             ui.image("app/ui/assets/logo.png").classes("w-36 mb-4")
             for label, href, icon in NAV_ITEMS:
