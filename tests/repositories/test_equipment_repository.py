@@ -27,9 +27,7 @@ def _insert_project(connection: sqlite3.Connection, name: str = "Project") -> in
     return cursor.lastrowid
 
 
-def _insert_protocol(
-    connection: sqlite3.Connection, name: str = "Protocol"
-) -> int:
+def _insert_protocol(connection: sqlite3.Connection, name: str = "Protocol") -> int:
     cursor = connection.execute(
         "INSERT INTO protocols (name, content_markdown) VALUES (?, '# Content')",
         (name,),
@@ -248,9 +246,7 @@ class TestLinkToExperiment:
 
 
 class TestGetByExperiment:
-    def test_returns_linked_equipment(
-        self, connection: sqlite3.Connection
-    ) -> None:
+    def test_returns_linked_equipment(self, connection: sqlite3.Connection) -> None:
         # given
         experiment_id = _insert_experiment(connection, title="Synthesis")
         equipment_a = create(connection, name="Balance")

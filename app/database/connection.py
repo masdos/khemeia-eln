@@ -41,9 +41,12 @@ def _get_default_connection() -> sqlite3.Connection:
 
 
 def _create_connection(database_path: str | Path) -> sqlite3.Connection:
+    global _connection
+
     if database_path == ":memory:":
         connection = _connect(database_path)
         _apply_schema(connection)
+        _connection = connection
         return connection
 
     path = Path(database_path)
@@ -54,6 +57,7 @@ def _create_connection(database_path: str | Path) -> sqlite3.Connection:
     if database_missing:
         _apply_schema(connection)
 
+    _connection = connection
     return connection
 
 

@@ -17,15 +17,23 @@ def build_profile_page(base_dir: Path) -> None:
         ui.label("Profile Settings").classes("text-2xl font-semibold mb-4")
         ui.label("Edit your profile information.").classes("text-slate-600 mb-4")
 
-        user_name = ui.input(
-            "Full name",
-            value=config.user_name,
-        ).props("outlined").classes("w-full")
+        user_name = (
+            ui.input(
+                "Full name",
+                value=config.user_name,
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
-        user_email = ui.input(
-            "Email",
-            value=config.user_email,
-        ).props("outlined").classes("w-full")
+        user_email = (
+            ui.input(
+                "Email",
+                value=config.user_email,
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
         message = ui.label().classes("text-negative mt-2")
 

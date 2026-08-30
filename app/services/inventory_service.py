@@ -127,6 +127,10 @@ class SqliteReagentRepository:
     def get_by_id(self, reagent_id: int) -> dict[str, Any] | None:
         return _row_to_dict(reagent_repository.get_by_id(self._connection, reagent_id))
 
+    def get_all(self) -> Sequence[dict[str, Any]]:
+        rows = reagent_repository.get_all(self._connection)
+        return [_row_to_dict(row) for row in rows]
+
     def link_to_experiment(
         self,
         experiment_id: int,
@@ -160,6 +164,10 @@ class SqliteEquipmentRepository:
         return _row_to_dict(
             equipment_repository.get_by_id(self._connection, equipment_id)
         )
+
+    def get_all(self) -> Sequence[dict[str, Any]]:
+        rows = equipment_repository.get_all(self._connection)
+        return [_row_to_dict(row) for row in rows]
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None:
         equipment_repository.link_to_experiment(

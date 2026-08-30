@@ -45,15 +45,10 @@ class FakeExperimentRepository:
         if state:
             results = [e for e in results if e["state"] == state]
         if search_text:
-            results = [
-                e for e in results
-                if search_text.lower() in e["title"].lower()
-            ]
+            results = [e for e in results if search_text.lower() in e["title"].lower()]
         return results
 
-    def update(
-        self, experiment_id: int, **fields: object
-    ) -> dict[str, Any] | None:
+    def update(self, experiment_id: int, **fields: object) -> dict[str, Any] | None:
         exp = self._experiments.get(experiment_id)
         if exp is None:
             return None
@@ -93,18 +88,10 @@ def test_dashboard_lists_experiments() -> None:
         return_value=service,
     ):
         with patch("app.ui.pages.dashboard.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.select.return_value = _make_chainable("All")
             mock_ui.label.return_value = MagicMock()
@@ -133,18 +120,10 @@ def test_dashboard_filters_by_state() -> None:
         return_value=service,
     ):
         with patch("app.ui.pages.dashboard.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.select.return_value = _make_chainable("Running")
             mock_ui.label.return_value = MagicMock()

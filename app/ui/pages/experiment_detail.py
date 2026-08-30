@@ -83,12 +83,8 @@ def build_experiment_detail_page(
             ui.notify("Experiment not found", type="negative")
             return
 
-    projects = list(
-        SqliteProjectRepository(conn).get_all()
-    )
-    protocols = list(
-        SqliteProtocolRepository(conn).get_all()
-    )
+    projects = list(SqliteProjectRepository(conn).get_all())
+    protocols = list(SqliteProtocolRepository(conn).get_all())
 
     with ui.column().classes("w-full max-w-5xl mx-auto mt-8 px-4"):
         title = "New Experiment" if is_new else f"Experiment: {experiment['title']}"
@@ -98,49 +94,75 @@ def build_experiment_detail_page(
         project_options = {p["id"]: p["name"] for p in projects}
         protocol_options = {p["id"]: p["name"] for p in protocols}
 
-        project_select = ui.select(
-            options=project_options,
-            value=experiment["project_id"] if experiment else None,
-            label="Project",
-        ).props("outlined").classes("w-full")
+        project_select = (
+            ui.select(
+                options=project_options,
+                value=experiment["project_id"] if experiment else None,
+                label="Project",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
-        protocol_select = ui.select(
-            options=protocol_options,
-            value=experiment["protocol_id"] if experiment else None,
-            label="Protocol",
-        ).props("outlined").classes("w-full")
+        protocol_select = (
+            ui.select(
+                options=protocol_options,
+                value=experiment["protocol_id"] if experiment else None,
+                label="Protocol",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
-        title_input = ui.input(
-            "Title",
-            value=experiment["title"] if experiment else "",
-        ).props("outlined").classes("w-full")
+        title_input = (
+            ui.input(
+                "Title",
+                value=experiment["title"] if experiment else "",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
-        state_select = ui.select(
-            options=["Running", "Success", "Fail"],
-            value=experiment["state"] if experiment else "Running",
-            label="State",
-        ).props("outlined").classes("w-full")
+        state_select = (
+            ui.select(
+                options=["Running", "Success", "Fail"],
+                value=experiment["state"] if experiment else "Running",
+                label="State",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
         # --- Notes fields ---
         ui.label("Reaction Onset").classes("font-semibold mt-4")
-        reaction_input = ui.textarea(
-            value=experiment.get("reaction_onset", "") if experiment else ""
-        ).props("outlined").classes("w-full")
+        reaction_input = (
+            ui.textarea(
+                value=experiment.get("reaction_onset", "") if experiment else ""
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
         ui.label("Workup").classes("font-semibold mt-2")
-        workup_input = ui.textarea(
-            value=experiment.get("workup", "") if experiment else ""
-        ).props("outlined").classes("w-full")
+        workup_input = (
+            ui.textarea(value=experiment.get("workup", "") if experiment else "")
+            .props("outlined")
+            .classes("w-full")
+        )
 
         ui.label("Purification").classes("font-semibold mt-2")
-        purification_input = ui.textarea(
-            value=experiment.get("purification", "") if experiment else ""
-        ).props("outlined").classes("w-full")
+        purification_input = (
+            ui.textarea(value=experiment.get("purification", "") if experiment else "")
+            .props("outlined")
+            .classes("w-full")
+        )
 
         ui.label("Notes").classes("font-semibold mt-2")
-        notes_input = ui.textarea(
-            value=experiment.get("notes", "") if experiment else ""
-        ).props("outlined").classes("w-full")
+        notes_input = (
+            ui.textarea(value=experiment.get("notes", "") if experiment else "")
+            .props("outlined")
+            .classes("w-full")
+        )
 
         message = ui.label().classes("text-negative mt-2")
 
@@ -158,12 +180,8 @@ def build_experiment_detail_page(
                         purification=purification_input.value,
                         notes=notes_input.value,
                     )
-                    ui.notify(
-                        "Experiment created", type="positive"
-                    )
-                    ui.navigate.to(
-                        f"/experiments/{result['id']}"
-                    )
+                    ui.notify("Experiment created", type="positive")
+                    ui.navigate.to(f"/experiments/{result['id']}")
                 else:
                     exp_svc.update_experiment(
                         experiment_id,
@@ -176,9 +194,7 @@ def build_experiment_detail_page(
                         purification=purification_input.value,
                         notes=notes_input.value,
                     )
-                    ui.notify(
-                        "Experiment updated", type="positive"
-                    )
+                    ui.notify("Experiment updated", type="positive")
             except (
                 ExperimentReferenceError,
                 ExperimentStateError,
@@ -192,14 +208,10 @@ def build_experiment_detail_page(
 
         # --- Reagents & Equipment section ---
         if not is_new:
-            _build_resources_section(
-                experiment_id, inv_svc, conn, chem_svc
-            )
+            _build_resources_section(experiment_id, inv_svc, conn, chem_svc)
 
             # --- Attachments section ---
-            _build_attachments_section(
-                experiment_id, file_svc, conn
-            )
+            _build_attachments_section(experiment_id, file_svc, conn)
 
             # --- Export section ---
             _build_export_section(experiment_id, export_svc)
@@ -224,18 +236,16 @@ def _build_resources_section(
             with ui.row().classes("items-center gap-2"):
                 ui.label(f"- {r['name']}").classes("text-sm")
                 if r.get("amount_used") is not None:
-                    ui.label(
-                        f"({r['amount_used']} {r.get('unit', '')})"
-                    ).classes("text-sm text-slate-500")
+                    ui.label(f"({r['amount_used']} {r.get('unit', '')})").classes(
+                        "text-sm text-slate-500"
+                    )
                 smiles = r.get("smiles", "")
                 if smiles:
                     svg = chem_svc.smiles_to_svg(smiles)
                     if svg:
                         ui.html(svg).classes("h-8")
     else:
-        ui.label("_No reagents linked._").classes(
-            "text-slate-500 text-sm"
-        )
+        ui.label("_No reagents linked._").classes("text-slate-500 text-sm")
 
     # Equipment
     ui.label("Equipment").classes("font-semibold mt-2")
@@ -244,9 +254,7 @@ def _build_resources_section(
         for e in equip_rows:
             ui.label(f"- {e['name']}").classes("text-sm")
     else:
-        ui.label("_No equipment linked._").classes(
-            "text-slate-500 text-sm"
-        )
+        ui.label("_No equipment linked._").classes("text-slate-500 text-sm")
 
 
 def _build_attachments_section(
@@ -257,9 +265,7 @@ def _build_attachments_section(
     ui.separator().classes("mt-6")
     ui.label("Attachments").classes("text-xl font-semibold mt-4")
 
-    attachments = list(
-        attachment_repository.get_by_experiment(conn, experiment_id)
-    )
+    attachments = list(attachment_repository.get_by_experiment(conn, experiment_id))
 
     if attachments:
         for att in attachments:
@@ -274,19 +280,13 @@ def _build_attachments_section(
                 ui.button(
                     icon="delete",
                     on_click=make_delete,
-                ).props(
-                    "flat dense color=negative"
-                ).classes("text-xs")
+                ).props("flat dense color=negative").classes("text-xs")
     else:
-        ui.label("_No attachments._").classes(
-            "text-slate-500 text-sm"
-        )
+        ui.label("_No attachments._").classes("text-slate-500 text-sm")
 
     def upload(event) -> None:
         uploaded = event.args[0]
-        stored = file_svc.save_attachment(
-            experiment_id, uploaded
-        )
+        stored = file_svc.save_attachment(experiment_id, uploaded)
         attachment_repository.create(
             conn,
             experiment_id,
@@ -312,26 +312,18 @@ def _build_export_section(
 
     def export_md() -> None:
         try:
-            path = export_svc.export_experiment_markdown(
-                experiment_id
-            )
-            ui.notify(
-                f"Exported to {path.name}", type="positive"
-            )
+            path = export_svc.export_experiment_markdown(experiment_id)
+            ui.notify(f"Exported to {path.name}", type="positive")
         except Exception as e:
             ui.notify(str(e), type="negative")
 
     def export_pdf() -> None:
         try:
             path = export_svc.export_experiment_pdf(experiment_id)
-            ui.notify(
-                f"Exported to {path.name}", type="positive"
-            )
+            ui.notify(f"Exported to {path.name}", type="positive")
         except Exception as e:
             ui.notify(str(e), type="negative")
 
     with ui.row().classes("gap-2"):
-        ui.button("Export Markdown", on_click=export_md).props(
-            "outline"
-        )
+        ui.button("Export Markdown", on_click=export_md).props("outline")
         ui.button("Export PDF", on_click=export_pdf).props("outline")

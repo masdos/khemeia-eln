@@ -6,6 +6,12 @@ from nicegui import ui
 from app.bootstrap import run_bootstrap
 from app.config import load_config, write_config
 from app.database.connection import close_connection, get_connection
+from app.ui.pages.dashboard import build_dashboard_page
+from app.ui.pages.experiment_detail import build_experiment_detail_page
+from app.ui.pages.inventory import build_inventory_page
+from app.ui.pages.profile import build_profile_page
+from app.ui.pages.projects import build_projects_page
+from app.ui.pages.protocols import build_protocols_page
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +47,91 @@ def build_ui(base_dir: Path) -> None:
         return
 
     logger.info("UI building started config_complete=true (showing app)")
-    build_app_ui()
+    build_app_ui(base_dir)
 
 
-def build_app_ui() -> None:
-    ui.query("body").classes("bg-slate-50")
-    ui.label("Khemeia ELN")
+def build_app_ui(base_dir: Path) -> None:
+    """Build the main application UI with sidebar navigation and page routes.
+
+    Args:
+        base_dir: Application data directory (from BootstrapResult.base_dir)
+    """
+
+    NAV_ITEMS = [
+        ("Experiments", "/", "science"),
+        ("Projects", "/projects", "folder"),
+        ("Inventory", "/inventory", "inventory_2"),
+        ("Protocols", "/protocols", "science"),
+        ("Profile", "/profile", "person"),
+    ]
+
+    def _build_sidebar() -> ui.column:
+        sidebar = ui.column().classes("w-60 min-h-screen bg-white border-r p-4 gap-1")
+        with sidebar:
+            ui.image("app/ui/assets/logo.png").classes("w-36 mb-4")
+            for label, href, icon in NAV_ITEMS:
+                ui.link(label, href).classes(
+                    "block py-2 px-3 rounded hover:bg-slate-100"
+                )
+        return sidebar
+
+    @ui.page("/")
+    def index_page() -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_dashboard_page()
+
+    @ui.page("/projects")
+    def projects_page() -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_projects_page()
+
+    @ui.page("/inventory")
+    def inventory_page() -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_inventory_page()
+
+    @ui.page("/protocols")
+    def protocols_page() -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_protocols_page()
+
+    @ui.page("/experiments/new")
+    def experiment_new_page() -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_experiment_detail_page(experiment_id=None, base_dir=base_dir)
+
+    @ui.page("/experiments/{experiment_id}")
+    def experiment_detail_page(experiment_id: int) -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_experiment_detail_page(
+                    experiment_id=experiment_id, base_dir=base_dir
+                )
+
+    @ui.page("/profile")
+    def profile_page() -> None:
+        ui.query("body").classes("bg-slate-50")
+        with ui.row().classes("w-full min-h-screen"):
+            _build_sidebar()
+            with ui.column().classes("flex-1 p-6"):
+                build_profile_page(base_dir)
 
 
 def build_welcome_form(base_dir: Path) -> None:

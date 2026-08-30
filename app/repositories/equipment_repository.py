@@ -16,9 +16,7 @@ def create(
 
 
 def get_by_id(connection: sqlite3.Connection, equipment_id: int) -> sqlite3.Row | None:
-    cursor = connection.execute(
-        "SELECT * FROM equipment WHERE id = ?", (equipment_id,)
-    )
+    cursor = connection.execute("SELECT * FROM equipment WHERE id = ?", (equipment_id,))
     return cursor.fetchone()
 
 

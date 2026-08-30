@@ -28,14 +28,10 @@ class FakeReagentRepository:
     ) -> None:
         pass
 
-    def get_by_experiment(
-        self, experiment_id: int
-    ) -> Sequence[dict[str, Any]]:
+    def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
         return []
 
-    def get_experiment_history(
-        self, reagent_id: int
-    ) -> Sequence[dict[str, Any]]:
+    def get_experiment_history(self, reagent_id: int) -> Sequence[dict[str, Any]]:
         return []
 
 
@@ -60,14 +56,10 @@ class FakeEquipmentRepository:
     def get_all(self) -> Sequence[dict[str, Any]]:
         return list(self._equipment.values())
 
-    def link_to_experiment(
-        self, experiment_id: int, equipment_id: int
-    ) -> None:
+    def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None:
         pass
 
-    def get_by_experiment(
-        self, experiment_id: int
-    ) -> Sequence[dict[str, Any]]:
+    def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
         return []
 
 
@@ -90,35 +82,21 @@ def test_inventory_page_renders_tabs() -> None:
     """Inventory page should render with Reagents and Equipment tabs."""
     service = _make_service()
 
-    with patch(
-        "app.ui.pages.inventory._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.tabs.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.tabs.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.tabs.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.tabs.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.tab.return_value = MagicMock()
             mock_ui.tab_panels.return_value.__enter__ = MagicMock(
                 return_value=MagicMock()
             )
-            mock_ui.tab_panels.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.tab_panels.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.tab_panel.return_value.__enter__ = MagicMock(
                 return_value=MagicMock()
             )
-            mock_ui.tab_panel.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.tab_panel.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.label.return_value = MagicMock()
             mock_ui.button.return_value = MagicMock()
 
@@ -134,22 +112,12 @@ def test_add_reagent_via_dialog() -> None:
     """Adding a reagent should call service.add_reagent."""
     service = _make_service()
 
-    with patch(
-        "app.ui.pages.inventory._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
             # Return different chainables per input call
             input_values = iter(["Ethanol", "", "", "", "", "", "", ""])
@@ -163,12 +131,8 @@ def test_add_reagent_via_dialog() -> None:
             checkbox_mock.value = False
             mock_ui.checkbox.return_value = checkbox_mock
             mock_ui.label.return_value = MagicMock()
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.ui.pages.inventory import _open_reagent_dialog
 
@@ -194,22 +158,12 @@ def test_add_equipment_via_dialog() -> None:
     """Adding equipment should call service.add_equipment."""
     service = _make_service()
 
-    with patch(
-        "app.ui.pages.inventory._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
             mock_ui.input.return_value = _make_chainable("HPLC")
             mock_ui.textarea.return_value = _make_chainable(
@@ -243,22 +197,12 @@ def test_rejects_blank_reagent_name() -> None:
     """Blank reagent name should show error."""
     service = _make_service()
 
-    with patch(
-        "app.ui.pages.inventory._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
             input_values = iter(["", "", "", "", "", "", "", ""])
             mock_ui.input.side_effect = lambda *a, **kw: _make_chainable(
@@ -270,12 +214,8 @@ def test_rejects_blank_reagent_name() -> None:
             checkbox_mock.value = False
             mock_ui.checkbox.return_value = checkbox_mock
             mock_ui.label.return_value = MagicMock()
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.ui.pages.inventory import _open_reagent_dialog
 

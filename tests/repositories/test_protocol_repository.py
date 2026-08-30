@@ -229,9 +229,7 @@ class TestUpdate:
         self, connection: sqlite3.Connection
     ) -> None:
         # given
-        protocol_id = create(
-            connection, name="Original", content_markdown="# Keep me"
-        )
+        protocol_id = create(connection, name="Original", content_markdown="# Keep me")
 
         # when
         row = update(connection, protocol_id, name="Updated")

@@ -26,9 +26,7 @@ def _insert_project(connection: sqlite3.Connection, name: str = "Project") -> in
     return cursor.lastrowid
 
 
-def _insert_protocol(
-    connection: sqlite3.Connection, name: str = "Protocol"
-) -> int:
+def _insert_protocol(connection: sqlite3.Connection, name: str = "Protocol") -> int:
     cursor = connection.execute(
         "INSERT INTO protocols (name, content_markdown) VALUES (?, '# Content')",
         (name,),
@@ -223,12 +221,8 @@ class TestGetAll:
         project_a = _insert_project(connection, name="Project A")
         project_b = _insert_project(connection, name="Project B")
         protocol_id = _insert_protocol(connection)
-        create(
-            connection, project_id=project_a, protocol_id=protocol_id, title="In A"
-        )
-        create(
-            connection, project_id=project_b, protocol_id=protocol_id, title="In B"
-        )
+        create(connection, project_id=project_a, protocol_id=protocol_id, title="In A")
+        create(connection, project_id=project_b, protocol_id=protocol_id, title="In B")
 
         # when
         rows = get_all(connection, project_id=project_a)

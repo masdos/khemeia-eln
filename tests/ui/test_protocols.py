@@ -30,20 +30,13 @@ class FakeProtocolRepository:
     def get_by_id(self, protocol_id: int) -> dict[str, Any] | None:
         return self._protocols.get(protocol_id)
 
-    def get_all(
-        self, search_text: str | None = None
-    ) -> Sequence[dict[str, Any]]:
+    def get_all(self, search_text: str | None = None) -> Sequence[dict[str, Any]]:
         results = list(self._protocols.values())
         if search_text:
-            results = [
-                p for p in results
-                if search_text.lower() in p["name"].lower()
-            ]
+            results = [p for p in results if search_text.lower() in p["name"].lower()]
         return results
 
-    def update(
-        self, protocol_id: int, **fields: object
-    ) -> dict[str, Any] | None:
+    def update(self, protocol_id: int, **fields: object) -> dict[str, Any] | None:
         protocol = self._protocols.get(protocol_id)
         if protocol is None:
             return None
@@ -78,22 +71,12 @@ def test_protocols_page_lists_protocols() -> None:
     service, repo = _make_service()
     repo.create("SOP-A", "Content A")
 
-    with patch(
-        "app.ui.pages.protocols._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.button.return_value = MagicMock()
             mock_ui.label.return_value = MagicMock()
@@ -110,22 +93,12 @@ def test_create_protocol_via_dialog() -> None:
     """Creating a protocol should call service.create_protocol."""
     service, _repo = _make_service()
 
-    with patch(
-        "app.ui.pages.protocols._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("Test Protocol")
             mock_ui.textarea.return_value = _make_chainable("# SOP")
             mock_ui.button.return_value = MagicMock()
@@ -156,22 +129,12 @@ def test_edit_protocol_via_dialog() -> None:
     service, _repo = _make_service()
     protocol = service.create_protocol("Original", "# Original")
 
-    with patch(
-        "app.ui.pages.protocols._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
             name_mock = _make_chainable("Updated")
             content_mock = _make_chainable("# Updated")
             mock_ui.input = MagicMock(return_value=name_mock)
@@ -208,36 +171,20 @@ def test_delete_protocol_shows_error_for_linked_experiments() -> None:
 
     service.delete_protocol = failing_delete
 
-    with patch(
-        "app.ui.pages.protocols._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.label.return_value = _make_chainable_label()
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.ui.pages.protocols import _open_delete_dialog
 
             refresh = MagicMock()
-            _open_delete_dialog(
-                service, protocol["id"], "Doomed", refresh
-            )
+            _open_delete_dialog(service, protocol["id"], "Doomed", refresh)
 
             button_calls = mock_ui.button.call_args_list
             delete_button = None
@@ -261,36 +208,20 @@ def test_delete_protocol_succeeds() -> None:
     service, _repo = _make_service()
     protocol = service.create_protocol("ToDelete", "# Delete me")
 
-    with patch(
-        "app.ui.pages.protocols._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.label.return_value = MagicMock()
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.ui.pages.protocols import _open_delete_dialog
 
             refresh = MagicMock()
-            _open_delete_dialog(
-                service, protocol["id"], "ToDelete", refresh
-            )
+            _open_delete_dialog(service, protocol["id"], "ToDelete", refresh)
 
             button_calls = mock_ui.button.call_args_list
             delete_button = None
@@ -310,22 +241,12 @@ def test_create_protocol_rejects_blank_name() -> None:
     """Creating with blank name should show error."""
     service, _repo = _make_service()
 
-    with patch(
-        "app.ui.pages.protocols._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.textarea.return_value = _make_chainable("# Content")
             mock_ui.button.return_value = MagicMock()

@@ -39,14 +39,24 @@ def build_dashboard_page() -> None:
         ui.label("Experiments").classes("text-2xl font-semibold")
 
         with ui.row().classes("w-full items-center gap-4 mt-4"):
-            search = ui.input(placeholder="Search experiments...").props(
-                "outlined dense"
-            ).classes("flex-1")
-            state_filter = ui.select(
-                options=["All", "Running", "Success", "Fail"],
-                value="All",
-                label="State",
-            ).props("outlined dense").classes("w-40")
+            search = (
+                ui.input(placeholder="Search experiments...")
+                .props("outlined dense")
+                .classes("flex-1")
+            )
+            state_filter = (
+                ui.select(
+                    options=["All", "Running", "Success", "Fail"],
+                    value="All",
+                    label="State",
+                )
+                .props("outlined dense")
+                .classes("w-40")
+            )
+            ui.button(
+                "New experiment",
+                on_click=lambda: ui.navigate.to("/experiments/new"),
+            ).props("color=primary")
 
         table_container = ui.column().classes("w-full")
 
@@ -78,9 +88,7 @@ def _render_table(
 
     if not experiments:
         with container:
-            ui.label("No experiments found.").classes(
-                "text-slate-500 mt-4"
-            )
+            ui.label("No experiments found.").classes("text-slate-500 mt-4")
         return
 
     columns = [
@@ -122,9 +130,9 @@ def _render_table(
     ]
 
     with container:
-        table = ui.table(
-            columns=columns, rows=rows, row_key="id"
-        ).classes("w-full cursor-pointer")
+        table = ui.table(columns=columns, rows=rows, row_key="id").classes(
+            "w-full cursor-pointer"
+        )
 
         table.add_slot(
             "body-cell-state",
@@ -137,8 +145,8 @@ def _render_table(
             """,
         )
 
-        def on_row_click(row: dict) -> None:
-            ui.navigate.to(f"/experiments/{row['id']}")
+        def on_row_click(e) -> None:
+            ui.navigate.to(f"/experiments/{e.args['id']}")
 
         table.on("rowClick", on_row_click)
 
@@ -146,7 +154,5 @@ def _render_table(
 def build_experiment_detail_page(experiment_id: int) -> None:
     """Placeholder for experiment detail page (feature #22)."""
     with ui.column().classes("w-full max-w-5xl mx-auto mt-8 px-4"):
-        ui.label(f"Experiment #{experiment_id}").classes(
-            "text-2xl font-semibold"
-        )
+        ui.label(f"Experiment #{experiment_id}").classes("text-2xl font-semibold")
         ui.label("Detail page coming soon.").classes("text-slate-500 mt-4")

@@ -45,9 +45,7 @@ def build_inventory_page() -> None:
             reagents_tab = ui.tab("Reagents")
             equipment_tab = ui.tab("Equipment")
 
-        with ui.tab_panels(tabs, value=reagents_tab).classes(
-            "w-full"
-        ):
+        with ui.tab_panels(tabs, value=reagents_tab).classes("w-full"):
             with ui.tab_panel(reagents_tab):
                 _build_reagents_section(service)
 
@@ -63,9 +61,7 @@ def _build_reagents_section(service: InventoryService) -> None:
         with reagent_container:
             ui.button(
                 "Add Reagent",
-                on_click=lambda: _open_reagent_dialog(
-                    service, refresh_reagents
-                ),
+                on_click=lambda: _open_reagent_dialog(service, refresh_reagents),
             ).props("color=primary").classes("mb-4")
 
             _render_reagent_list(service, refresh_reagents)
@@ -73,15 +69,11 @@ def _build_reagents_section(service: InventoryService) -> None:
     refresh_reagents()
 
 
-def _render_reagent_list(
-    service: InventoryService, refresh: callable
-) -> None:
+def _render_reagent_list(service: InventoryService, refresh: callable) -> None:
     reagents = service._reagent_repo.get_all()
 
     if not reagents:
-        ui.label("No reagents in inventory.").classes(
-            "text-slate-500"
-        )
+        ui.label("No reagents in inventory.").classes("text-slate-500")
         return
 
     columns = [
@@ -114,11 +106,7 @@ def _render_reagent_list(
 
     rows = []
     for r in reagents:
-        ghs_flags = [
-            label
-            for field, code, label in GHS_FIELDS
-            if r.get(field)
-        ]
+        ghs_flags = [label for field, code, label in GHS_FIELDS if r.get(field)]
         rows.append(
             {
                 "id": r["id"],
@@ -129,9 +117,7 @@ def _render_reagent_list(
             }
         )
 
-    table = ui.table(columns=columns, rows=rows, row_key="id").classes(
-        "w-full"
-    )
+    table = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
 
     table.add_slot(
         "body-cell-actions",
@@ -143,52 +129,40 @@ def _render_reagent_list(
         """,
     )
 
-    def on_history(row: dict) -> None:
-        _open_history_dialog(service, row["id"], row["name"])
+    def on_history(e) -> None:
+        _open_history_dialog(service, e.args["id"], e.args["name"])
 
     table.on("history", on_history)
 
 
-def _open_reagent_dialog(
-    service: InventoryService, refresh: callable
-) -> None:
+def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
     dialog = ui.dialog()
 
     with dialog, ui.card().classes("w-[40rem] max-w-full max-h-[80vh] overflow-y-auto"):
         ui.label("Add Reagent").classes("text-xl font-semibold")
 
         name = ui.input("Name").props("outlined").classes("w-full")
-        cas = ui.input("CAS Number").props("outlined").classes(
-            "w-full"
+        cas = ui.input("CAS Number").props("outlined").classes("w-full")
+        smiles = ui.input("SMILES").props("outlined").classes("w-full")
+        lot = ui.input("Lot Number").props("outlined").classes("w-full")
+        supplier = ui.input("Supplier").props("outlined").classes("w-full")
+        expiry = ui.input("Expiry Date").props("outlined").classes("w-full")
+        state = (
+            ui.select(
+                options=["solid", "liquid", "gas"],
+                label="Physical State",
+            )
+            .props("outlined")
+            .classes("w-full")
         )
-        smiles = ui.input("SMILES").props("outlined").classes(
-            "w-full"
-        )
-        lot = ui.input("Lot Number").props("outlined").classes(
-            "w-full"
-        )
-        supplier = ui.input("Supplier").props("outlined").classes(
-            "w-full"
-        )
-        expiry = ui.input("Expiry Date").props("outlined").classes(
-            "w-full"
-        )
-        state = ui.select(
-            options=["solid", "liquid", "gas"],
-            label="Physical State",
-        ).props("outlined").classes("w-full")
-        purity = ui.input("Purity (%)").props("outlined").classes(
-            "w-full"
-        )
+        purity = ui.input("Purity (%)").props("outlined").classes("w-full")
         in_stock = ui.checkbox("In Stock", value=True)
 
         ui.label("GHS Hazards").classes("font-semibold mt-4")
         ghs_checkboxes = {}
         with ui.row().classes("flex-wrap gap-4"):
             for field, code, label in GHS_FIELDS:
-                ghs_checkboxes[field] = ui.checkbox(
-                    f"{code} - {label}", value=False
-                )
+                ghs_checkboxes[field] = ui.checkbox(f"{code} - {label}", value=False)
 
         message = ui.label().classes("text-negative mt-2")
 
@@ -198,9 +172,7 @@ def _open_reagent_dialog(
             expiry_val = None
             if expiry.value:
                 try:
-                    expiry_val = date_type.fromisoformat(
-                        expiry.value
-                    )
+                    expiry_val = date_type.fromisoformat(expiry.value)
                 except ValueError:
                     message.text = "Invalid expiry date format"
                     return
@@ -224,10 +196,7 @@ def _open_reagent_dialog(
                     expiry_date=expiry_val,
                     state=state.value,
                     purity=purity_val,
-                    **{
-                        field: cb.value
-                        for field, cb in ghs_checkboxes.items()
-                    },
+                    **{field: cb.value for field, cb in ghs_checkboxes.items()},
                 )
                 dialog.close()
                 ui.notify("Reagent added", type="positive")
@@ -246,22 +215,16 @@ def _open_history_dialog(
     dialog = ui.dialog()
 
     with dialog, ui.card().classes("w-[36rem] max-w-full"):
-        ui.label(f"History: {reagent_name}").classes(
-            "text-xl font-semibold"
-        )
+        ui.label(f"History: {reagent_name}").classes("text-xl font-semibold")
 
         try:
             history = service.get_reagent_history(reagent_id)
         except ReagentNotFoundError:
-            ui.label("Reagent not found.").classes(
-                "text-negative"
-            )
+            ui.label("Reagent not found.").classes("text-negative")
             return
 
         if not history:
-            ui.label("No experiments use this reagent.").classes(
-                "text-slate-500 mt-2"
-            )
+            ui.label("No experiments use this reagent.").classes("text-slate-500 mt-2")
         else:
             columns = [
                 {
@@ -296,9 +259,7 @@ def _open_history_dialog(
                 }
                 for h in history
             ]
-            ui.table(
-                columns=columns, rows=rows, row_key="id"
-            ).classes("w-full")
+            ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
 
         ui.button("Close", on_click=dialog.close).classes("mt-4")
 
@@ -313,9 +274,7 @@ def _build_equipment_section(service: InventoryService) -> None:
         with equip_container:
             ui.button(
                 "Add Equipment",
-                on_click=lambda: _open_equipment_dialog(
-                    service, refresh_equipment
-                ),
+                on_click=lambda: _open_equipment_dialog(service, refresh_equipment),
             ).props("color=primary").classes("mb-4")
 
             _render_equipment_list(service)
@@ -327,9 +286,7 @@ def _render_equipment_list(service: InventoryService) -> None:
     equipment = service._equipment_repo.get_all()
 
     if not equipment:
-        ui.label("No equipment in inventory.").classes(
-            "text-slate-500"
-        )
+        ui.label("No equipment in inventory.").classes("text-slate-500")
         return
 
     columns = [
@@ -351,23 +308,17 @@ def _render_equipment_list(service: InventoryService) -> None:
         for e in equipment
     ]
 
-    ui.table(columns=columns, rows=rows, row_key="id").classes(
-        "w-full"
-    )
+    ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
 
 
-def _open_equipment_dialog(
-    service: InventoryService, refresh: callable
-) -> None:
+def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None:
     dialog = ui.dialog()
 
     with dialog, ui.card().classes("w-[32rem] max-w-full"):
         ui.label("Add Equipment").classes("text-xl font-semibold")
 
         name = ui.input("Name").props("outlined").classes("w-full")
-        desc = ui.textarea("Description").props("outlined").classes(
-            "w-full"
-        )
+        desc = ui.textarea("Description").props("outlined").classes("w-full")
         message = ui.label().classes("text-negative mt-2")
 
         def save() -> None:

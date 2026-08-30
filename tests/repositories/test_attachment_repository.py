@@ -20,9 +20,7 @@ def _insert_project(connection: sqlite3.Connection, name: str = "Project") -> in
     return cursor.lastrowid
 
 
-def _insert_protocol(
-    connection: sqlite3.Connection, name: str = "Protocol"
-) -> int:
+def _insert_protocol(connection: sqlite3.Connection, name: str = "Protocol") -> int:
     cursor = connection.execute(
         "INSERT INTO protocols (name, content_markdown) VALUES (?, '# Content')",
         (name,),

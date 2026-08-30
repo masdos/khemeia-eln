@@ -30,20 +30,13 @@ class FakeProjectRepository:
     def get_by_id(self, project_id: int) -> dict[str, Any] | None:
         return self._projects.get(project_id)
 
-    def get_all(
-        self, search_text: str | None = None
-    ) -> Sequence[dict[str, Any]]:
+    def get_all(self, search_text: str | None = None) -> Sequence[dict[str, Any]]:
         results = list(self._projects.values())
         if search_text:
-            results = [
-                p for p in results
-                if search_text.lower() in p["name"].lower()
-            ]
+            results = [p for p in results if search_text.lower() in p["name"].lower()]
         return results
 
-    def update(
-        self, project_id: int, **fields: object
-    ) -> dict[str, Any] | None:
+    def update(self, project_id: int, **fields: object) -> dict[str, Any] | None:
         project = self._projects.get(project_id)
         if project is None:
             return None
@@ -82,22 +75,12 @@ def test_build_projects_page_lists_projects() -> None:
     repo.create("Alpha", "First project")
     repo.create("Beta", "Second project")
 
-    with patch(
-        "app.ui.pages.projects._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.button.return_value = MagicMock()
             mock_ui.label.return_value = MagicMock()
@@ -116,22 +99,12 @@ def test_create_project_via_dialog() -> None:
     # given
     service, _repo = _make_service()
 
-    with patch(
-        "app.ui.pages.projects._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             # First call = search input (empty), next calls in dialog
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.button.return_value = MagicMock()
@@ -167,22 +140,12 @@ def test_edit_project_via_dialog() -> None:
     service, _repo = _make_service()
     project = service.create_project("Original", "Original desc")
 
-    with patch(
-        "app.ui.pages.projects._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
             name_mock = _make_chainable("Updated")
             desc_mock = _make_chainable("Updated desc")
@@ -223,36 +186,20 @@ def test_delete_project_shows_error_for_linked_experiments() -> None:
 
     service.delete_project = failing_delete
 
-    with patch(
-        "app.ui.pages.projects._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.label.return_value = _make_chainable_label()
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.ui.pages.projects import _open_delete_dialog
 
             refresh = MagicMock()
-            _open_delete_dialog(
-                service, project["id"], "Doomed", refresh
-            )
+            _open_delete_dialog(service, project["id"], "Doomed", refresh)
 
             # Get the confirm_delete callback from Delete button
             button_calls = mock_ui.button.call_args_list
@@ -279,36 +226,20 @@ def test_delete_project_succeeds() -> None:
     service, _repo = _make_service()
     project = service.create_project("ToDelete", "")
 
-    with patch(
-        "app.ui.pages.projects._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.dialog.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.card.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.card.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.label.return_value = MagicMock()
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
             from app.ui.pages.projects import _open_delete_dialog
 
             refresh = MagicMock()
-            _open_delete_dialog(
-                service, project["id"], "ToDelete", refresh
-            )
+            _open_delete_dialog(service, project["id"], "ToDelete", refresh)
 
             # Get the confirm_delete callback
             button_calls = mock_ui.button.call_args_list
@@ -331,22 +262,12 @@ def test_create_project_rejects_blank_name() -> None:
     # given
     service, _repo = _make_service()
 
-    with patch(
-        "app.ui.pages.projects._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.column.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
-            mock_ui.row.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.row.return_value.__exit__ = MagicMock(
-                return_value=False
-            )
+            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.input.return_value = _make_chainable("")
             mock_ui.button.return_value = MagicMock()
             mock_ui.label.return_value = MagicMock()

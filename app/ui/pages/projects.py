@@ -26,9 +26,11 @@ def build_projects_page() -> None:
 
         # --- Toolbar: search + new ---
         with ui.row().classes("w-full items-center gap-4 mt-4"):
-            search = ui.input(placeholder="Search projects...").props(
-                "outlined dense"
-            ).classes("flex-1")
+            search = (
+                ui.input(placeholder="Search projects...")
+                .props("outlined dense")
+                .classes("flex-1")
+            )
             ui.button(
                 "New project",
                 on_click=lambda: _open_create_dialog(service, refresh),
@@ -91,9 +93,7 @@ def _render_table(
     ]
 
     with container:
-        table = ui.table(
-            columns=columns, rows=rows, row_key="id"
-        ).classes("w-full")
+        table = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
 
         table.add_slot(
             "body-cell-actions",
@@ -107,27 +107,23 @@ def _render_table(
             """,
         )
 
-        def on_edit(row: dict) -> None:
-            _open_edit_dialog(service, row["id"], refresh)
+        def on_edit(e) -> None:
+            _open_edit_dialog(service, e.args["id"], refresh)
 
-        def on_delete(row: dict) -> None:
-            _open_delete_dialog(service, row["id"], row["name"], refresh)
+        def on_delete(e) -> None:
+            _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
         table.on("edit", on_edit)
         table.on("delete", on_delete)
 
 
-def _open_create_dialog(
-    service: ProjectService, refresh: callable
-) -> None:
+def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
     dialog = ui.dialog()
 
     with dialog, ui.card().classes("w-[32rem] max-w-full"):
         ui.label("New Project").classes("text-xl font-semibold")
         name_input = ui.input("Name").props("outlined").classes("w-full")
-        desc_input = ui.textarea("Description").props(
-            "outlined"
-        ).classes("w-full")
+        desc_input = ui.textarea("Description").props("outlined").classes("w-full")
         message = ui.label().classes("text-negative mt-2")
 
         def save() -> None:
@@ -160,12 +156,14 @@ def _open_edit_dialog(
 
     with dialog, ui.card().classes("w-[32rem] max-w-full"):
         ui.label("Edit Project").classes("text-xl font-semibold")
-        name_input = ui.input(
-            "Name", value=project["name"]
-        ).props("outlined").classes("w-full")
-        desc_input = ui.textarea(
-            "Description", value=project.get("description", "")
-        ).props("outlined").classes("w-full")
+        name_input = (
+            ui.input("Name", value=project["name"]).props("outlined").classes("w-full")
+        )
+        desc_input = (
+            ui.textarea("Description", value=project.get("description", ""))
+            .props("outlined")
+            .classes("w-full")
+        )
         message = ui.label().classes("text-negative mt-2")
 
         def save() -> None:
@@ -196,9 +194,9 @@ def _open_delete_dialog(
 
     with dialog, ui.card().classes("w-[28rem] max-w-full"):
         ui.label("Delete Project").classes("text-xl font-semibold")
-        ui.label(
-            f'Are you sure you want to delete "{project_name}"?'
-        ).classes("text-slate-600 mt-2")
+        ui.label(f'Are you sure you want to delete "{project_name}"?').classes(
+            "text-slate-600 mt-2"
+        )
         message = ui.label().classes("text-negative mt-2")
 
         def confirm_delete() -> None:
@@ -217,8 +215,6 @@ def _open_delete_dialog(
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
             ui.button("Cancel", on_click=dialog.close).props("flat")
-            ui.button("Delete", on_click=confirm_delete).props(
-                "color=negative"
-            )
+            ui.button("Delete", on_click=confirm_delete).props("color=negative")
 
     dialog.open()

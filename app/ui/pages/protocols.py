@@ -25,9 +25,11 @@ def build_protocols_page() -> None:
         ui.label("Protocols").classes("text-2xl font-semibold")
 
         with ui.row().classes("w-full items-center gap-4 mt-4"):
-            search = ui.input(placeholder="Search protocols...").props(
-                "outlined dense"
-            ).classes("flex-1")
+            search = (
+                ui.input(placeholder="Search protocols...")
+                .props("outlined dense")
+                .classes("flex-1")
+            )
             ui.button(
                 "New protocol",
                 on_click=lambda: _open_create_dialog(service, refresh),
@@ -37,9 +39,7 @@ def build_protocols_page() -> None:
 
         def refresh() -> None:
             table_container.clear()
-            _render_table(
-                service, search.value or "", table_container, refresh
-            )
+            _render_table(service, search.value or "", table_container, refresh)
 
         search.on_value_change(lambda: refresh())
         refresh()
@@ -55,9 +55,7 @@ def _render_table(
 
     if not protocols:
         with container:
-            ui.label("No protocols found.").classes(
-                "text-slate-500 mt-4"
-            )
+            ui.label("No protocols found.").classes("text-slate-500 mt-4")
         return
 
     columns = [
@@ -93,9 +91,7 @@ def _render_table(
     ]
 
     with container:
-        table = ui.table(
-            columns=columns, rows=rows, row_key="id"
-        ).classes("w-full")
+        table = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
 
         table.add_slot(
             "body-cell-actions",
@@ -109,31 +105,25 @@ def _render_table(
             """,
         )
 
-        def on_edit(row: dict) -> None:
-            _open_edit_dialog(service, row["id"], refresh)
+        def on_edit(e) -> None:
+            _open_edit_dialog(service, e.args["id"], refresh)
 
-        def on_delete(row: dict) -> None:
-            _open_delete_dialog(
-                service, row["id"], row["name"], refresh
-            )
+        def on_delete(e) -> None:
+            _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
         table.on("edit", on_edit)
         table.on("delete", on_delete)
 
 
-def _open_create_dialog(
-    service: ProtocolService, refresh: callable
-) -> None:
+def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
     dialog = ui.dialog()
 
     with dialog, ui.card().classes("w-[40rem] max-w-full"):
         ui.label("New Protocol").classes("text-xl font-semibold")
-        name_input = ui.input("Name").props("outlined").classes(
-            "w-full"
+        name_input = ui.input("Name").props("outlined").classes("w-full")
+        content_input = (
+            ui.textarea("Content (Markdown)").props("outlined").classes("w-full")
         )
-        content_input = ui.textarea("Content (Markdown)").props(
-            "outlined"
-        ).classes("w-full")
         preview = ui.markdown("").classes("w-full mt-2 border rounded p-2")
         message = ui.label().classes("text-negative mt-2")
 
@@ -173,16 +163,18 @@ def _open_edit_dialog(
 
     with dialog, ui.card().classes("w-[40rem] max-w-full"):
         ui.label("Edit Protocol").classes("text-xl font-semibold")
-        name_input = ui.input(
-            "Name", value=protocol["name"]
-        ).props("outlined").classes("w-full")
-        content_input = ui.textarea(
-            "Content (Markdown)",
-            value=protocol.get("content_markdown", ""),
-        ).props("outlined").classes("w-full")
-        preview = ui.markdown("").classes(
-            "w-full mt-2 border rounded p-2"
+        name_input = (
+            ui.input("Name", value=protocol["name"]).props("outlined").classes("w-full")
         )
+        content_input = (
+            ui.textarea(
+                "Content (Markdown)",
+                value=protocol.get("content_markdown", ""),
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
+        preview = ui.markdown("").classes("w-full mt-2 border rounded p-2")
         message = ui.label().classes("text-negative mt-2")
 
         def update_preview() -> None:
@@ -223,9 +215,9 @@ def _open_delete_dialog(
 
     with dialog, ui.card().classes("w-[28rem] max-w-full"):
         ui.label("Delete Protocol").classes("text-xl font-semibold")
-        ui.label(
-            f'Are you sure you want to delete "{protocol_name}"?'
-        ).classes("text-slate-600 mt-2")
+        ui.label(f'Are you sure you want to delete "{protocol_name}"?').classes(
+            "text-slate-600 mt-2"
+        )
         message = ui.label().classes("text-negative mt-2")
 
         def confirm_delete() -> None:
@@ -244,8 +236,6 @@ def _open_delete_dialog(
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
             ui.button("Cancel", on_click=dialog.close).props("flat")
-            ui.button("Delete", on_click=confirm_delete).props(
-                "color=negative"
-            )
+            ui.button("Delete", on_click=confirm_delete).props("color=negative")
 
     dialog.open()
