@@ -69,6 +69,7 @@ def build_dashboard_page() -> None:
                 search.value or "",
                 state,
                 table_container,
+                refresh,
             )
 
         search.on_value_change(lambda: refresh())
@@ -81,6 +82,7 @@ def _render_table(
     search_text: str,
     state: str | None,
     container: ui.column,
+    refresh,
 ) -> None:
     experiments = service.list_experiments(
         {"search_text": search_text or None, "state": state}
@@ -116,6 +118,12 @@ def _render_table(
             "field": "created_at",
             "align": "left",
         },
+        {
+            "name": "actions",
+            "label": "Actions",
+            "field": "actions",
+            "align": "center",
+        },
     ]
 
     rows = [
@@ -131,7 +139,7 @@ def _render_table(
 
     with container:
         table = ui.table(columns=columns, rows=rows, row_key="id").classes(
-            "w-full cursor-pointer"
+            "w-full"
         )
 
         table.add_slot(
@@ -145,10 +153,58 @@ def _render_table(
             """,
         )
 
-        def on_row_click(e) -> None:
+        table.add_slot(
+            "body-cell-actions",
+            """
+            <q-td :props="props">
+                <q-btn flat dense icon="visibility"
+                       @click.stop="$parent.$emit('view', props.row)" />
+                <q-btn flat dense icon="edit"
+                       @click.stop="$parent.$emit('edit', props.row)" />
+                <q-btn flat dense icon="delete" color="negative"
+                       @click.stop="$parent.$emit('request-delete', props.row)" />
+            </q-td>
+            """,
+        )
+
+        def on_view(e) -> None:
             ui.navigate.to(f"/experiments/{e.args['id']}")
 
-        table.on("rowClick", on_row_click)
+        def on_edit(e) -> None:
+            ui.navigate.to(f"/experiments/{e.args['id']}")
+
+        def on_request_delete(e) -> None:
+            _confirm_delete(service, e.args["id"], refresh)
+
+        table.on("view", on_view)
+        table.on("edit", on_edit)
+        table.on("request-delete", on_request_delete)
+
+
+def _confirm_delete(service: ExperimentService, experiment_id: int, refresh) -> None:
+    with ui.dialog() as dialog, ui.card():
+        ui.label("Delete this experiment?")
+        ui.label("This action cannot be undone.").classes("text-sm text-slate-500")
+        with ui.row().classes("w-full justify-end gap-2 mt-4"):
+            ui.button("Cancel", on_click=dialog.close)
+            ui.button(
+                "Delete",
+                on_click=lambda: _do_delete(service, experiment_id, dialog, refresh),
+            ).props("color=negative")
+
+    dialog.open()
+
+
+def _do_delete(
+    service: ExperimentService,
+    experiment_id: int,
+    dialog,
+    refresh,
+) -> None:
+    service.delete_experiment(experiment_id)
+    dialog.close()
+    ui.notify("Experiment deleted", type="positive")
+    refresh()
 
 
 def build_experiment_detail_page(experiment_id: int) -> None:
