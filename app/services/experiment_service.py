@@ -49,6 +49,8 @@ class ExperimentRepository(Protocol):
 
     def update(self, experiment_id: int, **fields: object) -> dict[str, Any] | None: ...
 
+    def delete(self, experiment_id: int) -> bool: ...
+
 
 class ReferenceLookup(Protocol):
     """Minimal lookup contract for validating project and protocol existence."""
@@ -107,6 +109,9 @@ class SqliteExperimentRepository:
     def update(self, experiment_id: int, **fields: object) -> dict[str, Any] | None:
         row = experiment_repository.update(self._connection, experiment_id, **fields)
         return _row_to_dict(row)
+
+    def delete(self, experiment_id: int) -> bool:
+        return experiment_repository.delete(self._connection, experiment_id)
 
 
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -210,6 +215,14 @@ class ExperimentService:
         )
         logger.debug("Experiments listed count=%s", len(experiments))
         return experiments
+
+    def delete_experiment(self, experiment_id: int) -> None:
+        if self._experiment_repo.get_by_id(experiment_id) is None:
+            raise ExperimentNotFoundError(
+                f"Experiment with id {experiment_id} does not exist"
+            )
+        self._experiment_repo.delete(experiment_id)
+        logger.info("Experiment deleted experiment_id=%s", experiment_id)
 
 
 def _require_valid_state(state: object) -> None:

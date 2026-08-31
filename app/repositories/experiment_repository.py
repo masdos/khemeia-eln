@@ -59,23 +59,28 @@ def get_all(
     project_id: int | None = None,
     search_text: str | None = None,
 ) -> Sequence[sqlite3.Row]:
-    query = "SELECT * FROM experiments WHERE 1=1"
+    query = (
+        "SELECT e.*, p.name AS project_name "
+        "FROM experiments e "
+        "LEFT JOIN projects p ON p.id = e.project_id "
+        "WHERE 1=1"
+    )
     params: list = []
 
     if state is not None:
-        query += " AND state = ?"
+        query += " AND e.state = ?"
         params.append(state)
 
     if project_id is not None:
-        query += " AND project_id = ?"
+        query += " AND e.project_id = ?"
         params.append(project_id)
 
     if search_text is not None and search_text.strip():
         term = f"%{search_text.strip()}%"
-        query += " AND (title LIKE ? OR notes LIKE ?)"
+        query += " AND (e.title LIKE ? OR e.notes LIKE ?)"
         params.extend([term, term])
 
-    query += " ORDER BY id DESC"
+    query += " ORDER BY e.id DESC"
     cursor = connection.execute(query, params)
     return cursor.fetchall()
 
@@ -110,6 +115,14 @@ def update(
     )
     connection.commit()
     return get_by_id(connection, experiment_id)
+
+
+def delete(connection: sqlite3.Connection, experiment_id: int) -> bool:
+    cursor = connection.execute(
+        "DELETE FROM experiments WHERE id = ?", (experiment_id,)
+    )
+    connection.commit()
+    return cursor.rowcount > 0
 
 
 def _require_valid_state(state: object) -> None:
