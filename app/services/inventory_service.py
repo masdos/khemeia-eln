@@ -315,6 +315,12 @@ class InventoryService:
         )
         return {"reagents": reagents, "equipment": equipment}
 
+    def list_reagents(self) -> Sequence[dict[str, Any]]:
+        return list(self._reagent_repo.get_all())
+
+    def list_equipment(self) -> Sequence[dict[str, Any]]:
+        return list(self._equipment_repo.get_all())
+
 
 def _require_valid_name(name: str, entity_name: str) -> None:
     if not name or not name.strip():

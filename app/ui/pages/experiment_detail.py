@@ -16,7 +16,11 @@ from app.services.experiment_service import (
 )
 from app.services.export_service import ExportService
 from app.services.file_service import FileService
-from app.services.inventory_service import InventoryService
+from app.services.inventory_service import (
+    InventoryService,
+    SqliteEquipmentRepository,
+    SqliteReagentRepository,
+)
 from app.services.project_service import (
     SqliteProjectRepository,
 )
@@ -30,16 +34,18 @@ def _get_services(base_dir: Path) -> dict:
     experiment_repo = SqliteExperimentRepository(conn)
     project_repo = SqliteProjectRepository(conn)
     protocol_repo = SqliteProtocolRepository(conn)
+    reagent_repo = SqliteReagentRepository(conn)
+    equipment_repo = SqliteEquipmentRepository(conn)
     inventory_service = InventoryService(
-        reagent_repo=conn,
-        equipment_repo=conn,
+        reagent_repo=reagent_repo,
+        equipment_repo=equipment_repo,
     )
     file_service = FileService(base_dir)
     export_service = ExportService(
         base_dir=base_dir,
         experiment_repo=experiment_repo,
-        reagent_repo=conn,
-        equipment_repo=conn,
+        reagent_repo=reagent_repo,
+        equipment_repo=equipment_repo,
     )
     chemistry_service = ChemistryService()
     return {
@@ -228,7 +234,7 @@ def _build_resources_section(
 
     resources = inv_svc.get_experiment_resources(experiment_id)
 
-    # Reagents
+    # --- Reagents ---
     ui.label("Reagents").classes("font-semibold mt-2")
     reagent_rows = resources.get("reagents", [])
     if reagent_rows:
@@ -247,7 +253,65 @@ def _build_resources_section(
     else:
         ui.label("_No reagents linked._").classes("text-slate-500 text-sm")
 
-    # Equipment
+    all_reagents = inv_svc.list_reagents()
+    reagent_options = {r["id"]: r["name"] for r in all_reagents}
+    if reagent_options:
+        with ui.row().classes("w-full items-end gap-2 mt-2"):
+            reagent_select = (
+                ui.select(
+                    options=reagent_options,
+                    label="Select reagent",
+                )
+                .props("outlined dense")
+                .classes("flex-1")
+            )
+            reagent_amount = (
+                ui.number(
+                    label="Amount",
+                    value=0,
+                    min=0,
+                    format="%.2f",
+                )
+                .props("outlined dense")
+                .classes("w-24")
+            )
+            reagent_unit = (
+                ui.input(
+                    label="Unit",
+                    placeholder="g",
+                )
+                .props("outlined dense")
+                .classes("w-20")
+            )
+
+            def link_reagent(
+                _reagent_id=reagent_select,
+                _amount=reagent_amount,
+                _unit=reagent_unit,
+            ) -> None:
+                if _reagent_id.value is None:
+                    ui.notify("Select a reagent", type="warning")
+                    return
+                inv_svc.link_reagent_to_experiment(
+                    experiment_id,
+                    _reagent_id.value,
+                    _amount.value or 0,
+                    _unit.value or "",
+                )
+                ui.notify("Reagent linked", type="positive")
+                ui.navigate.reload()
+
+            ui.button("Link", on_click=link_reagent).props(
+                "color=primary dense"
+            )
+    else:
+        with ui.row().classes("items-center gap-1 mt-1"):
+            ui.label("_No reagents in inventory._").classes("text-slate-500 text-sm")
+            ui.link("Create some", "/inventory").classes(
+                "text-sm text-primary"
+            )
+
+    # --- Equipment ---
     ui.label("Equipment").classes("font-semibold mt-2")
     equip_rows = resources.get("equipment", [])
     if equip_rows:
@@ -255,6 +319,42 @@ def _build_resources_section(
             ui.label(f"- {e['name']}").classes("text-sm")
     else:
         ui.label("_No equipment linked._").classes("text-slate-500 text-sm")
+
+    all_equipment = inv_svc.list_equipment()
+    equipment_options = {eq["id"]: eq["name"] for eq in all_equipment}
+    if equipment_options:
+        with ui.row().classes("w-full items-end gap-2 mt-2"):
+            equipment_select = (
+                ui.select(
+                    options=equipment_options,
+                    label="Select equipment",
+                )
+                .props("outlined dense")
+                .classes("flex-1")
+            )
+
+            def link_equipment(_equip_id=equipment_select) -> None:
+                if _equip_id.value is None:
+                    ui.notify("Select equipment", type="warning")
+                    return
+                inv_svc.link_equipment_to_experiment(
+                    experiment_id,
+                    _equip_id.value,
+                )
+                ui.notify("Equipment linked", type="positive")
+                ui.navigate.reload()
+
+            ui.button("Link", on_click=link_equipment).props(
+                "color=primary dense"
+            )
+    else:
+        with ui.row().classes("items-center gap-1 mt-1"):
+            ui.label("_No equipment in inventory._").classes(
+                "text-slate-500 text-sm"
+            )
+            ui.link("Create some", "/inventory").classes(
+                "text-sm text-primary"
+            )
 
 
 def _build_attachments_section(
