@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import re
 from pathlib import Path
 
 from nicegui import ui
@@ -27,6 +29,11 @@ from app.services.project_service import (
 from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
+
+
+def _strip_svg_rect(svg: str) -> str:
+    """Remove background <rect> elements from an RDKit-generated SVG."""
+    return re.sub(r"<rect[^>]*>.*?</rect>\s*", "", svg, flags=re.DOTALL)
 
 
 def _get_services(base_dir: Path) -> dict:
@@ -242,21 +249,50 @@ def _build_resources_section(
             with ui.row().classes("items-center gap-2"):
                 ui.label(f"- {r['name']}").classes("text-sm")
                 if r.get("amount_used") is not None:
-                    ui.label(f"({r['amount_used']} {r.get('unit', '')})").classes(
+                    unit = r.get("unit", "")
+                    ui.label(f"({r['amount_used']} {unit})").classes(
                         "text-sm text-slate-500"
                     )
                 smiles = r.get("smiles", "")
                 if smiles:
                     svg = chem_svc.smiles_to_svg(smiles)
                     if svg:
-                        ui.html(svg).classes("h-8")
+                        svg_clean = _strip_svg_rect(svg)
+                        svg_b64 = base64.b64encode(svg.encode()).decode()
+                        img_src = f"data:image/svg+xml;base64,{svg_b64}"
+                        dialog = ui.dialog()
+                        with dialog:
+                            with ui.column().classes("bg-white p-4 gap-2"):
+                                ui.image(img_src).style("width:500px; height:400px;")
+                                ui.button(
+                                    "Copy",
+                                    icon="content_copy",
+                                    on_click=lambda s=svg_clean: ui.clipboard.write(s),
+                                ).props("flat dense")
+                        ui.button(
+                            icon="image",
+                            on_click=dialog.open,
+                        ).props("flat dense color=primary").classes("text-sm")
+
+                def _make_unlink(
+                    _exp_id=experiment_id,
+                    _reagent_id=r["id"],
+                ) -> None:
+                    inv_svc.unlink_reagent_from_experiment(_exp_id, _reagent_id)
+                    ui.notify("Reagent unlinked", type="positive")
+                    ui.navigate.reload()
+
+                ui.button(
+                    icon="delete",
+                    on_click=_make_unlink,
+                ).props("flat dense color=negative").classes("text-xs")
     else:
-        ui.label("_No reagents linked._").classes("text-slate-500 text-sm")
+        ui.label("No reagents linked.").classes("text-slate-500 text-sm")
 
     all_reagents = inv_svc.list_reagents()
     reagent_options = {r["id"]: r["name"] for r in all_reagents}
     if reagent_options:
-        with ui.row().classes("w-full items-end gap-2 mt-2"):
+        with ui.row().classes("w-full items-center gap-2 mt-2"):
             reagent_select = (
                 ui.select(
                     options=reagent_options,
@@ -301,29 +337,39 @@ def _build_resources_section(
                 ui.notify("Reagent linked", type="positive")
                 ui.navigate.reload()
 
-            ui.button("Link", on_click=link_reagent).props(
-                "color=primary dense"
-            )
+            ui.button("Link", on_click=link_reagent).props("color=primary dense")
     else:
         with ui.row().classes("items-center gap-1 mt-1"):
-            ui.label("_No reagents in inventory._").classes("text-slate-500 text-sm")
-            ui.link("Create some", "/inventory").classes(
-                "text-sm text-primary"
-            )
+            ui.label("No reagents in inventory.").classes("text-slate-500 text-sm")
+            ui.link("Create some", "/inventory").classes("text-sm text-primary")
 
     # --- Equipment ---
     ui.label("Equipment").classes("font-semibold mt-2")
     equip_rows = resources.get("equipment", [])
     if equip_rows:
         for e in equip_rows:
-            ui.label(f"- {e['name']}").classes("text-sm")
+            with ui.row().classes("items-center gap-2"):
+                ui.label(f"- {e['name']}").classes("text-sm")
+
+                def _make_unlink_equip(
+                    _exp_id=experiment_id,
+                    _equip_id=e["id"],
+                ) -> None:
+                    inv_svc.unlink_equipment_from_experiment(_exp_id, _equip_id)
+                    ui.notify("Equipment unlinked", type="positive")
+                    ui.navigate.reload()
+
+                ui.button(
+                    icon="delete",
+                    on_click=_make_unlink_equip,
+                ).props("flat dense color=negative").classes("text-xs")
     else:
-        ui.label("_No equipment linked._").classes("text-slate-500 text-sm")
+        ui.label("No equipment linked.").classes("text-slate-500 text-sm")
 
     all_equipment = inv_svc.list_equipment()
     equipment_options = {eq["id"]: eq["name"] for eq in all_equipment}
     if equipment_options:
-        with ui.row().classes("w-full items-end gap-2 mt-2"):
+        with ui.row().classes("w-full items-center gap-2 mt-2"):
             equipment_select = (
                 ui.select(
                     options=equipment_options,
@@ -344,17 +390,11 @@ def _build_resources_section(
                 ui.notify("Equipment linked", type="positive")
                 ui.navigate.reload()
 
-            ui.button("Link", on_click=link_equipment).props(
-                "color=primary dense"
-            )
+            ui.button("Link", on_click=link_equipment).props("color=primary dense")
     else:
         with ui.row().classes("items-center gap-1 mt-1"):
-            ui.label("_No equipment in inventory._").classes(
-                "text-slate-500 text-sm"
-            )
-            ui.link("Create some", "/inventory").classes(
-                "text-sm text-primary"
-            )
+            ui.label("No equipment in inventory.").classes("text-slate-500 text-sm")
+            ui.link("Create some", "/inventory").classes("text-sm text-primary")
 
 
 def _build_attachments_section(
@@ -382,7 +422,7 @@ def _build_attachments_section(
                     on_click=make_delete,
                 ).props("flat dense color=negative").classes("text-xs")
     else:
-        ui.label("_No attachments._").classes("text-slate-500 text-sm")
+        ui.label("No attachments.").classes("text-slate-500 text-sm")
 
     def upload(event) -> None:
         uploaded = event.args[0]
