@@ -60,6 +60,18 @@ def link_to_experiment(
     connection.commit()
 
 
+def unlink_from_experiment(
+    connection: sqlite3.Connection,
+    experiment_id: int,
+    equipment_id: int,
+) -> None:
+    connection.execute(
+        "DELETE FROM experiment_equipment WHERE experiment_id = ? AND equipment_id = ?",
+        (experiment_id, equipment_id),
+    )
+    connection.commit()
+
+
 def get_by_experiment(
     connection: sqlite3.Connection,
     experiment_id: int,

@@ -58,6 +58,12 @@ class ReagentRepository(Protocol):
         unit: str,
     ) -> None: ...
 
+    def unlink_from_experiment(
+        self,
+        experiment_id: int,
+        reagent_id: int,
+    ) -> None: ...
+
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]: ...
 
     def get_experiment_history(self, reagent_id: int) -> Sequence[dict[str, Any]]: ...
@@ -71,6 +77,8 @@ class EquipmentRepository(Protocol):
     def get_by_id(self, equipment_id: int) -> dict[str, Any] | None: ...
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None: ...
+
+    def unlink_from_experiment(self, experiment_id: int, equipment_id: int) -> None: ...
 
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]: ...
 
@@ -142,6 +150,15 @@ class SqliteReagentRepository:
             self._connection, experiment_id, reagent_id, amount, unit
         )
 
+    def unlink_from_experiment(
+        self,
+        experiment_id: int,
+        reagent_id: int,
+    ) -> None:
+        reagent_repository.unlink_from_experiment(
+            self._connection, experiment_id, reagent_id
+        )
+
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
         rows = reagent_repository.get_by_experiment(self._connection, experiment_id)
         return [_row_to_dict(row) for row in rows]
@@ -171,6 +188,11 @@ class SqliteEquipmentRepository:
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None:
         equipment_repository.link_to_experiment(
+            self._connection, experiment_id, equipment_id
+        )
+
+    def unlink_from_experiment(self, experiment_id: int, equipment_id: int) -> None:
+        equipment_repository.unlink_from_experiment(
             self._connection, experiment_id, equipment_id
         )
 
@@ -275,6 +297,18 @@ class InventoryService:
             experiment_id,
         )
 
+    def unlink_reagent_from_experiment(
+        self,
+        experiment_id: int,
+        reagent_id: int,
+    ) -> None:
+        self._reagent_repo.unlink_from_experiment(experiment_id, reagent_id)
+        logger.info(
+            "Reagent unlinked from experiment reagent_id=%s experiment_id=%s",
+            reagent_id,
+            experiment_id,
+        )
+
     def link_equipment_to_experiment(
         self,
         experiment_id: int,
@@ -288,6 +322,18 @@ class InventoryService:
         self._equipment_repo.link_to_experiment(experiment_id, equipment_id)
         logger.info(
             "Equipment linked to experiment equipment_id=%s experiment_id=%s",
+            equipment_id,
+            experiment_id,
+        )
+
+    def unlink_equipment_from_experiment(
+        self,
+        experiment_id: int,
+        equipment_id: int,
+    ) -> None:
+        self._equipment_repo.unlink_from_experiment(experiment_id, equipment_id)
+        logger.info(
+            "Equipment unlinked from experiment equipment_id=%s experiment_id=%s",
             equipment_id,
             experiment_id,
         )
