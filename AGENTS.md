@@ -264,6 +264,8 @@ Write all generated text in clear English, including code comments, documentatio
 - Format: type(scope): description. 
 - Subject line: imperative mood, less than or equal to 50 characters. Blank Line between subject and body. 
 - Body: explain *why*, wrap at 72 characters, use `-` bullets.
+- Add a trailer at the end of the commit message (after a blank line following the body), following git trailer conventions:
+  `AI-Model: <exact model identifier as reported by the agent's runtime/config>` If the model cannot be determined, use `AI-Model: UNKNOWN`.
 
 ---
 
