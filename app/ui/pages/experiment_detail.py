@@ -410,9 +410,6 @@ def _build_attachments_section(
 ) -> None:
     ui.separator().classes("mt-6")
     ui.label("Attachments").classes("text-xl font-semibold mt-4")
-    ui.label(
-        f"Files are stored in ({base_dir / 'attachments' / str(experiment_id)})"
-    ).classes("text-xs text-slate-400")
 
     attachments = list(attachment_repository.get_by_experiment(conn, experiment_id))
 
@@ -458,6 +455,9 @@ def _build_attachments_section(
         label="Upload file",
         on_upload=upload,
     ).classes("w-full mt-2")
+    ui.label(
+        f"Files are stored in ({base_dir / 'attachments' / str(experiment_id)})"
+    ).classes("text-xs text-slate-400")
 
 
 def _build_export_section(
