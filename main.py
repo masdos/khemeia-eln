@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from nicegui import ui
+from nicegui import app, ui
 
 from app.bootstrap import run_bootstrap
 from app.config import load_config, write_config
@@ -104,7 +104,7 @@ def build_app_ui(base_dir: Path) -> None:
         ui.query("body").classes("bg-slate-50")
         with ui.row().classes("w-full min-h-screen"):
             _build_sidebar()
-            with ui.column().classes("flex-1 p-6"):
+            with ui.column().classes("flex-1 p-6 overflow-auto"):
                 build_protocols_page()
 
     @ui.page("/experiments/new")
@@ -176,6 +176,7 @@ def main() -> None:
     try:
         bootstrap_result = _initialize_app()
         build_ui(bootstrap_result.base_dir)
+        app.on_connect(lambda: app.native.main_window.maximize())
         ui.run(
             title="Khemeia ELN",
             reload=False,
