@@ -156,9 +156,11 @@ def _open_edit_dialog(
 
     with dialog, ui.card().classes("w-[32rem] max-w-full"):
         ui.label("Edit Project").classes("text-xl font-semibold")
-        name_input = ui.input(
-            "Name *", value=project["name"]
-        ).props("outlined").classes("w-full")
+        name_input = (
+            ui.input("Name *", value=project["name"])
+            .props("outlined")
+            .classes("w-full")
+        )
         desc_input = (
             ui.textarea("Description", value=project.get("description", ""))
             .props("outlined")

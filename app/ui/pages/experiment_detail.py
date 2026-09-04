@@ -465,9 +465,7 @@ def _build_attachments_section(
     async def upload(event) -> None:
         uploaded = event.file
         content = await uploaded.read()
-        stored = file_svc.save_attachment_bytes(
-            experiment_id, uploaded.name, content
-        )
+        stored = file_svc.save_attachment_bytes(experiment_id, uploaded.name, content)
         attachment_repository.create(
             conn,
             experiment_id,
@@ -512,6 +510,6 @@ def _build_export_section(
     with ui.row().classes("gap-2"):
         ui.button("Export Markdown", on_click=export_md).props("outline")
         ui.button("Export PDF", on_click=export_pdf).props("outline")
-    ui.label(
-        f"Exports are stored in ({base_dir / 'exports'})"
-    ).classes("text-xs text-slate-400")
+    ui.label(f"Exports are stored in ({base_dir / 'exports'})").classes(
+        "text-xs text-slate-400"
+    )

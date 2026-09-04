@@ -163,9 +163,11 @@ def _open_edit_dialog(
 
     with dialog, ui.card().classes("w-[40rem] max-w-full"):
         ui.label("Edit Protocol").classes("text-xl font-semibold")
-        name_input = ui.input(
-            "Name *", value=protocol["name"]
-        ).props("outlined").classes("w-full")
+        name_input = (
+            ui.input("Name *", value=protocol["name"])
+            .props("outlined")
+            .classes("w-full")
+        )
         content_input = (
             ui.textarea(
                 "Content (Markdown) *",

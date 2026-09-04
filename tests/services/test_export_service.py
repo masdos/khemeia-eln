@@ -4,7 +4,11 @@ from typing import Any
 
 import pytest
 
-from app.services.export_service import ExperimentNotFoundError, ExportService
+from app.services.export_service import (
+    ExperimentNotFoundError,
+    ExportService,
+    _convert_inline_markdown,
+)
 
 
 class InMemoryExperimentRepository:
@@ -78,12 +82,8 @@ class InMemoryAttachmentRepository:
     def __init__(self) -> None:
         self._attachments_by_experiment: dict[int, list[dict[str, Any]]] = {}
 
-    def add_to_experiment(
-        self, experiment_id: int, attachment: dict[str, Any]
-    ) -> None:
-        self._attachments_by_experiment.setdefault(experiment_id, []).append(
-            attachment
-        )
+    def add_to_experiment(self, experiment_id: int, attachment: dict[str, Any]) -> None:
+        self._attachments_by_experiment.setdefault(experiment_id, []).append(attachment)
 
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
         return self._attachments_by_experiment.get(experiment_id, [])
@@ -305,3 +305,45 @@ class TestExportsDirectory:
         assert "_No reaction onset recorded._" in content
         assert "_No workup recorded._" in content
         assert "_No purification recorded._" in content
+
+
+class TestConvertInlineMarkdown:
+    def test_converts_bold_markers_to_html_tags(self) -> None:
+        # given
+        text = "**Project:** Aspirin Synthesis"
+
+        # when
+        result = _convert_inline_markdown(text)
+
+        # then
+        assert result == "<b>Project:</b> Aspirin Synthesis"
+
+    def test_converts_italic_markers_to_html_tags(self) -> None:
+        # given
+        text = "_No notes recorded._"
+
+        # when
+        result = _convert_inline_markdown(text)
+
+        # then
+        assert result == "<i>No notes recorded.</i>"
+
+    def test_preserves_text_without_inline_formatting(self) -> None:
+        # given
+        text = "Plain text without formatting"
+
+        # when
+        result = _convert_inline_markdown(text)
+
+        # then
+        assert result == "Plain text without formatting"
+
+    def test_converts_multiple_bold_sections(self) -> None:
+        # given
+        text = "**Bold1** and **Bold2**"
+
+        # when
+        result = _convert_inline_markdown(text)
+
+        # then
+        assert result == "<b>Bold1</b> and <b>Bold2</b>"

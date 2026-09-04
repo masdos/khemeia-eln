@@ -134,9 +134,7 @@ class SqliteAttachmentRepository:
         self._connection = connection
 
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
-        rows = attachment_repository.get_by_experiment(
-            self._connection, experiment_id
-        )
+        rows = attachment_repository.get_by_experiment(self._connection, experiment_id)
         return [_row_to_dict(row) for row in rows]
 
 
@@ -335,17 +333,32 @@ def _write_markdown_pdf(file_path: Path, markdown: str) -> None:
             continue
 
         if line.startswith("### "):
-            flowables.append(Paragraph(_escape_html(line[4:]), heading_styles[3]))
+            flowables.append(
+                Paragraph(
+                    _convert_inline_markdown(_escape_html(line[4:])), heading_styles[3]
+                )
+            )
         elif line.startswith("## "):
-            flowables.append(Paragraph(_escape_html(line[3:]), heading_styles[2]))
+            flowables.append(
+                Paragraph(
+                    _convert_inline_markdown(_escape_html(line[3:])), heading_styles[2]
+                )
+            )
         elif line.startswith("# "):
-            flowables.append(Paragraph(_escape_html(line[2:]), heading_styles[1]))
+            flowables.append(
+                Paragraph(
+                    _convert_inline_markdown(_escape_html(line[2:])), heading_styles[1]
+                )
+            )
         elif line.startswith("- "):
             flowables.append(
                 ListFlowable(
                     [
                         ListItem(
-                            Paragraph(_escape_html(line[2:]), body_style),
+                            Paragraph(
+                                _convert_inline_markdown(_escape_html(line[2:])),
+                                body_style,
+                            ),
                             leftIndent=18,
                         )
                     ],
@@ -354,10 +367,21 @@ def _write_markdown_pdf(file_path: Path, markdown: str) -> None:
                 )
             )
         else:
-            flowables.append(Paragraph(_escape_html(line), body_style))
+            flowables.append(
+                Paragraph(_convert_inline_markdown(_escape_html(line)), body_style)
+            )
 
     document.build(flowables)
 
 
 def _escape_html(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _convert_inline_markdown(text: str) -> str:
+    """Convert **bold** and _italic_ markdown to ReportLab HTML tags."""
+    import re
+
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"<i>\1</i>", text)
+    return text

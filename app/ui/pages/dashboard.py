@@ -138,9 +138,7 @@ def _render_table(
     ]
 
     with container:
-        table = ui.table(columns=columns, rows=rows, row_key="id").classes(
-            "w-full"
-        )
+        table = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
 
         table.add_slot(
             "body-cell-state",
