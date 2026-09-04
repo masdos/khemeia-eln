@@ -15,13 +15,23 @@ class StoredFile(Protocol):
     content: BinaryIO
 
 
+class NiceGUIFile(Protocol):
+    """Protocol matching NiceGUI's UploadEventArguments.file."""
+
+    name: str
+
+    def read(self) -> bytes: ...
+
+
 class FileService:
     """Only component aware of the filesystem for attachments."""
 
     def __init__(self, base_dir: Path) -> None:
         self._base_dir = base_dir
 
-    def save_attachment(self, experiment_id: int, uploaded_file: StoredFile) -> str:
+    def save_attachment(
+        self, experiment_id: int, uploaded_file: StoredFile | NiceGUIFile
+    ) -> str:
         """Store an uploaded file under BASE_DIR/attachments/{experiment_id}/.
 
         Returns the unique stored name (UUID plus original extension).
@@ -34,7 +44,10 @@ class FileService:
 
         destination = destination_dir / stored_name
         with destination.open("wb") as output:
-            output.write(uploaded_file.content.read())
+            if hasattr(uploaded_file, "content"):
+                output.write(uploaded_file.content.read())
+            else:
+                output.write(uploaded_file.read())
 
         logger.info(
             "Attachment saved experiment_id=%s stored_name=%s",

@@ -429,8 +429,8 @@ def _build_attachments_section(
     else:
         ui.label("No attachments.").classes("text-slate-500 text-sm")
 
-    def upload(event) -> None:
-        uploaded = event.args[0]
+    async def upload(event) -> None:
+        uploaded = event.file
         stored = file_svc.save_attachment(experiment_id, uploaded)
         attachment_repository.create(
             conn,
