@@ -60,9 +60,9 @@ def build_app_ui(base_dir: Path) -> None:
     NAV_ITEMS = [
         ("Experiments", "/", "science"),
         ("Projects", "/projects", "folder"),
-        ("Inventory", "/inventory", "inventory_2"),
-        ("Protocols", "/protocols", "science"),
-        ("Profile", "/profile", "person"),
+        ("Protocols", "/protocols", "article"),
+        ("Inventory", "/inventory", "shelves"),
+        ("Profile", "/profile", "contact_page"),
     ]
 
     def _build_sidebar() -> ui.column:
@@ -70,9 +70,12 @@ def build_app_ui(base_dir: Path) -> None:
         with sidebar:
             ui.image("app/ui/assets/logo.png").classes("w-36 mb-4")
             for label, href, icon in NAV_ITEMS:
-                ui.link(label, href).classes(
-                    "block py-2 px-3 rounded hover:bg-slate-100"
-                )
+                with ui.link("", href).classes(
+                    "flex items-center gap-3 py-2 px-3 rounded no-underline"
+                    " hover:bg-slate-100"
+                ):
+                    ui.icon(icon, size="24px")
+                    ui.label(label).classes("text-base")
         return sidebar
 
     @ui.page("/")
