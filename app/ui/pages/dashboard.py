@@ -157,8 +157,6 @@ def _render_table(
             <q-td :props="props">
                 <q-btn flat dense icon="visibility"
                        @click.stop="$parent.$emit('view', props.row)" />
-                <q-btn flat dense icon="edit"
-                       @click.stop="$parent.$emit('edit', props.row)" />
                 <q-btn flat dense icon="delete" color="negative"
                        @click.stop="$parent.$emit('request-delete', props.row)" />
             </q-td>
@@ -168,14 +166,10 @@ def _render_table(
         def on_view(e) -> None:
             ui.navigate.to(f"/experiments/{e.args['id']}")
 
-        def on_edit(e) -> None:
-            ui.navigate.to(f"/experiments/{e.args['id']}")
-
         def on_request_delete(e) -> None:
             _confirm_delete(service, e.args["id"], refresh)
 
         table.on("view", on_view)
-        table.on("edit", on_edit)
         table.on("request-delete", on_request_delete)
 
 
