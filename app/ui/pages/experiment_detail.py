@@ -248,11 +248,16 @@ def _build_resources_section(
         for r in reagent_rows:
             with ui.row().classes("items-center gap-2"):
                 ui.label(f"- {r['name']}").classes("text-sm")
+                lot_number = r.get("lot_number", "")
+                unit = r.get("unit", "")
                 if r.get("amount_used") is not None:
-                    unit = r.get("unit", "")
-                    ui.label(f"({r['amount_used']} {unit})").classes(
-                        "text-sm text-slate-500"
-                    )
+                    label_text = f"({r['amount_used']} {unit}"
+                    if lot_number:
+                        label_text += f" - {lot_number}"
+                    label_text += ")"
+                    ui.label(label_text).classes("text-sm text-slate-500")
+                elif lot_number:
+                    ui.label(f" - {lot_number}").classes("text-sm text-slate-500")
                 smiles = r.get("smiles", "")
                 if smiles:
                     svg = chem_svc.smiles_to_svg(smiles)
@@ -265,7 +270,7 @@ def _build_resources_section(
                             with ui.column().classes("bg-white p-4 gap-2"):
                                 ui.image(img_src).style("width:500px; height:400px;")
                                 ui.button(
-                                    "Copy",
+                                    "Copy SVG",
                                     icon="content_copy",
                                     on_click=lambda s=svg_clean: ui.clipboard.write(s),
                                 ).props("flat dense")
