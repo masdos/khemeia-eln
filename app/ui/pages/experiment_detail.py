@@ -415,7 +415,7 @@ def _build_attachments_section(
     if attachments:
         for att in attachments:
             with ui.row().classes("items-center gap-2"):
-                ui.label(att["file_name"]).classes("text-sm")
+                ui.label(f"- {att['file_name']}").classes("text-sm")
 
                 def make_delete(
                     att_id: int = att["id"],
