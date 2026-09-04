@@ -6,6 +6,7 @@ from pathlib import Path
 
 from nicegui import ui
 
+from app.config import get_current_config
 from app.database.connection import get_connection
 from app.repositories import attachment_repository
 from app.services.chemistry_service import ChemistryService
@@ -16,7 +17,27 @@ from app.services.experiment_service import (
     ExperimentStateError,
     SqliteExperimentRepository,
 )
-from app.services.export_service import ExportService
+from app.services.export_service import (
+    ExportService,
+)
+from app.services.export_service import (
+    SqliteAttachmentRepository as ExportSqliteAttachmentRepository,
+)
+from app.services.export_service import (
+    SqliteEquipmentRepository as ExportSqliteEquipmentRepository,
+)
+from app.services.export_service import (
+    SqliteExperimentRepository as ExportSqliteExperimentRepository,
+)
+from app.services.export_service import (
+    SqliteProjectRepository as ExportSqliteProjectRepository,
+)
+from app.services.export_service import (
+    SqliteProtocolRepository as ExportSqliteProtocolRepository,
+)
+from app.services.export_service import (
+    SqliteReagentRepository as ExportSqliteReagentRepository,
+)
 from app.services.file_service import FileService
 from app.services.inventory_service import (
     InventoryService,
@@ -48,11 +69,17 @@ def _get_services(base_dir: Path) -> dict:
         equipment_repo=equipment_repo,
     )
     file_service = FileService(base_dir)
+    config = get_current_config()
     export_service = ExportService(
         base_dir=base_dir,
-        experiment_repo=experiment_repo,
-        reagent_repo=reagent_repo,
-        equipment_repo=equipment_repo,
+        experiment_repo=ExportSqliteExperimentRepository(conn),
+        reagent_repo=ExportSqliteReagentRepository(conn),
+        equipment_repo=ExportSqliteEquipmentRepository(conn),
+        project_repo=ExportSqliteProjectRepository(conn),
+        protocol_repo=ExportSqliteProtocolRepository(conn),
+        attachment_repo=ExportSqliteAttachmentRepository(conn),
+        user_name=config.user_name,
+        user_email=config.user_email,
     )
     chemistry_service = ChemistryService()
     return {
@@ -227,7 +254,7 @@ def build_experiment_detail_page(
             _build_attachments_section(experiment_id, file_svc, conn, base_dir)
 
             # --- Export section ---
-            _build_export_section(experiment_id, export_svc)
+            _build_export_section(experiment_id, export_svc, base_dir)
 
 
 def _build_resources_section(
@@ -463,6 +490,7 @@ def _build_attachments_section(
 def _build_export_section(
     experiment_id: int,
     export_svc: ExportService,
+    base_dir: Path,
 ) -> None:
     ui.separator().classes("mt-6")
     ui.label("Export").classes("text-xl font-semibold mt-4")
@@ -484,3 +512,6 @@ def _build_export_section(
     with ui.row().classes("gap-2"):
         ui.button("Export Markdown", on_click=export_md).props("outline")
         ui.button("Export PDF", on_click=export_pdf).props("outline")
+    ui.label(
+        f"Exports are stored in ({base_dir / 'exports'})"
+    ).classes("text-xs text-slate-400")
