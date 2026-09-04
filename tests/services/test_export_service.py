@@ -46,6 +46,49 @@ class InMemoryEquipmentRepository:
         return self._equipment_by_experiment.get(experiment_id, [])
 
 
+class InMemoryProjectRepository:
+    """Test double returning project data without SQLite."""
+
+    def __init__(self) -> None:
+        self._projects: dict[int, dict[str, Any]] = {}
+
+    def add_project(self, project: dict[str, Any]) -> None:
+        self._projects[project["id"]] = project
+
+    def get_by_id(self, project_id: int) -> dict[str, Any] | None:
+        return self._projects.get(project_id)
+
+
+class InMemoryProtocolRepository:
+    """Test double returning protocol data without SQLite."""
+
+    def __init__(self) -> None:
+        self._protocols: dict[int, dict[str, Any]] = {}
+
+    def add_protocol(self, protocol: dict[str, Any]) -> None:
+        self._protocols[protocol["id"]] = protocol
+
+    def get_by_id(self, protocol_id: int) -> dict[str, Any] | None:
+        return self._protocols.get(protocol_id)
+
+
+class InMemoryAttachmentRepository:
+    """Test double returning attachment data without SQLite."""
+
+    def __init__(self) -> None:
+        self._attachments_by_experiment: dict[int, list[dict[str, Any]]] = {}
+
+    def add_to_experiment(
+        self, experiment_id: int, attachment: dict[str, Any]
+    ) -> None:
+        self._attachments_by_experiment.setdefault(experiment_id, []).append(
+            attachment
+        )
+
+    def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
+        return self._attachments_by_experiment.get(experiment_id, [])
+
+
 @pytest.fixture(name="experiment_repository")
 def experiment_repository_fixture() -> InMemoryExperimentRepository:
     return InMemoryExperimentRepository()
@@ -61,12 +104,30 @@ def equipment_repository_fixture() -> InMemoryEquipmentRepository:
     return InMemoryEquipmentRepository()
 
 
+@pytest.fixture(name="project_repository")
+def project_repository_fixture() -> InMemoryProjectRepository:
+    return InMemoryProjectRepository()
+
+
+@pytest.fixture(name="protocol_repository")
+def protocol_repository_fixture() -> InMemoryProtocolRepository:
+    return InMemoryProtocolRepository()
+
+
+@pytest.fixture(name="attachment_repository")
+def attachment_repository_fixture() -> InMemoryAttachmentRepository:
+    return InMemoryAttachmentRepository()
+
+
 @pytest.fixture(name="service")
 def service_fixture(
     tmp_path: Path,
     experiment_repository: InMemoryExperimentRepository,
     reagent_repository: InMemoryReagentRepository,
     equipment_repository: InMemoryEquipmentRepository,
+    project_repository: InMemoryProjectRepository,
+    protocol_repository: InMemoryProtocolRepository,
+    attachment_repository: InMemoryAttachmentRepository,
 ) -> ExportService:
     experiment_repository.add_experiment(
         {
@@ -75,8 +136,12 @@ def service_fixture(
             "state": "Success",
             "notes": "Acetylated salicylic acid at 90 C.",
             "created_at": "2026-01-01 00:00:00",
+            "project_id": 1,
+            "protocol_id": 1,
         }
     )
+    project_repository.add_project({"id": 1, "name": "Aspirin Synthesis"})
+    protocol_repository.add_protocol({"id": 1, "name": "Standard Protocol"})
     reagent_repository.add_to_experiment(
         1,
         {
@@ -97,6 +162,11 @@ def service_fixture(
         experiment_repository,
         reagent_repository,
         equipment_repository,
+        project_repository,
+        protocol_repository,
+        attachment_repository,
+        user_name="Test User",
+        user_email="test@example.com",
     )
 
 
@@ -122,10 +192,14 @@ class TestExportExperimentMarkdown:
         content = file_path.read_text(encoding="utf-8")
         assert "# Synthesis of Aspirin" in content
         assert "**State:** Success" in content
+        assert "**Project:** Aspirin Synthesis" in content
+        assert "**Protocol:** Standard Protocol" in content
         assert "Acetylated salicylic acid" in content
         assert "Acetic anhydride (5.0 mL)" in content
         assert "Salicylic acid (2.0 g)" in content
         assert "Hotplate stirrer" in content
+        assert "Test User" in content
+        assert "test@example.com" in content
 
     def test_raises_not_found_for_missing_experiment(
         self, service: ExportService
@@ -170,6 +244,9 @@ class TestExportsDirectory:
         experiment_repository: InMemoryExperimentRepository,
         reagent_repository: InMemoryReagentRepository,
         equipment_repository: InMemoryEquipmentRepository,
+        project_repository: InMemoryProjectRepository,
+        protocol_repository: InMemoryProtocolRepository,
+        attachment_repository: InMemoryAttachmentRepository,
     ) -> None:
         # given
         experiment_repository.add_experiment(
@@ -180,6 +257,9 @@ class TestExportsDirectory:
             experiment_repository,
             reagent_repository,
             equipment_repository,
+            project_repository,
+            protocol_repository,
+            attachment_repository,
         )
         exports_dir = tmp_path / "exports"
         assert not exports_dir.exists()
@@ -196,6 +276,9 @@ class TestExportsDirectory:
         experiment_repository: InMemoryExperimentRepository,
         reagent_repository: InMemoryReagentRepository,
         equipment_repository: InMemoryEquipmentRepository,
+        project_repository: InMemoryProjectRepository,
+        protocol_repository: InMemoryProtocolRepository,
+        attachment_repository: InMemoryAttachmentRepository,
     ) -> None:
         # given
         experiment_repository.add_experiment(
@@ -206,6 +289,9 @@ class TestExportsDirectory:
             experiment_repository,
             reagent_repository,
             equipment_repository,
+            project_repository,
+            protocol_repository,
+            attachment_repository,
         )
 
         # when
@@ -216,3 +302,6 @@ class TestExportsDirectory:
         assert "_No notes recorded._" in content
         assert "_No reagents recorded._" in content
         assert "_No equipment recorded._" in content
+        assert "_No reaction onset recorded._" in content
+        assert "_No workup recorded._" in content
+        assert "_No purification recorded._" in content

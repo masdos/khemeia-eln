@@ -20,8 +20,11 @@ from reportlab.platypus import (
 )
 
 from app.repositories import (
+    attachment_repository,
     equipment_repository,
     experiment_repository,
+    project_repository,
+    protocol_repository,
     reagent_repository,
 )
 
@@ -46,6 +49,24 @@ class ReagentRepository(Protocol):
 
 class EquipmentRepository(Protocol):
     """Data access contract for equipment reads required by ExportService."""
+
+    def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]: ...
+
+
+class ProjectRepository(Protocol):
+    """Data access contract for project reads required by ExportService."""
+
+    def get_by_id(self, project_id: int) -> dict[str, Any] | None: ...
+
+
+class ProtocolRepository(Protocol):
+    """Data access contract for protocol reads required by ExportService."""
+
+    def get_by_id(self, protocol_id: int) -> dict[str, Any] | None: ...
+
+
+class AttachmentRepository(Protocol):
+    """Data access contract for attachment reads required by ExportService."""
 
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]: ...
 
@@ -84,6 +105,41 @@ class SqliteEquipmentRepository:
         return [_row_to_dict(row) for row in rows]
 
 
+class SqliteProjectRepository:
+    """Adapter that backs the project read contract with SQLite functions."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def get_by_id(self, project_id: int) -> dict[str, Any] | None:
+        return _row_to_dict(project_repository.get_by_id(self._connection, project_id))
+
+
+class SqliteProtocolRepository:
+    """Adapter that backs the protocol read contract with SQLite functions."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def get_by_id(self, protocol_id: int) -> dict[str, Any] | None:
+        return _row_to_dict(
+            protocol_repository.get_by_id(self._connection, protocol_id)
+        )
+
+
+class SqliteAttachmentRepository:
+    """Adapter that backs the attachment read contract with SQLite functions."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
+        rows = attachment_repository.get_by_experiment(
+            self._connection, experiment_id
+        )
+        return [_row_to_dict(row) for row in rows]
+
+
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
         return None
@@ -100,11 +156,21 @@ class ExportService:
         experiment_repo: ExperimentRepository,
         reagent_repo: ReagentRepository,
         equipment_repo: EquipmentRepository,
+        project_repo: ProjectRepository,
+        protocol_repo: ProtocolRepository,
+        attachment_repo: AttachmentRepository,
+        user_name: str = "",
+        user_email: str = "",
     ) -> None:
         self._base_dir = base_dir
         self._experiment_repo = experiment_repo
         self._reagent_repo = reagent_repo
         self._equipment_repo = equipment_repo
+        self._project_repo = project_repo
+        self._protocol_repo = protocol_repo
+        self._attachment_repo = attachment_repo
+        self._user_name = user_name
+        self._user_email = user_email
 
     def export_experiment_markdown(self, experiment_id: int) -> Path:
         """Export an experiment to Markdown under BASE_DIR/exports/."""
@@ -116,7 +182,12 @@ class ExportService:
 
         reagents = self._reagent_repo.get_by_experiment(experiment_id)
         equipment = self._equipment_repo.get_by_experiment(experiment_id)
-        content = self._build_markdown(experiment, reagents, equipment)
+        project = self._project_repo.get_by_id(experiment.get("project_id"))
+        protocol = self._protocol_repo.get_by_id(experiment.get("protocol_id"))
+        attachments = self._attachment_repo.get_by_experiment(experiment_id)
+        content = self._build_markdown(
+            experiment, reagents, equipment, project, protocol, attachments
+        )
 
         file_path = self._exports_dir() / f"experiment_{experiment_id}.md"
         file_path.write_text(content, encoding="utf-8")
@@ -134,7 +205,12 @@ class ExportService:
 
         reagents = self._reagent_repo.get_by_experiment(experiment_id)
         equipment = self._equipment_repo.get_by_experiment(experiment_id)
-        markdown = self._build_markdown(experiment, reagents, equipment)
+        project = self._project_repo.get_by_id(experiment.get("project_id"))
+        protocol = self._protocol_repo.get_by_id(experiment.get("protocol_id"))
+        attachments = self._attachment_repo.get_by_experiment(experiment_id)
+        markdown = self._build_markdown(
+            experiment, reagents, equipment, project, protocol, attachments
+        )
 
         file_path = self._exports_dir() / f"experiment_{experiment_id}.pdf"
         _write_markdown_pdf(file_path, markdown)
@@ -147,11 +223,38 @@ class ExportService:
         experiment: dict[str, Any],
         reagents: Sequence[dict[str, Any]],
         equipment: Sequence[dict[str, Any]],
+        project: dict[str, Any] | None,
+        protocol: dict[str, Any] | None,
+        attachments: Sequence[dict[str, Any]],
     ) -> str:
+        from datetime import date
+
+        today = date.today().strftime("%Y-%m-%d")
+        project_name = project["name"] if project else "_None_"
+        protocol_name = protocol["name"] if protocol else "_None_"
+
         lines = [
+            today,
+            self._user_name,
+            self._user_email,
+            "",
             f"# {experiment['title']}",
             "",
+            f"**Project:** {project_name}",
+            f"**Protocol:** {protocol_name}",
             f"**State:** {experiment['state']}",
+            "",
+            "## Reaction Onset",
+            "",
+            experiment.get("reaction_onset") or "_No reaction onset recorded._",
+            "",
+            "## Workup",
+            "",
+            experiment.get("workup") or "_No workup recorded._",
+            "",
+            "## Purification",
+            "",
+            experiment.get("purification") or "_No purification recorded._",
             "",
             "## Notes",
             "",
@@ -178,6 +281,12 @@ class ExportService:
             lines.extend(f"- {row['name']}" for row in equipment)
         else:
             lines.append("_No equipment recorded._")
+
+        lines.extend(["", "## Attachments", ""])
+        if attachments:
+            lines.extend(f"- {att['file_name']}" for att in attachments)
+        else:
+            lines.append("_No attachments._")
 
         return "\n".join(lines) + "\n"
 
