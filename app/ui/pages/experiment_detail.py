@@ -417,7 +417,12 @@ def _build_attachments_section(
             with ui.row().classes("items-center gap-2"):
                 ui.label(att["file_name"]).classes("text-sm")
 
-                def make_delete(att_id: int = att["id"]) -> None:
+                def make_delete(
+                    att_id: int = att["id"],
+                    stored_name: str = att["stored_name"],
+                    exp_id: int = experiment_id,
+                ) -> None:
+                    file_svc.delete_attachment(exp_id, stored_name)
                     attachment_repository.delete(conn, att_id)
                     ui.notify("Attachment deleted", type="positive")
                     ui.navigate.reload()
