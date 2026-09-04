@@ -431,7 +431,10 @@ def _build_attachments_section(
 
     async def upload(event) -> None:
         uploaded = event.file
-        stored = file_svc.save_attachment(experiment_id, uploaded)
+        content = await uploaded.read()
+        stored = file_svc.save_attachment_bytes(
+            experiment_id, uploaded.name, content
+        )
         attachment_repository.create(
             conn,
             experiment_id,

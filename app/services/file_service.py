@@ -20,7 +20,7 @@ class NiceGUIFile(Protocol):
 
     name: str
 
-    def read(self) -> bytes: ...
+    async def read(self) -> bytes: ...
 
 
 class FileService:
@@ -48,6 +48,30 @@ class FileService:
                 output.write(uploaded_file.content.read())
             else:
                 output.write(uploaded_file.read())
+
+        logger.info(
+            "Attachment saved experiment_id=%s stored_name=%s",
+            experiment_id,
+            stored_name,
+        )
+        return stored_name
+
+    def save_attachment_bytes(
+        self, experiment_id: int, file_name: str, content: bytes
+    ) -> str:
+        """Store raw bytes as an attachment under BASE_DIR/attachments/{experiment_id}/.
+
+        Returns the unique stored name (UUID plus original extension).
+        """
+        extension = Path(file_name).suffix
+        stored_name = f"{uuid.uuid4().hex}{extension}"
+
+        destination_dir = self._attachments_dir(experiment_id)
+        destination_dir.mkdir(parents=True, exist_ok=True)
+
+        destination = destination_dir / stored_name
+        with destination.open("wb") as output:
+            output.write(content)
 
         logger.info(
             "Attachment saved experiment_id=%s stored_name=%s",
