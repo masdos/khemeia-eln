@@ -224,7 +224,7 @@ def build_experiment_detail_page(
             _build_resources_section(experiment_id, inv_svc, conn, chem_svc)
 
             # --- Attachments section ---
-            _build_attachments_section(experiment_id, file_svc, conn)
+            _build_attachments_section(experiment_id, file_svc, conn, base_dir)
 
             # --- Export section ---
             _build_export_section(experiment_id, export_svc)
@@ -406,9 +406,13 @@ def _build_attachments_section(
     experiment_id: int,
     file_svc: FileService,
     conn,
+    base_dir: Path,
 ) -> None:
     ui.separator().classes("mt-6")
     ui.label("Attachments").classes("text-xl font-semibold mt-4")
+    ui.label(
+        f"Files are stored in ({base_dir / 'attachments' / str(experiment_id)})"
+    ).classes("text-xs text-slate-400")
 
     attachments = list(attachment_repository.get_by_experiment(conn, experiment_id))
 
