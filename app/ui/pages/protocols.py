@@ -21,7 +21,7 @@ def build_protocols_page() -> None:
     """Build the Protocols CRUD page."""
     service = _get_service()
 
-    with ui.column().classes("w-fit max-w-6xl mt-8 px-4"):
+    with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label("Protocols").classes("text-2xl font-semibold")
 
         with ui.row().classes("w-full items-center gap-4 mt-4"):

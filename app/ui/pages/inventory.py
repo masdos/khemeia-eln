@@ -36,7 +36,7 @@ def build_inventory_page() -> None:
     """Build the Inventory page with Reagents and Equipment sections."""
     service = _get_service()
 
-    with ui.column().classes("w-fit max-w-6xl mt-8 px-4"):
+    with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label("Inventory").classes("text-2xl font-semibold")
 
         tabs = ui.tabs().classes("mt-4")

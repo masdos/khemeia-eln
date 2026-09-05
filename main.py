@@ -94,7 +94,7 @@ def build_app_ui(base_dir: Path) -> None:
             _build_sidebar()
             content = (
                 ui.column()
-                .classes("w-fit p-6 rounded-xl")
+                .classes("w-full max-w-6xl p-6 rounded-xl")
                 .style(
                     "background-color: #FFFFFF; border-radius: 12px;"
                     " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"

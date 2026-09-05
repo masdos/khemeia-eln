@@ -127,7 +127,7 @@ def build_experiment_detail_page(
     projects = list(SqliteProjectRepository(conn).get_all())
     protocols = list(SqliteProtocolRepository(conn).get_all())
 
-    with ui.column().classes("w-fit max-w-6xl mt-8 px-4"):
+    with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         title = "New Experiment" if is_new else f"{experiment['title']}"
         ui.label(title).classes("text-2xl font-semibold")
 
