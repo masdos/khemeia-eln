@@ -13,7 +13,7 @@ def build_profile_page(base_dir: Path) -> None:
     """
     config = get_current_config()
 
-    with ui.card().classes("w-full max-w-lg mx-auto mt-8 p-6"):
+    with ui.card().classes("w-fit max-w-6xl mt-8 p-6"):
         ui.label("Profile Settings").classes("text-2xl font-semibold mb-4")
         ui.label("Edit your profile information.").classes("text-slate-600 mb-4")
 

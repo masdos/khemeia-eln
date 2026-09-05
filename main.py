@@ -68,7 +68,7 @@ def build_app_ui(base_dir: Path) -> None:
     def _build_sidebar() -> ui.column:
         sidebar = (
             ui.column()
-            .classes("w-60 min-h-screen p-4 gap-1")
+            .classes("w-60 h-full p-4 gap-1")
             .style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
@@ -92,7 +92,7 @@ def build_app_ui(base_dir: Path) -> None:
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
             with ui.column().classes(
-                "flex-1 p-6 rounded-xl"
+                "w-fit p-6 rounded-xl"
             ).style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
@@ -106,7 +106,7 @@ def build_app_ui(base_dir: Path) -> None:
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
             with ui.column().classes(
-                "flex-1 p-6 rounded-xl"
+                "w-fit p-6 rounded-xl"
             ).style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
@@ -120,7 +120,7 @@ def build_app_ui(base_dir: Path) -> None:
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
             with ui.column().classes(
-                "flex-1 p-6 rounded-xl"
+                "w-fit p-6 rounded-xl"
             ).style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
@@ -134,7 +134,7 @@ def build_app_ui(base_dir: Path) -> None:
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
             with ui.column().classes(
-                "flex-1 p-6 rounded-xl overflow-auto"
+                "w-fit p-6 rounded-xl overflow-auto"
             ).style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
@@ -142,27 +142,13 @@ def build_app_ui(base_dir: Path) -> None:
             ):
                 build_protocols_page()
 
-    @ui.page("/experiments/new")
-    def experiment_new_page() -> None:
-        ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
-            _build_sidebar()
-            with ui.column().classes(
-                "flex-1 p-6 rounded-xl"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_experiment_detail_page(experiment_id=None, base_dir=base_dir)
-
     @ui.page("/experiments/{experiment_id}")
     def experiment_detail_page(experiment_id: int) -> None:
         ui.query("body").classes("bg-slate-100")
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
             with ui.column().classes(
-                "flex-1 p-6 rounded-xl"
+                "w-fit p-6 rounded-xl"
             ).style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
@@ -178,7 +164,7 @@ def build_app_ui(base_dir: Path) -> None:
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
             with ui.column().classes(
-                "flex-1 p-6 rounded-xl"
+                "w-fit p-6 rounded-xl"
             ).style(
                 "background-color: #FFFFFF; border-radius: 12px;"
                 " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"

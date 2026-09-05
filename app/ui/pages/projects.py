@@ -21,7 +21,7 @@ def build_projects_page() -> None:
     """Build the Projects CRUD page."""
     service = _get_service()
 
-    with ui.column().classes("w-full max-w-5xl mx-auto mt-8 px-4"):
+    with ui.column().classes("w-fit max-w-6xl mt-8 px-4"):
         ui.label("Projects").classes("text-2xl font-semibold")
 
         # --- Toolbar: search + new ---
