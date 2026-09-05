@@ -75,7 +75,7 @@ def build_app_ui(base_dir: Path) -> None:
             )
         )
         with sidebar:
-            ui.image("app/ui/assets/logo.png").classes("w-36 mb-4")
+            ui.image("app/ui/assets/logo.png").classes("w-36 mx-auto")
             for label, view, icon in NAV_ITEMS:
                 ui.button(
                     icon=icon,
@@ -148,9 +148,11 @@ def main() -> None:
         bootstrap_result = _initialize_app()
         build_ui(bootstrap_result.base_dir)
         app.on_connect(lambda: app.native.main_window.maximize())
+        favicon_path = Path(__file__).parent / "app" / "ui" / "assets" / "favicon.ico"
         ui.run(
             native=True,
             title="Khemeia ELN",
+            favicon=favicon_path,
             reload=False,
             fullscreen=False,
             window_size=(1600, 900),
