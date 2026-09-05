@@ -138,7 +138,9 @@ def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
             except ProjectNameError as error:
                 message.text = str(error)
 
-        ui.button("Create", on_click=save).classes("w-full mt-2")
+        with ui.row().classes("w-full justify-end gap-2 mt-4"):
+            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Create", on_click=save).props("color=primary")
 
     dialog.open()
 
@@ -181,7 +183,9 @@ def _open_edit_dialog(
             except (ProjectNameError, ProjectNotFoundError) as error:
                 message.text = str(error)
 
-        ui.button("Save", on_click=save).classes("w-full mt-2")
+        with ui.row().classes("w-full justify-end gap-2 mt-4"):
+            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Save", on_click=save).props("color=primary")
 
     dialog.open()
 
