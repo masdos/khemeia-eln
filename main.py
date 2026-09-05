@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from nicegui import app, ui
+from nicegui import ui
 
 from app.bootstrap import run_bootstrap
 from app.config import load_config, write_config
@@ -147,11 +147,11 @@ def main() -> None:
     try:
         bootstrap_result = _initialize_app()
         build_ui(bootstrap_result.base_dir)
-        app.on_connect(lambda: app.native.main_window.maximize())
         ui.run(
             title="Khemeia ELN",
             reload=False,
             native=True,
+            window_size=(1600, 900),
         )
     except Exception as e:
         logger.critical("Application startup failed error=%s", str(e), exc_info=True)
