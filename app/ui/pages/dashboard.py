@@ -4,7 +4,9 @@ from nicegui import ui
 
 from app.database.connection import get_connection
 from app.services.experiment_service import (
+    ExperimentReferenceError,
     ExperimentService,
+    ExperimentStateError,
     SqliteExperimentRepository,
 )
 from app.services.project_service import (
@@ -35,7 +37,7 @@ def build_dashboard_page() -> None:
     """Build the Dashboard page listing experiments."""
     service = _get_experiment_service()
 
-    with ui.column().classes("w-full max-w-5xl mx-auto mt-8 px-4"):
+    with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label("Experiments").classes("text-2xl font-semibold")
 
         with ui.row().classes("w-full items-center gap-4 mt-4"):
@@ -55,7 +57,7 @@ def build_dashboard_page() -> None:
             )
             ui.button(
                 "New experiment",
-                on_click=lambda: ui.navigate.to("/experiments/new"),
+                on_click=lambda: _open_create_dialog(service, refresh),
             ).props("color=primary")
 
         table_container = ui.column().classes("w-full")
@@ -199,8 +201,93 @@ def _do_delete(
     refresh()
 
 
+def _open_create_dialog(service: ExperimentService, refresh) -> None:
+    conn = get_connection()
+    projects = list(SqliteProjectRepository(conn).get_all())
+    protocols = list(SqliteProtocolRepository(conn).get_all())
+
+    project_options = {p["id"]: p["name"] for p in projects}
+    protocol_options = {p["id"]: p["name"] for p in protocols}
+
+    dialog = ui.dialog()
+
+    with dialog, ui.card().classes("w-[40rem] max-w-full"):
+        ui.label("New Experiment").classes("text-xl font-semibold")
+
+        project_select = (
+            ui.select(
+                options=project_options,
+                label="Project *",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
+
+        protocol_select = (
+            ui.select(
+                options=protocol_options,
+                label="Protocol *",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
+
+        title_input = (
+            ui.input("Title *").props("outlined").classes("w-full")
+        )
+
+        state_select = (
+            ui.select(
+                options=["Running", "Success", "Fail"],
+                value="Running",
+                label="State *",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
+
+        ui.label("Reaction Onset").classes("font-semibold mt-4")
+        reaction_input = ui.textarea().props("outlined").classes("w-full")
+
+        ui.label("Workup").classes("font-semibold mt-2")
+        workup_input = ui.textarea().props("outlined").classes("w-full")
+
+        ui.label("Purification").classes("font-semibold mt-2")
+        purification_input = ui.textarea().props("outlined").classes("w-full")
+
+        ui.label("Notes").classes("font-semibold mt-2")
+        notes_input = ui.textarea().props("outlined").classes("w-full")
+
+        message = ui.label().classes("text-negative mt-2")
+
+        def save() -> None:
+            try:
+                service.create_experiment(
+                    project_id=project_select.value,
+                    protocol_id=protocol_select.value,
+                    title=title_input.value,
+                    state=state_select.value,
+                    reaction_onset=reaction_input.value,
+                    workup=workup_input.value,
+                    purification=purification_input.value,
+                    notes=notes_input.value,
+                )
+                dialog.close()
+                ui.notify("Experiment created", type="positive")
+                refresh()
+            except (
+                ExperimentReferenceError,
+                ExperimentStateError,
+            ) as error:
+                message.text = str(error)
+
+        ui.button("Create", on_click=save).classes("w-full mt-2")
+
+    dialog.open()
+
+
 def build_experiment_detail_page(experiment_id: int) -> None:
     """Placeholder for experiment detail page (feature #22)."""
-    with ui.column().classes("w-full max-w-5xl mx-auto mt-8 px-4"):
+    with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label(f"Experiment #{experiment_id}").classes("text-2xl font-semibold")
         ui.label("Detail page coming soon.").classes("text-slate-500 mt-4")
