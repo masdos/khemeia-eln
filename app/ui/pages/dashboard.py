@@ -15,6 +15,7 @@ from app.services.project_service import (
 from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
+from app.ui import router
 
 
 def _get_experiment_service() -> ExperimentService:
@@ -166,7 +167,7 @@ def _render_table(
         )
 
         def on_view(e) -> None:
-            ui.navigate.to(f"/experiments/{e.args['id']}")
+            router.navigate("experiment_detail", experiment_id=e.args["id"])
 
         def on_request_delete(e) -> None:
             _confirm_delete(service, e.args["id"], refresh)
@@ -232,9 +233,7 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
             .classes("w-full")
         )
 
-        title_input = (
-            ui.input("Title *").props("outlined").classes("w-full")
-        )
+        title_input = ui.input("Title *").props("outlined").classes("w-full")
 
         state_select = (
             ui.select(

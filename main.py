@@ -6,12 +6,7 @@ from nicegui import app, ui
 from app.bootstrap import run_bootstrap
 from app.config import load_config, write_config
 from app.database.connection import close_connection, get_connection
-from app.ui.pages.dashboard import build_dashboard_page
-from app.ui.pages.experiment_detail import build_experiment_detail_page
-from app.ui.pages.inventory import build_inventory_page
-from app.ui.pages.profile import build_profile_page
-from app.ui.pages.projects import build_projects_page
-from app.ui.pages.protocols import build_protocols_page
+from app.ui import router
 
 logger = logging.getLogger(__name__)
 
@@ -51,18 +46,22 @@ def build_ui(base_dir: Path) -> None:
 
 
 def build_app_ui(base_dir: Path) -> None:
-    """Build the main application UI with sidebar navigation and page routes.
+    """Build the main application UI with sidebar navigation and SPA shell.
+
+    A single ``@ui.page("/")`` handler renders the persistent sidebar and a
+    content column.  Navigation clears only the content column and redraws
+    the requested view — no full-page rebuild.
 
     Args:
         base_dir: Application data directory (from BootstrapResult.base_dir)
     """
 
     NAV_ITEMS = [
-        ("Experiments", "/", "science"),
-        ("Projects", "/projects", "folder"),
-        ("Protocols", "/protocols", "article"),
-        ("Inventory", "/inventory", "shelves"),
-        ("Profile", "/profile", "contact_page"),
+        ("Experiments", "dashboard", "science"),
+        ("Projects", "projects", "folder"),
+        ("Protocols", "protocols", "article"),
+        ("Inventory", "inventory", "shelves"),
+        ("Profile", "profile", "contact_page"),
     ]
 
     def _build_sidebar() -> ui.column:
@@ -77,100 +76,33 @@ def build_app_ui(base_dir: Path) -> None:
         )
         with sidebar:
             ui.image("app/ui/assets/logo.png").classes("w-36 mb-4")
-            for label, href, icon in NAV_ITEMS:
-                with ui.link("", href).classes(
+            for label, view, icon in NAV_ITEMS:
+                ui.button(
+                    icon=icon,
+                    text=label,
+                    on_click=lambda v=view: router.navigate(v),
+                ).classes(
                     "flex items-center gap-3 py-2 px-3 rounded-lg no-underline"
-                    " hover:bg-slate-100"
-                ):
-                    ui.icon(icon, size="24px")
-                    ui.label(label).classes("text-base")
+                    " hover:bg-slate-100 justify-start"
+                ).props("flat color=black")
         return sidebar
 
     @ui.page("/")
-    def index_page() -> None:
+    def main_page() -> None:
         ui.query("body").classes("bg-slate-100")
         with ui.row().classes("w-full min-h-screen gap-4 p-4"):
             _build_sidebar()
-            with ui.column().classes(
-                "w-fit p-6 rounded-xl"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_dashboard_page()
-
-    @ui.page("/projects")
-    def projects_page() -> None:
-        ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
-            _build_sidebar()
-            with ui.column().classes(
-                "w-fit p-6 rounded-xl"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_projects_page()
-
-    @ui.page("/inventory")
-    def inventory_page() -> None:
-        ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
-            _build_sidebar()
-            with ui.column().classes(
-                "w-fit p-6 rounded-xl"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_inventory_page()
-
-    @ui.page("/protocols")
-    def protocols_page() -> None:
-        ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
-            _build_sidebar()
-            with ui.column().classes(
-                "w-fit p-6 rounded-xl overflow-auto"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_protocols_page()
-
-    @ui.page("/experiments/{experiment_id}")
-    def experiment_detail_page(experiment_id: int) -> None:
-        ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
-            _build_sidebar()
-            with ui.column().classes(
-                "w-fit p-6 rounded-xl"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_experiment_detail_page(
-                    experiment_id=experiment_id, base_dir=base_dir
+            content = (
+                ui.column()
+                .classes("w-fit p-6 rounded-xl")
+                .style(
+                    "background-color: #FFFFFF; border-radius: 12px;"
+                    " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
+                    " border: 1px solid #E5E7EB"
                 )
-
-    @ui.page("/profile")
-    def profile_page() -> None:
-        ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
-            _build_sidebar()
-            with ui.column().classes(
-                "w-fit p-6 rounded-xl"
-            ).style(
-                "background-color: #FFFFFF; border-radius: 12px;"
-                " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-                " border: 1px solid #E5E7EB"
-            ):
-                build_profile_page(base_dir)
+            )
+        router.setup(content, base_dir)
+        router.navigate("dashboard")
 
 
 def build_welcome_form(base_dir: Path) -> None:

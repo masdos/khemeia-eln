@@ -50,6 +50,7 @@ from app.services.project_service import (
 from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
+from app.ui import router
 
 
 def _strip_svg_rect(svg: str) -> str:
@@ -221,7 +222,7 @@ def build_experiment_detail_page(
                         notes=notes_input.value,
                     )
                     ui.notify("Experiment created", type="positive")
-                    ui.navigate.to(f"/experiments/{result['id']}")
+                    router.navigate("experiment_detail", experiment_id=result["id"])
                 else:
                     exp_svc.update_experiment(
                         experiment_id,
@@ -258,7 +259,7 @@ def build_experiment_detail_page(
 
         ui.button(
             icon="arrow_back",
-            on_click=lambda: ui.navigate.to("/"),
+            on_click=lambda: router.navigate("dashboard"),
         ).props("flat round").classes("mt-4")
 
 
@@ -317,7 +318,7 @@ def _build_resources_section(
                 ) -> None:
                     inv_svc.unlink_reagent_from_experiment(_exp_id, _reagent_id)
                     ui.notify("Reagent unlinked", type="positive")
-                    ui.navigate.reload()
+                    router.refresh()
 
                 ui.button(
                     icon="delete",
@@ -372,13 +373,16 @@ def _build_resources_section(
                     _unit.value or "",
                 )
                 ui.notify("Reagent linked", type="positive")
-                ui.navigate.reload()
+                router.refresh()
 
             ui.button("Link", on_click=link_reagent).props("color=primary dense")
     else:
         with ui.row().classes("items-center gap-1 mt-1"):
             ui.label("No reagents in inventory.").classes("text-slate-500 text-sm")
-            ui.link("Create some", "/inventory").classes("text-sm text-primary")
+            ui.button(
+                "Create some",
+                on_click=lambda: router.navigate("inventory"),
+            ).props("flat dense").classes("text-sm text-primary p-0")
 
     # --- Equipment ---
     ui.label("Equipment").classes("font-semibold mt-2")
@@ -394,7 +398,7 @@ def _build_resources_section(
                 ) -> None:
                     inv_svc.unlink_equipment_from_experiment(_exp_id, _equip_id)
                     ui.notify("Equipment unlinked", type="positive")
-                    ui.navigate.reload()
+                    router.refresh()
 
                 ui.button(
                     icon="delete",
@@ -425,13 +429,16 @@ def _build_resources_section(
                     _equip_id.value,
                 )
                 ui.notify("Equipment linked", type="positive")
-                ui.navigate.reload()
+                router.refresh()
 
             ui.button("Link", on_click=link_equipment).props("color=primary dense")
     else:
         with ui.row().classes("items-center gap-1 mt-1"):
             ui.label("No equipment in inventory.").classes("text-slate-500 text-sm")
-            ui.link("Create some", "/inventory").classes("text-sm text-primary")
+            ui.button(
+                "Create some",
+                on_click=lambda: router.navigate("inventory"),
+            ).props("flat dense").classes("text-sm text-primary p-0")
 
 
 def _build_attachments_section(
@@ -458,7 +465,7 @@ def _build_attachments_section(
                     file_svc.delete_attachment(exp_id, stored_name)
                     attachment_repository.delete(conn, att_id)
                     ui.notify("Attachment deleted", type="positive")
-                    ui.navigate.reload()
+                    router.refresh()
 
                 ui.button(
                     icon="delete",
@@ -479,7 +486,7 @@ def _build_attachments_section(
             Path(uploaded.name).suffix,
         )
         ui.notify("File uploaded", type="positive")
-        ui.navigate.reload()
+        router.refresh()
 
     ui.upload(
         label="Upload file",
