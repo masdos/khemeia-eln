@@ -245,17 +245,8 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
             .classes("w-full")
         )
 
-        ui.label("Reaction Onset").classes("font-semibold mt-4")
-        reaction_input = ui.textarea().props("outlined").classes("w-full")
-
-        ui.label("Workup").classes("font-semibold mt-2")
-        workup_input = ui.textarea().props("outlined").classes("w-full")
-
-        ui.label("Purification").classes("font-semibold mt-2")
-        purification_input = ui.textarea().props("outlined").classes("w-full")
-
-        ui.label("Notes").classes("font-semibold mt-2")
-        notes_input = ui.textarea().props("outlined").classes("w-full")
+        ui.label("Question").classes("font-semibold mt-4")
+        question_input = ui.textarea().props("outlined").classes("w-full")
 
         message = ui.label().classes("text-negative mt-2")
 
@@ -266,10 +257,7 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
                     protocol_id=protocol_select.value,
                     title=title_input.value,
                     state=state_select.value,
-                    reaction_onset=reaction_input.value,
-                    workup=workup_input.value,
-                    purification=purification_input.value,
-                    notes=notes_input.value,
+                    question=question_input.value,
                 )
                 dialog.close()
                 ui.notify("Experiment created", type="positive")
