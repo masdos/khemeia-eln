@@ -134,7 +134,7 @@ def service_fixture(
             "id": 1,
             "title": "Synthesis of Aspirin",
             "state": "Success",
-            "notes": "Acetylated salicylic acid at 90 C.",
+            "conclusions": "Acetylated salicylic acid at 90 C.",
             "created_at": "2026-01-01 00:00:00",
             "project_id": 1,
             "protocol_id": 1,
@@ -306,12 +306,12 @@ class TestExportsDirectory:
 
         # then
         content = file_path.read_text(encoding="utf-8")
-        assert "_No notes recorded._" in content
+        assert "_No conclusions recorded._" in content
         assert "_No reagents recorded._" in content
         assert "_No equipment recorded._" in content
-        assert "_No reaction onset recorded._" in content
-        assert "_No workup recorded._" in content
-        assert "_No purification recorded._" in content
+        assert "_No question recorded._" in content
+        assert "_No experimental procedure recorded._" in content
+        assert "_No result recorded._" in content
 
 
 class TestConvertInlineMarkdown:

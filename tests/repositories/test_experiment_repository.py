@@ -77,10 +77,10 @@ class TestCreate:
             protocol_id=protocol_id,
             title="Full Experiment",
             state="Success",
-            reaction_onset="Mild exotherm at 60 C",
-            workup="Extracted with DCM",
-            purification="Column chromatography",
-            notes="Yield 85%",
+            question="Mild exotherm at 60 C",
+            experimental_procedure_markdown="Extracted with DCM",
+            result_markdown="Column chromatography",
+            conclusions="Yield 85%",
         )
 
         # then
@@ -88,10 +88,10 @@ class TestCreate:
         assert row is not None
         assert row["title"] == "Full Experiment"
         assert row["state"] == "Success"
-        assert row["reaction_onset"] == "Mild exotherm at 60 C"
-        assert row["workup"] == "Extracted with DCM"
-        assert row["purification"] == "Column chromatography"
-        assert row["notes"] == "Yield 85%"
+        assert row["question"] == "Mild exotherm at 60 C"
+        assert row["experimental_procedure_markdown"] == "Extracted with DCM"
+        assert row["result_markdown"] == "Column chromatography"
+        assert row["conclusions"] == "Yield 85%"
 
     def test_rejects_creation_when_project_does_not_exist(
         self, connection: sqlite3.Connection
@@ -268,14 +268,14 @@ class TestGetAll:
             project_id=project_id,
             protocol_id=protocol_id,
             title="Reaction",
-            notes="Obtained a white crystalline solid",
+            conclusions="Obtained a white crystalline solid",
         )
         create(
             connection,
             project_id=project_id,
             protocol_id=protocol_id,
             title="Other",
-            notes="Nothing special",
+            conclusions="Nothing special",
         )
 
         # when
@@ -436,14 +436,14 @@ class TestUpdate:
             experiment_id,
             title="Updated",
             state="Fail",
-            notes="Yield 60%",
+            conclusions="Yield 60%",
         )
 
         # then
         assert row is not None
         assert row["title"] == "Updated"
         assert row["state"] == "Fail"
-        assert row["notes"] == "Yield 60%"
+        assert row["conclusions"] == "Yield 60%"
 
     def test_ignores_unknown_fields(self, connection: sqlite3.Connection) -> None:
         # given
@@ -476,7 +476,7 @@ class TestUpdate:
             project_id=project_id,
             protocol_id=protocol_id,
             title="Original",
-            notes="Keep me",
+            conclusions="Keep me",
         )
 
         # when
@@ -485,7 +485,7 @@ class TestUpdate:
         # then
         assert row is not None
         assert row["title"] == "Updated"
-        assert row["notes"] == "Keep me"
+        assert row["conclusions"] == "Keep me"
 
     def test_noop_when_no_valid_fields(self, connection: sqlite3.Connection) -> None:
         # given

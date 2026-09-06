@@ -24,10 +24,10 @@ class InMemoryExperimentRepository:
         protocol_id: int,
         title: str,
         state: str = "Running",
-        reaction_onset: str | None = None,
-        workup: str | None = None,
-        purification: str | None = None,
-        notes: str | None = None,
+        question: str | None = None,
+        experimental_procedure_markdown: str | None = None,
+        result_markdown: str | None = None,
+        conclusions: str | None = None,
     ) -> int:
         experiment_id = self._next_id
         self._next_id += 1
@@ -37,10 +37,10 @@ class InMemoryExperimentRepository:
             "protocol_id": protocol_id,
             "title": title,
             "state": state,
-            "reaction_onset": reaction_onset,
-            "workup": workup,
-            "purification": purification,
-            "notes": notes,
+            "question": question,
+            "experimental_procedure_markdown": experimental_procedure_markdown,
+            "result_markdown": result_markdown,
+            "conclusions": conclusions,
             "created_at": "2026-01-01 00:00:00",
             "modified_at": "2026-01-01 00:00:00",
         }
@@ -66,7 +66,7 @@ class InMemoryExperimentRepository:
                 e
                 for e in experiments
                 if term in (e["title"] or "").lower()
-                or term in (e["notes"] or "").lower()
+                or term in (e["conclusions"] or "").lower()
             ]
         return sorted(experiments, key=lambda e: e["id"], reverse=True)
 
@@ -78,10 +78,10 @@ class InMemoryExperimentRepository:
         allowed = {
             "title",
             "state",
-            "reaction_onset",
-            "workup",
-            "purification",
-            "notes",
+            "question",
+            "experimental_procedure_markdown",
+            "result_markdown",
+            "conclusions",
         }
         for key, value in fields.items():
             if key in allowed:
@@ -154,13 +154,13 @@ class TestCreateExperiment:
             protocol_id=1,
             title="Crystal Growth",
             state="Running",
-            reaction_onset="Exothermic",
-            notes="Yield 85%",
+            question="Exothermic",
+            conclusions="Yield 85%",
         )
 
         # then
-        assert experiment["reaction_onset"] == "Exothermic"
-        assert experiment["notes"] == "Yield 85%"
+        assert experiment["question"] == "Exothermic"
+        assert experiment["conclusions"] == "Yield 85%"
 
     def test_rejects_creation_when_project_does_not_exist(
         self, service: ExperimentService
@@ -211,17 +211,17 @@ class TestUpdateExperiment:
     def test_updates_title_and_notes(self, service: ExperimentService) -> None:
         # given
         experiment_id = service.create_experiment(
-            project_id=1, protocol_id=1, title="Original", notes="Old notes"
+            project_id=1, protocol_id=1, title="Original", conclusions="Old notes"
         )["id"]
 
         # when
         experiment = service.update_experiment(
-            experiment_id, title="Updated", notes="New notes"
+            experiment_id, title="Updated", conclusions="New notes"
         )
 
         # then
         assert experiment["title"] == "Updated"
-        assert experiment["notes"] == "New notes"
+        assert experiment["conclusions"] == "New notes"
 
     def test_raises_not_found_for_missing_id(self, service: ExperimentService) -> None:
         # when / then

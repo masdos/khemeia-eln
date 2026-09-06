@@ -18,10 +18,10 @@ def create(
     protocol_id: int,
     title: str,
     state: str = "Running",
-    reaction_onset: str | None = None,
-    workup: str | None = None,
-    purification: str | None = None,
-    notes: str | None = None,
+    question: str | None = None,
+    experimental_procedure_markdown: str | None = None,
+    result_markdown: str | None = None,
+    conclusions: str | None = None,
 ) -> int:
     _require_valid_state(state)
     _require_existing_references(connection, project_id, protocol_id)
@@ -29,17 +29,17 @@ def create(
     cursor = connection.execute(
         "INSERT INTO experiments "
         "(project_id, protocol_id, title, state, "
-        "reaction_onset, workup, purification, notes) "
+        "question, experimental_procedure_markdown, result_markdown, conclusions) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (
             project_id,
             protocol_id,
             title,
             state,
-            reaction_onset,
-            workup,
-            purification,
-            notes,
+            question,
+            experimental_procedure_markdown,
+            result_markdown,
+            conclusions,
         ),
     )
     connection.commit()
@@ -77,7 +77,7 @@ def get_all(
 
     if search_text is not None and search_text.strip():
         term = f"%{search_text.strip()}%"
-        query += " AND (e.title LIKE ? OR e.notes LIKE ?)"
+        query += " AND (e.title LIKE ? OR e.conclusions LIKE ?)"
         params.extend([term, term])
 
     query += " ORDER BY e.id DESC"
@@ -96,10 +96,10 @@ def update(
     allowed = {
         "title",
         "state",
-        "reaction_onset",
-        "workup",
-        "purification",
-        "notes",
+        "question",
+        "experimental_procedure_markdown",
+        "result_markdown",
+        "conclusions",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

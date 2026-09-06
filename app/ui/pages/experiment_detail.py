@@ -182,32 +182,36 @@ def build_experiment_detail_page(
         )
 
         # --- Notes fields ---
-        ui.label("Reaction Onset").classes("font-semibold mt-4")
-        reaction_input = (
+        ui.label("Question").classes("font-semibold mt-4")
+        question_input = (
+            ui.textarea(value=experiment.get("question", "") if experiment else "")
+            .props("outlined")
+            .classes("w-full")
+        )
+
+        ui.label("Experimental Procedure").classes("font-semibold mt-2")
+        experimental_procedure_input = (
             ui.textarea(
-                value=experiment.get("reaction_onset", "") if experiment else ""
+                value=experiment.get("experimental_procedure_markdown", "")
+                if experiment
+                else ""
             )
             .props("outlined")
             .classes("w-full")
         )
 
-        ui.label("Workup").classes("font-semibold mt-2")
-        workup_input = (
-            ui.textarea(value=experiment.get("workup", "") if experiment else "")
+        ui.label("Results").classes("font-semibold mt-2")
+        result_input = (
+            ui.textarea(
+                value=experiment.get("result_markdown", "") if experiment else ""
+            )
             .props("outlined")
             .classes("w-full")
         )
 
-        ui.label("Purification").classes("font-semibold mt-2")
-        purification_input = (
-            ui.textarea(value=experiment.get("purification", "") if experiment else "")
-            .props("outlined")
-            .classes("w-full")
-        )
-
-        ui.label("Notes").classes("font-semibold mt-2")
-        notes_input = (
-            ui.textarea(value=experiment.get("notes", "") if experiment else "")
+        ui.label("Conclusions").classes("font-semibold mt-2")
+        conclusions_input = (
+            ui.textarea(value=experiment.get("conclusions", "") if experiment else "")
             .props("outlined")
             .classes("w-full")
         )
@@ -223,10 +227,10 @@ def build_experiment_detail_page(
                         protocol_id=protocol_select.value,
                         title=title_input.value,
                         state=state_select.value,
-                        reaction_onset=reaction_input.value,
-                        workup=workup_input.value,
-                        purification=purification_input.value,
-                        notes=notes_input.value,
+                        question=question_input.value,
+                        experimental_procedure_markdown=experimental_procedure_input.value,
+                        result_markdown=result_input.value,
+                        conclusions=conclusions_input.value,
                     )
                     ui.notify("Experiment created", type="positive")
                     router.navigate("experiment_detail", experiment_id=result["id"])
@@ -237,10 +241,10 @@ def build_experiment_detail_page(
                         protocol_id=protocol_select.value,
                         title=title_input.value,
                         state=state_select.value,
-                        reaction_onset=reaction_input.value,
-                        workup=workup_input.value,
-                        purification=purification_input.value,
-                        notes=notes_input.value,
+                        question=question_input.value,
+                        experimental_procedure_markdown=experimental_procedure_input.value,
+                        result_markdown=result_input.value,
+                        conclusions=conclusions_input.value,
                     )
                     ui.notify("Experiment updated", type="positive")
             except (

@@ -32,10 +32,10 @@ class ExperimentRepository(Protocol):
         protocol_id: int,
         title: str,
         state: str = "Running",
-        reaction_onset: str | None = None,
-        workup: str | None = None,
-        purification: str | None = None,
-        notes: str | None = None,
+        question: str | None = None,
+        experimental_procedure_markdown: str | None = None,
+        result_markdown: str | None = None,
+        conclusions: str | None = None,
     ) -> int: ...
 
     def get_by_id(self, experiment_id: int) -> dict[str, Any] | None: ...
@@ -70,10 +70,10 @@ class SqliteExperimentRepository:
         protocol_id: int,
         title: str,
         state: str = "Running",
-        reaction_onset: str | None = None,
-        workup: str | None = None,
-        purification: str | None = None,
-        notes: str | None = None,
+        question: str | None = None,
+        experimental_procedure_markdown: str | None = None,
+        result_markdown: str | None = None,
+        conclusions: str | None = None,
     ) -> int:
         return experiment_repository.create(
             self._connection,
@@ -81,10 +81,10 @@ class SqliteExperimentRepository:
             protocol_id,
             title,
             state,
-            reaction_onset,
-            workup,
-            purification,
-            notes,
+            question,
+            experimental_procedure_markdown,
+            result_markdown,
+            conclusions,
         )
 
     def get_by_id(self, experiment_id: int) -> dict[str, Any] | None:
@@ -140,10 +140,10 @@ class ExperimentService:
         protocol_id: int,
         title: str,
         state: str = "Running",
-        reaction_onset: str | None = None,
-        workup: str | None = None,
-        purification: str | None = None,
-        notes: str | None = None,
+        question: str | None = None,
+        experimental_procedure_markdown: str | None = None,
+        result_markdown: str | None = None,
+        conclusions: str | None = None,
     ) -> dict[str, Any]:
         _require_valid_state(state)
         _require_existing_reference(self._project_repo, project_id, "Project")
@@ -154,10 +154,10 @@ class ExperimentService:
             protocol_id,
             title,
             state,
-            reaction_onset,
-            workup,
-            purification,
-            notes,
+            question,
+            experimental_procedure_markdown,
+            result_markdown,
+            conclusions,
         )
         experiment = self._experiment_repo.get_by_id(experiment_id)
         if experiment is None:
