@@ -141,18 +141,25 @@ def service_fixture(
         }
     )
     project_repository.add_project({"id": 1, "name": "Aspirin Synthesis"})
-    protocol_repository.add_protocol({"id": 1, "name": "Standard Protocol"})
+    protocol_repository.add_protocol(
+        {
+            "id": 1,
+            "name": "Standard Protocol",
+            "content_markdown": "# Step 1\nMix reagents.\n# Step 2\nHeat to 90 C.",
+        }
+    )
     reagent_repository.add_to_experiment(
         1,
         {
             "name": "Acetic anhydride",
             "amount_used": 5.0,
             "unit": "mL",
+            "lot_number": "AA-2026-001",
         },
     )
     reagent_repository.add_to_experiment(
         1,
-        {"name": "Salicylic acid", "amount_used": 2.0, "unit": "g"},
+        {"name": "Salicylic acid", "amount_used": 2.0, "unit": "g", "lot_number": None},
     )
     equipment_repository.add_to_experiment(
         1, {"name": "Hotplate stirrer", "description": ""}
@@ -195,7 +202,7 @@ class TestExportExperimentMarkdown:
         assert "**Project:** Aspirin Synthesis" in content
         assert "**Protocol:** Standard Protocol" in content
         assert "Acetylated salicylic acid" in content
-        assert "Acetic anhydride (5.0 mL)" in content
+        assert "Acetic anhydride (5.0 mL, Lot: AA-2026-001)" in content
         assert "Salicylic acid (2.0 g)" in content
         assert "Hotplate stirrer" in content
         assert "Test User" in content

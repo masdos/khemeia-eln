@@ -262,15 +262,7 @@ class ExportService:
             "",
         ]
         if reagents:
-            lines.extend(
-                f"- {row['name']}"
-                + (
-                    f" ({row['amount_used']} {row['unit']})"
-                    if row.get("amount_used") is not None
-                    else ""
-                )
-                for row in reagents
-            )
+            lines.extend(self._format_reagent_line(row) for row in reagents)
         else:
             lines.append("_No reagents recorded._")
 
@@ -287,6 +279,17 @@ class ExportService:
             lines.append("_No attachments._")
 
         return "\n".join(lines) + "\n"
+
+    def _format_reagent_line(self, row: dict[str, Any]) -> str:
+        parts = [f"- {row['name']}"]
+        details: list[str] = []
+        if row.get("amount_used") is not None:
+            details.append(f"{row['amount_used']} {row['unit']}")
+        if row.get("lot_number"):
+            details.append(f"Lot: {row['lot_number']}")
+        if details:
+            parts.append(f" ({', '.join(details)})")
+        return "".join(parts)
 
     def _exports_dir(self) -> Path:
         exports_dir = self._base_dir / "exports"
