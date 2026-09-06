@@ -50,10 +50,10 @@ erDiagram
 | protocol_id    | INTEGER  | No       | Foreign key to protocols                         |
 | title          | TEXT     | No       | Experiment title                                 |
 | state          | TEXT     | No       | Status: Running, Success, Fail                   |
-| reaction_onset | TEXT     | Yes      | Description of the reaction onset                |
-| workup         | TEXT     | Yes      | Description of the workup process                |
-| purification   | TEXT     | Yes      | Description of the purification process          |
-| notes          | TEXT     | Yes      | Additional notes                                 |
+| question       | TEXT     | Yes      | Research question                                |
+| experimental_procedure_markdown         | TEXT     | Yes      | Description of the experimental procedure                |
+| result_markdown   | TEXT     | Yes      | Description of the results                          |
+| conclusions    | TEXT     | Yes      | Conclusions                                      |
 | created_at     | DATETIME | No       | Creation date                                    |
 | modified_at    | DATETIME | No       | Last modification date                           |
 
