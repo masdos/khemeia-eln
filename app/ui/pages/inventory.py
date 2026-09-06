@@ -85,6 +85,12 @@ def _render_reagent_list(service: InventoryService, refresh: callable) -> None:
             "align": "left",
         },
         {
+            "name": "lot",
+            "label": "Lot",
+            "field": "lot_number",
+            "align": "left",
+        },
+        {
             "name": "stock",
             "label": "In Stock",
             "field": "in_stock",
@@ -112,6 +118,7 @@ def _render_reagent_list(service: InventoryService, refresh: callable) -> None:
                 "id": r["id"],
                 "name": r["name"],
                 "cas_number": r.get("cas_number", ""),
+                "lot_number": r.get("lot_number", ""),
                 "in_stock": "Yes" if r.get("in_stock") else "No",
                 "ghs": ", ".join(ghs_flags) if ghs_flags else "-",
             }
