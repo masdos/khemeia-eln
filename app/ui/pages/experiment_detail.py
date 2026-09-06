@@ -189,29 +189,73 @@ def build_experiment_detail_page(
             .classes("w-full")
         )
 
-        ui.label("Experimental Procedure").classes("font-semibold mt-2")
-        experimental_procedure_input = (
-            ui.textarea(
-                value=experiment.get("experimental_procedure_markdown", "")
-                if experiment
-                else ""
-            )
-            .props("outlined")
-            .classes("w-full")
+        def _make_markdown_editor(label: str, value: str):
+            ui.label(label).classes("font-semibold mt-2")
+
+            state = {"textarea": None}
+
+            def _insert(text):
+                if state["textarea"]:
+                    t = state["textarea"]
+                    t.set_value(t.value + text)
+
+            with ui.row().classes("w-full gap-1 mt-1"):
+                ui.button(
+                    "H3", on_click=lambda: _insert("\n### Subsubtitle\n")
+                ).props("flat dense")
+                ui.button(
+                    "Bold", on_click=lambda: _insert(" **text** ")
+                ).props("flat dense")
+                ui.button(
+                    "Italic", on_click=lambda: _insert(" _text_ ")
+                ).props("flat dense")
+                ui.button(
+                    "Table",
+                    on_click=lambda: _insert(
+                        "\n| Column 1 | Column 2 |\n| --- | --- |\n| Data | Data |\n"
+                    ),
+                ).props("flat dense")
+                ui.button(
+                    "List", on_click=lambda: _insert("\n- Item 1\n- Item 2\n")
+                ).props("flat dense")
+
+            with ui.row().classes("w-full gap-4 items-start no-wrap"):
+                textarea = (
+                    ui.textarea(value=value, placeholder="Markdown content...")
+                    .props("outlined")
+                    .style("width: 50%")
+                )
+                state["textarea"] = textarea
+
+                preview = (
+                    ui.markdown(value or "")
+                    .style("width: 50%")
+                    .classes("border rounded p-2 overflow-auto min-h-[8rem]")
+                )
+
+            def _update(e):
+                preview.content = textarea.value or ""
+
+            textarea.on_value_change(_update)
+            return textarea
+
+        experimental_procedure_input = _make_markdown_editor(
+            "Experimental Procedure",
+            experiment.get("experimental_procedure_markdown", "")
+            if experiment
+            else "",
         )
 
-        ui.label("Results").classes("font-semibold mt-2")
-        result_input = (
-            ui.textarea(
-                value=experiment.get("result_markdown", "") if experiment else ""
-            )
-            .props("outlined")
-            .classes("w-full")
+        result_input = _make_markdown_editor(
+            "Result",
+            experiment.get("result_markdown", "") if experiment else "",
         )
 
         ui.label("Conclusions").classes("font-semibold mt-2")
         conclusions_input = (
-            ui.textarea(value=experiment.get("conclusions", "") if experiment else "")
+            ui.textarea(
+                value=experiment.get("conclusions", "") if experiment else ""
+            )
             .props("outlined")
             .classes("w-full")
         )

@@ -121,17 +121,60 @@ def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
     with dialog, ui.card().classes("w-[40rem] max-w-full"):
         ui.label("New Protocol").classes("text-xl font-semibold")
         name_input = ui.input("Name *").props("outlined").classes("w-full")
-        content_input = (
-            ui.textarea("Content (Markdown) *").props("outlined").classes("w-full")
-        )
-        preview = ui.markdown("").classes("w-full mt-2 border rounded p-2")
-        message = ui.label().classes("text-negative mt-2")
+
+        state = {"textarea": None}
+
+        def _insert(text):
+            if state["textarea"]:
+                t = state["textarea"]
+                t.set_value(t.value + text)
+
+        with ui.row().classes("w-full gap-1 mt-1"):
+            ui.button(
+                "H1", on_click=lambda: _insert("\n# Title\n")
+            ).props("flat dense")
+            ui.button(
+                "H2", on_click=lambda: _insert("\n## Subtitle\n")
+            ).props("flat dense")
+            ui.button(
+                "H3", on_click=lambda: _insert("\n### Subsubtitle\n")
+            ).props("flat dense")
+            ui.button(
+                "Bold", on_click=lambda: _insert(" **text** ")
+            ).props("flat dense")
+            ui.button(
+                "Italic", on_click=lambda: _insert(" _text_ ")
+            ).props("flat dense")
+            ui.button(
+                "Table",
+                on_click=lambda: _insert(
+                    "\n| Column 1 | Column 2 |\n| --- | --- |\n| Data | Data |\n"
+                ),
+            ).props("flat dense")
+            ui.button(
+                "List", on_click=lambda: _insert("\n- Item 1\n- Item 2\n")
+            ).props("flat dense")
+
+        with ui.row().classes("w-full gap-4 items-start no-wrap"):
+            content_input = (
+                ui.textarea("Content (Markdown) *")
+                .props("outlined")
+                .style("width: 50%")
+            )
+            state["textarea"] = content_input
+
+            preview = (
+                ui.markdown("")
+                .style("width: 50%")
+                .classes("border rounded p-2 overflow-auto min-h-[8rem]")
+            )
 
         def update_preview() -> None:
             content = content_input.value or ""
             preview.content = content
 
         content_input.on_value_change(update_preview)
+        message = ui.label().classes("text-negative mt-2")
 
         def save() -> None:
             try:
@@ -170,16 +213,56 @@ def _open_edit_dialog(
             .props("outlined")
             .classes("w-full")
         )
-        content_input = (
-            ui.textarea(
-                "Content (Markdown) *",
-                value=protocol.get("content_markdown", ""),
+
+        state = {"textarea": None}
+
+        def _insert(text):
+            if state["textarea"]:
+                t = state["textarea"]
+                t.set_value(t.value + text)
+
+        with ui.row().classes("w-full gap-1 mt-1"):
+            ui.button(
+                "H1", on_click=lambda: _insert("\n# Title\n")
+            ).props("flat dense")
+            ui.button(
+                "H2", on_click=lambda: _insert("\n## Subtitle\n")
+            ).props("flat dense")
+            ui.button(
+                "H3", on_click=lambda: _insert("\n### Subsubtitle\n")
+            ).props("flat dense")
+            ui.button(
+                "Bold", on_click=lambda: _insert(" **text** ")
+            ).props("flat dense")
+            ui.button(
+                "Italic", on_click=lambda: _insert(" _text_ ")
+            ).props("flat dense")
+            ui.button(
+                "Table",
+                on_click=lambda: _insert(
+                    "\n| Column 1 | Column 2 |\n| --- | --- |\n| Data | Data |\n"
+                ),
+            ).props("flat dense")
+            ui.button(
+                "List", on_click=lambda: _insert("\n- Item 1\n- Item 2\n")
+            ).props("flat dense")
+
+        with ui.row().classes("w-full gap-4 items-start no-wrap"):
+            content_input = (
+                ui.textarea(
+                    "Content (Markdown) *",
+                    value=protocol.get("content_markdown", ""),
+                )
+                .props("outlined")
+                .style("width: 50%")
             )
-            .props("outlined")
-            .classes("w-full")
-        )
-        preview = ui.markdown("").classes("w-full mt-2 border rounded p-2")
-        message = ui.label().classes("text-negative mt-2")
+            state["textarea"] = content_input
+
+            preview = (
+                ui.markdown("")
+                .style("width: 50%")
+                .classes("border rounded p-2 overflow-auto min-h-[8rem]")
+            )
 
         def update_preview() -> None:
             content = content_input.value or ""
@@ -187,6 +270,7 @@ def _open_edit_dialog(
 
         content_input.on_value_change(update_preview)
         update_preview()
+        message = ui.label().classes("text-negative mt-2")
 
         def save() -> None:
             try:
