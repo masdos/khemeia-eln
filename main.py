@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from nicegui import app, ui
+from nicegui import ui
 
 from app.bootstrap import run_bootstrap
 from app.config import load_config, write_config
@@ -111,43 +111,47 @@ def build_welcome_form(base_dir: Path) -> None:
     Args:
         base_dir: Application data directory (from BootstrapResult.base_dir)
     """
-    dialog = ui.dialog().props("persistent")
 
-    with dialog, ui.card().classes("w-[32rem] max-w-full"):
-        ui.label("Welcome to Khemeia ELN").classes("text-2xl font-semibold")
-        ui.label("Create your local profile to continue.").classes("text-slate-600")
+    @ui.page("/")
+    def welcome_page() -> None:
+        dialog = ui.dialog().props("persistent")
 
-        user_name = ui.input("Full name").props("outlined").classes("w-full")
-        user_email = ui.input("Email").props("outlined").classes("w-full")
-        message = ui.label().classes("text-negative")
+        with dialog, ui.card().classes("w-[32rem] max-w-full"):
+            ui.label("Welcome to Khemeia ELN").classes("text-2xl font-semibold")
+            ui.label("Create your local profile to continue.").classes(
+                "text-slate-600"
+            )
 
-        def save_profile() -> None:
-            try:
-                write_config(
-                    {
-                        "user_name": user_name.value,
-                        "user_email": user_email.value,
-                    },
-                    base_dir=base_dir,
-                )
-            except ValueError as error:
-                message.text = str(error)
-                return
+            user_name = ui.input("Full name").props("outlined").classes("w-full")
+            user_email = ui.input("Email").props("outlined").classes("w-full")
+            message = ui.label().classes("text-negative")
 
-            dialog.close()
-            ui.notify("Profile saved", type="positive")
-            ui.navigate.reload()
+            def save_profile() -> None:
+                try:
+                    write_config(
+                        {
+                            "user_name": user_name.value,
+                            "user_email": user_email.value,
+                        },
+                        base_dir=base_dir,
+                    )
+                except ValueError as error:
+                    message.text = str(error)
+                    return
 
-        ui.button("Save profile", on_click=save_profile).classes("w-full")
+                dialog.close()
+                ui.notify("Profile saved", type="positive")
+                ui.navigate.reload()
 
-    dialog.open()
+            ui.button("Save profile", on_click=save_profile).classes("w-full")
+
+        dialog.open()
 
 
 def main() -> None:
     try:
         bootstrap_result = _initialize_app()
         build_ui(bootstrap_result.base_dir)
-        app.on_connect(lambda: app.native.main_window.maximize())
         favicon_path = Path(__file__).parent / "app" / "ui" / "assets" / "favicon.ico"
         ui.run(
             native=True,
