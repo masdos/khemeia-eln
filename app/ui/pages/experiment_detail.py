@@ -131,6 +131,13 @@ def build_experiment_detail_page(
         title = "New Experiment" if is_new else f"{experiment['title']}"
         ui.label(title).classes("text-2xl font-semibold")
 
+        if not is_new and experiment:
+            created = experiment["created_at"][:10]
+            modified = experiment["modified_at"][:10]
+            ui.label(f"Created: {created}  ·  Modified: {modified}").classes(
+                "text-sm text-slate-500"
+            )
+
         # --- Basic fields ---
         project_options = {p["id"]: p["name"] for p in projects}
         protocol_options = {p["id"]: p["name"] for p in protocols}
