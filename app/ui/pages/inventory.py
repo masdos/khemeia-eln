@@ -124,7 +124,9 @@ def _render_reagent_list(service: InventoryService, refresh: callable) -> None:
             }
         )
 
-    table = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
+    table = ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes(
+        "w-full"
+    )
 
     table.add_slot(
         "body-cell-actions",
@@ -268,7 +270,9 @@ def _open_history_dialog(
                 }
                 for h in history
             ]
-            ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
+            ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes(
+                "w-full"
+            )
 
         ui.button("Close", on_click=dialog.close).classes("mt-4")
 
@@ -317,7 +321,9 @@ def _render_equipment_list(service: InventoryService) -> None:
         for e in equipment
     ]
 
-    ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
+    ui.table(
+        columns=columns, rows=rows, row_key="id", pagination=10
+    ).classes("w-full")
 
 
 def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None:
