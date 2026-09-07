@@ -194,7 +194,7 @@ def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Create", on_click=save).props("color=primary")
 
     dialog.open()
@@ -294,7 +294,7 @@ def _open_edit_dialog(
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Save", on_click=save).props("color=primary")
 
     dialog.open()

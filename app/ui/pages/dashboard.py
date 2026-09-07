@@ -274,7 +274,7 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Create", on_click=save).props("color=primary")
 
     dialog.open()

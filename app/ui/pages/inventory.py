@@ -214,7 +214,7 @@ def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Save", on_click=save).props("color=primary")
 
     dialog.open()
@@ -274,7 +274,8 @@ def _open_history_dialog(
                 "w-full"
             )
 
-        ui.button("Close", on_click=dialog.close).classes("mt-4")
+        with ui.row().classes("w-full justify-end mt-4"):
+            ui.button("Close", on_click=dialog.close).props("color=primary")
 
     dialog.open()
 
@@ -349,7 +350,7 @@ def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close)
+            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Save", on_click=save).props("color=primary")
 
     dialog.open()

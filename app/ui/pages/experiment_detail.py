@@ -300,7 +300,7 @@ def build_experiment_detail_page(
         ui.button(
             "Save",
             on_click=save_experiment,
-        ).classes("w-full mt-4")
+        ).props("color=primary").classes("mt-4")
 
         # --- Reagents & Equipment section ---
         if not is_new:
@@ -575,8 +575,8 @@ def _build_export_section(
             ui.notify(str(e), type="negative")
 
     with ui.row().classes("gap-2"):
-        ui.button("Export Markdown", on_click=export_md).props("outline")
-        ui.button("Export PDF", on_click=export_pdf).props("outline")
+        ui.button("Export Markdown", on_click=export_md).props("color=primary")
+        ui.button("Export PDF", on_click=export_pdf).props("color=primary")
     ui.label(f"Exports are stored in ({base_dir / 'exports'})").classes(
         "text-xs text-slate-400"
     )
