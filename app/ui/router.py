@@ -44,6 +44,11 @@ def navigate(view: str, **kwargs: object) -> None:
     logger.info("Navigated to view=%s kwargs=%s", view, kwargs)
 
 
+def get_current_view() -> str:
+    """Return the name of the currently active view."""
+    return _current_view
+
+
 def refresh() -> None:
     """Re-render the current view with the same arguments.
 
