@@ -70,20 +70,30 @@ def test_detail_page_prefills_current_values() -> None:
             return_value=_mock_experiment_service(),
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
-                _mock_page_chrome(mock_ui)
-                mock_ui.input = MagicMock(return_value=_make_chainable("Alpha"))
-                mock_ui.textarea = MagicMock(
-                    return_value=_make_chainable("First project")
-                )
+                with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        _mock_page_chrome(mock_ui)
+                        mock_forms_ui.label.return_value = MagicMock()
+                        mock_meta_ui.label.return_value = MagicMock()
+                        mock_ui.input = MagicMock(
+                            return_value=_make_chainable("Alpha")
+                        )
+                        mock_ui.textarea = MagicMock(
+                            return_value=_make_chainable("First project")
+                        )
 
-                from app.ui.pages.project_detail import build_project_detail_page
+                        from app.ui.pages.project_detail import (
+                            build_project_detail_page,
+                        )
 
-                # when
-                build_project_detail_page(project["id"])
+                        # when
+                        build_project_detail_page(project["id"])
 
-            # then
-            assert mock_ui.input.call_args.kwargs["value"] == "Alpha"
-            assert mock_ui.textarea.call_args.kwargs["value"] == "First project"
+                    # then
+                    assert mock_ui.input.call_args.kwargs["value"] == "Alpha"
+                    assert mock_ui.textarea.call_args.kwargs["value"] == (
+                        "First project"
+                    )
 
 
 def test_saving_from_detail_updates_project() -> None:
@@ -98,32 +108,47 @@ def test_saving_from_detail_updates_project() -> None:
             return_value=_mock_experiment_service(),
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
-                _mock_page_chrome(mock_ui)
-                mock_ui.input = MagicMock(return_value=_make_chainable("Renamed"))
-                mock_ui.textarea = MagicMock(
-                    return_value=_make_chainable("Renamed desc")
-                )
+                with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        _mock_page_chrome(mock_ui)
+                        mock_forms_ui.label.return_value = MagicMock()
+                        mock_forms_ui.row.return_value.__enter__ = MagicMock(
+                            return_value=MagicMock()
+                        )
+                        mock_forms_ui.row.return_value.__exit__ = MagicMock(
+                            return_value=False
+                        )
+                        mock_forms_ui.button.return_value = MagicMock()
+                        mock_meta_ui.label.return_value = MagicMock()
+                        mock_ui.input = MagicMock(
+                            return_value=_make_chainable("Renamed")
+                        )
+                        mock_ui.textarea = MagicMock(
+                            return_value=_make_chainable("Renamed desc")
+                        )
 
-                from app.ui.pages.project_detail import build_project_detail_page
+                        from app.ui.pages.project_detail import (
+                            build_project_detail_page,
+                        )
 
-                build_project_detail_page(project["id"])
+                        build_project_detail_page(project["id"])
 
-                # when - the Save button is clicked
-                save_button = None
-                for call in mock_ui.button.call_args_list:
-                    if call.args and call.args[0] == "Save":
-                        save_button = call
-                        break
+                        # when - the Save button is clicked
+                        save_button = None
+                        for call in mock_forms_ui.button.call_args_list:
+                            if call.args and call.args[0] == "Save":
+                                save_button = call
+                                break
 
-                assert save_button is not None
-                save_button.kwargs["on_click"]()
+                        assert save_button is not None
+                        save_button.kwargs["on_click"]()
 
-                # then
-                updated = service.get_project(project["id"])
-                assert updated["name"] == "Renamed"
-                mock_ui.notify.assert_called_once_with(
-                    "Project updated", type="positive"
-                )
+                        # then
+                        updated = service.get_project(project["id"])
+                        assert updated["name"] == "Renamed"
+                        mock_ui.notify.assert_called_once_with(
+                            "Project updated", type="positive"
+                        )
 
 
 def test_back_button_returns_to_projects_list() -> None:
@@ -138,29 +163,44 @@ def test_back_button_returns_to_projects_list() -> None:
             return_value=_mock_experiment_service(),
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
-                with patch("app.ui.pages.project_detail.router") as mock_router:
-                    _mock_page_chrome(mock_ui)
-                    mock_ui.input = MagicMock(return_value=_make_chainable("Alpha"))
-                    mock_ui.textarea = MagicMock(
-                        return_value=_make_chainable("First project")
-                    )
+                with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                    with patch(
+                        "app.ui.components.forms.router"
+                    ) as mock_router:
+                        with patch(
+                            "app.ui.components.meta.ui"
+                        ) as mock_meta_ui:
+                            _mock_page_chrome(mock_ui)
+                            mock_forms_ui.label.return_value = MagicMock()
+                            mock_forms_ui.button.return_value = MagicMock()
+                            mock_meta_ui.label.return_value = MagicMock()
+                            mock_ui.input = MagicMock(
+                                return_value=_make_chainable("Alpha")
+                            )
+                            mock_ui.textarea = MagicMock(
+                                return_value=_make_chainable("First project")
+                            )
 
-                    from app.ui.pages.project_detail import build_project_detail_page
+                            from app.ui.pages.project_detail import (
+                                build_project_detail_page,
+                            )
 
-                    build_project_detail_page(project["id"])
+                            build_project_detail_page(project["id"])
 
-                    # when - the back button is clicked
-                    back_button = None
-                    for call in mock_ui.button.call_args_list:
-                        if call.kwargs.get("icon") == "arrow_back":
-                            back_button = call
-                            break
+                            # when - the back button is clicked
+                            back_button = None
+                            for call in mock_forms_ui.button.call_args_list:
+                                if call.kwargs.get("icon") == "arrow_back":
+                                    back_button = call
+                                    break
 
-                    assert back_button is not None
-                    back_button.kwargs["on_click"]()
+                            assert back_button is not None
+                            back_button.kwargs["on_click"]()
 
-                    # then
-                    mock_router.navigate.assert_called_once_with("projects")
+                            # then
+                            mock_router.navigate.assert_called_once_with(
+                                "projects"
+                            )
 
 
 class FakeExperimentRepository:
@@ -238,22 +278,38 @@ def test_experiments_table_lists_project_experiments() -> None:
             return_value=exp_service,
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
-                _mock_page_chrome(mock_ui)
-                mock_ui.input = MagicMock(return_value=_make_chainable("Alpha"))
-                mock_ui.textarea = MagicMock(
-                    return_value=_make_chainable("First project")
-                )
+                with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                    with patch(
+                        "app.ui.components.tables.ui"
+                    ) as mock_tables_ui:
+                        with patch(
+                            "app.ui.components.meta.ui"
+                        ) as mock_meta_ui:
+                            _mock_page_chrome(mock_ui)
+                            mock_forms_ui.label.return_value = MagicMock()
+                            mock_forms_ui.button.return_value = MagicMock()
+                            mock_meta_ui.label.return_value = MagicMock()
+                            mock_ui.input = MagicMock(
+                                return_value=_make_chainable("Alpha")
+                            )
+                            mock_ui.textarea = MagicMock(
+                                return_value=_make_chainable("First project")
+                            )
 
-                from app.ui.pages.project_detail import build_project_detail_page
+                            from app.ui.pages.project_detail import (
+                                build_project_detail_page,
+                            )
 
-                project = service.create_project("Alpha", "First project")
+                            project = service.create_project(
+                                "Alpha", "First project"
+                            )
 
-                # when
-                build_project_detail_page(project["id"])
+                            # when
+                            build_project_detail_page(project["id"])
 
-                # then
-                rows = mock_ui.table.call_args.kwargs["rows"]
-                assert [r["title"] for r in rows] == ["Exp A"]
+                            # then
+                            rows = mock_tables_ui.table.call_args.kwargs["rows"]
+                            assert [r["title"] for r in rows] == ["Exp A"]
 
 
 def test_experiment_view_action_navigates_to_detail() -> None:
@@ -275,38 +331,55 @@ def test_experiment_view_action_navigates_to_detail() -> None:
                 with patch(
                     "app.ui.pages.project_detail.router"
                 ) as mock_router:
-                    _mock_page_chrome(mock_ui)
-                    mock_ui.input = MagicMock(
-                        return_value=_make_chainable("Alpha")
-                    )
-                    mock_ui.textarea = MagicMock(
-                        return_value=_make_chainable("First project")
-                    )
+                    with patch(
+                        "app.ui.components.forms.ui"
+                    ) as mock_forms_ui:
+                        with patch(
+                            "app.ui.components.tables.ui"
+                        ) as mock_tables_ui:
+                            with patch(
+                                "app.ui.components.meta.ui"
+                            ) as mock_meta_ui:
+                                _mock_page_chrome(mock_ui)
+                                mock_forms_ui.label.return_value = MagicMock()
+                                mock_forms_ui.button.return_value = MagicMock()
+                                mock_meta_ui.label.return_value = MagicMock()
+                                mock_ui.input = MagicMock(
+                                    return_value=_make_chainable("Alpha")
+                                )
+                                mock_ui.textarea = MagicMock(
+                                    return_value=_make_chainable("First project")
+                                )
 
-                    from app.ui.pages.project_detail import (
-                        build_project_detail_page,
-                    )
+                                from app.ui.pages.project_detail import (
+                                    build_project_detail_page,
+                                )
 
-                    project = service.create_project("Alpha", "First project")
-                    build_project_detail_page(project["id"])
+                                project = service.create_project(
+                                    "Alpha", "First project"
+                                )
+                                build_project_detail_page(project["id"])
 
-                    # when - the view action of the experiment row is triggered
-                    table = mock_ui.table.return_value.classes.return_value
-                    view_handler = None
-                    for call in table.on.call_args_list:
-                        if call.args and call.args[0] == "view":
-                            view_handler = call.args[1]
-                            break
+                                # when - the view action is triggered
+                                table = (
+                                    mock_tables_ui.table.return_value
+                                    .classes.return_value
+                                )
+                                view_handler = None
+                                for call in table.on.call_args_list:
+                                    if call.args and call.args[0] == "view":
+                                        view_handler = call.args[1]
+                                        break
 
-                    assert view_handler is not None
-                    event = MagicMock()
-                    event.args = {"id": 1}
-                    view_handler(event)
+                                assert view_handler is not None
+                                event = MagicMock()
+                                event.args = {"id": 1}
+                                view_handler(event)
 
-                    # then
-                    mock_router.navigate.assert_called_with(
-                        "experiment_detail", experiment_id=1
-                    )
+                                # then
+                                mock_router.navigate.assert_called_with(
+                                    "experiment_detail", experiment_id=1
+                                )
 
 
 def test_detail_notifies_when_project_missing() -> None:

@@ -11,6 +11,10 @@ from app.services.project_service import (
     SqliteProjectRepository,
 )
 from app.ui import router
+from app.ui.components.dialogs import ConfirmBlocked, confirm_delete_dialog
+from app.ui.components.forms import dialog_actions, form_message
+from app.ui.components.lists import search_toolbar
+from app.ui.components.tables import add_view_delete_actions, entity_table
 
 
 def _get_service() -> ProjectService:
@@ -26,16 +30,11 @@ def build_projects_page() -> None:
         ui.label("Projects").classes("text-2xl font-semibold")
 
         # --- Toolbar: search + new ---
-        with ui.row().classes("w-full items-center gap-4 mt-4"):
-            search = (
-                ui.input(placeholder="Search projects...")
-                .props("outlined dense")
-                .classes("flex-1")
-            )
-            ui.button(
-                "New project",
-                on_click=lambda: _open_create_dialog(service, refresh),
-            ).props("color=primary")
+        search = search_toolbar(
+            placeholder="Search projects...",
+            action_label="New project",
+            on_action=lambda: _open_create_dialog(service, refresh),
+        )
 
         # --- Table ---
         table_container = ui.column().classes("w-full")
@@ -94,24 +93,7 @@ def _render_table(
     ]
 
     with container:
-        table = (
-            ui.table(
-                columns=columns, rows=rows, row_key="id", pagination=10
-            )
-            .classes("w-full")
-        )
-
-        table.add_slot(
-            "body-cell-actions",
-            """
-            <q-td :props="props">
-                <q-btn flat dense icon="visibility"
-                        @click="() => $parent.$emit('view', props.row)" />
-                <q-btn flat dense icon="delete" color="negative"
-                        @click="() => $parent.$emit('delete', props.row)" />
-            </q-td>
-            """,
-        )
+        table = entity_table(columns, rows)
 
         def on_view(e) -> None:
             router.navigate("project_detail", project_id=e.args["id"])
@@ -119,8 +101,7 @@ def _render_table(
         def on_delete(e) -> None:
             _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-        table.on("view", on_view)
-        table.on("delete", on_delete)
+        add_view_delete_actions(table, on_view, on_delete)
 
 
 def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
@@ -130,7 +111,7 @@ def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
         ui.label("New Project").classes("text-xl font-semibold")
         name_input = ui.input("Name *").props("outlined").classes("w-full")
         desc_input = ui.textarea("Description").props("outlined").classes("w-full")
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             try:
@@ -144,9 +125,7 @@ def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
             except ProjectNameError as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Create", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
+        dialog_actions("Create", save, dialog.close)
 
     dialog.open()
 
@@ -157,31 +136,21 @@ def _open_delete_dialog(
     project_name: str,
     refresh: callable,
 ) -> None:
-    dialog = ui.dialog()
+    def do_delete() -> None:
+        try:
+            service.delete_project(project_id)
+        except ProjectDeletionError:
+            raise ConfirmBlocked(
+                "Cannot delete this project because it has "
+                "associated experiments. Remove them first."
+            ) from None
+        except ProjectNotFoundError:
+            raise ConfirmBlocked("Project not found.") from None
 
-    with dialog, ui.card().classes("w-[28rem] max-w-full"):
-        ui.label("Delete Project").classes("text-xl font-semibold")
-        ui.label(f'Are you sure you want to delete "{project_name}"?').classes(
-            "text-slate-600 mt-2"
-        )
-        message = ui.label().classes("text-negative mt-2")
-
-        def confirm_delete() -> None:
-            try:
-                service.delete_project(project_id)
-                dialog.close()
-                ui.notify("Project deleted", type="positive")
-                refresh()
-            except ProjectDeletionError:
-                message.text = (
-                    "Cannot delete this project because it has "
-                    "associated experiments. Remove them first."
-                )
-            except ProjectNotFoundError:
-                message.text = "Project not found."
-
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Delete", on_click=confirm_delete).props("color=negative")
-            ui.button("Cancel", on_click=dialog.close).props("flat")
-
-    dialog.open()
+    confirm_delete_dialog(
+        title="Delete Project",
+        question=f'Are you sure you want to delete "{project_name}"?',
+        success_message="Project deleted",
+        on_confirm=do_delete,
+        on_success=refresh,
+    )

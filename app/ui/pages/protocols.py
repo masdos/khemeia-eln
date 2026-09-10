@@ -11,6 +11,11 @@ from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
 from app.ui import router
+from app.ui.components.dialogs import ConfirmBlocked, confirm_delete_dialog
+from app.ui.components.forms import dialog_actions, form_message
+from app.ui.components.lists import search_toolbar
+from app.ui.components.markdown_editor import markdown_editor
+from app.ui.components.tables import add_view_delete_actions, entity_table
 
 
 def _get_service() -> ProtocolService:
@@ -25,16 +30,11 @@ def build_protocols_page() -> None:
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label("Protocols").classes("text-2xl font-semibold")
 
-        with ui.row().classes("w-full items-center gap-4 mt-4"):
-            search = (
-                ui.input(placeholder="Search protocols...")
-                .props("outlined dense")
-                .classes("flex-1")
-            )
-            ui.button(
-                "New protocol",
-                on_click=lambda: _open_create_dialog(service, refresh),
-            ).props("color=primary")
+        search = search_toolbar(
+            placeholder="Search protocols...",
+            action_label="New protocol",
+            on_action=lambda: _open_create_dialog(service, refresh),
+        )
 
         table_container = ui.column().classes("w-full")
 
@@ -92,24 +92,7 @@ def _render_table(
     ]
 
     with container:
-        table = (
-            ui.table(
-                columns=columns, rows=rows, row_key="id", pagination=10
-            )
-            .classes("w-full")
-        )
-
-        table.add_slot(
-            "body-cell-actions",
-            """
-            <q-td :props="props">
-                <q-btn flat dense icon="visibility"
-                        @click="() => $parent.$emit('view', props.row)" />
-                <q-btn flat dense icon="delete" color="negative"
-                        @click="() => $parent.$emit('delete', props.row)" />
-            </q-td>
-            """,
-        )
+        table = entity_table(columns, rows)
 
         def on_view(e) -> None:
             router.navigate("protocol_detail", protocol_id=e.args["id"])
@@ -117,8 +100,7 @@ def _render_table(
         def on_delete(e) -> None:
             _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-        table.on("view", on_view)
-        table.on("delete", on_delete)
+        add_view_delete_actions(table, on_view, on_delete)
 
 
 def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
@@ -128,59 +110,9 @@ def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
         ui.label("New Protocol").classes("text-xl font-semibold")
         name_input = ui.input("Name *").props("outlined").classes("w-full")
 
-        state = {"textarea": None}
+        content_input = markdown_editor("Content (Markdown) *")
 
-        def _insert(text):
-            if state["textarea"]:
-                t = state["textarea"]
-                t.set_value(t.value + text)
-
-        with ui.row().classes("w-full gap-1 mt-1"):
-            ui.button(
-                "H1", on_click=lambda: _insert("\n# Title\n")
-            ).props("flat dense")
-            ui.button(
-                "H2", on_click=lambda: _insert("\n## Subtitle\n")
-            ).props("flat dense")
-            ui.button(
-                "H3", on_click=lambda: _insert("\n### Subsubtitle\n")
-            ).props("flat dense")
-            ui.button(
-                "Bold", on_click=lambda: _insert(" **text** ")
-            ).props("flat dense")
-            ui.button(
-                "Italic", on_click=lambda: _insert(" _text_ ")
-            ).props("flat dense")
-            ui.button(
-                "Table",
-                on_click=lambda: _insert(
-                    "\n| Column 1 | Column 2 |\n| --- | --- |\n| Data | Data |\n"
-                ),
-            ).props("flat dense")
-            ui.button(
-                "List", on_click=lambda: _insert("\n- Item 1\n- Item 2\n")
-            ).props("flat dense")
-
-        with ui.row().classes("w-full gap-4 items-start no-wrap"):
-            content_input = (
-                ui.textarea("Content (Markdown) *")
-                .props("outlined")
-                .style("width: 50%")
-            )
-            state["textarea"] = content_input
-
-            preview = (
-                ui.markdown("")
-                .style("width: 50%")
-                .classes("border rounded p-2 overflow-auto min-h-[8rem]")
-            )
-
-        def update_preview() -> None:
-            content = content_input.value or ""
-            preview.content = content
-
-        content_input.on_value_change(update_preview)
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             try:
@@ -194,9 +126,7 @@ def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:
             except ProtocolValidationError as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Create", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
+        dialog_actions("Create", save, dialog.close)
 
     dialog.open()
 
@@ -207,31 +137,21 @@ def _open_delete_dialog(
     protocol_name: str,
     refresh: callable,
 ) -> None:
-    dialog = ui.dialog()
+    def do_delete() -> None:
+        try:
+            service.delete_protocol(protocol_id)
+        except ProtocolDeletionError:
+            raise ConfirmBlocked(
+                "Cannot delete this protocol because it has "
+                "associated experiments. Remove them first."
+            ) from None
+        except ProtocolNotFoundError:
+            raise ConfirmBlocked("Protocol not found.") from None
 
-    with dialog, ui.card().classes("w-[28rem] max-w-full"):
-        ui.label("Delete Protocol").classes("text-xl font-semibold")
-        ui.label(f'Are you sure you want to delete "{protocol_name}"?').classes(
-            "text-slate-600 mt-2"
-        )
-        message = ui.label().classes("text-negative mt-2")
-
-        def confirm_delete() -> None:
-            try:
-                service.delete_protocol(protocol_id)
-                dialog.close()
-                ui.notify("Protocol deleted", type="positive")
-                refresh()
-            except ProtocolDeletionError:
-                message.text = (
-                    "Cannot delete this protocol because it has "
-                    "associated experiments. Remove them first."
-                )
-            except ProtocolNotFoundError:
-                message.text = "Protocol not found."
-
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Delete", on_click=confirm_delete).props("color=negative")
-            ui.button("Cancel", on_click=dialog.close).props("flat")
-
-    dialog.open()
+    confirm_delete_dialog(
+        title="Delete Protocol",
+        question=f'Are you sure you want to delete "{protocol_name}"?',
+        success_message="Protocol deleted",
+        on_confirm=do_delete,
+        on_success=refresh,
+    )

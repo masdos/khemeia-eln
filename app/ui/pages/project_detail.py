@@ -17,6 +17,13 @@ from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
 from app.ui import router
+from app.ui.components.forms import (
+    back_button,
+    detail_save_row,
+    form_message,
+)
+from app.ui.components.meta import entity_meta
+from app.ui.components.tables import add_view_actions, entity_table
 
 
 def _get_service() -> ProjectService:
@@ -46,12 +53,7 @@ def build_project_detail_page(project_id: int) -> None:
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         title_label = ui.label(project["name"]).classes("text-2xl font-semibold")
 
-        created = (project.get("created_at") or "")[:10]
-        modified = (project.get("modified_at") or "")[:10]
-        meta = f"Created: {created}"
-        if modified:
-            meta += f"  ·  Modified: {modified}"
-        ui.label(meta).classes("text-sm text-slate-500")
+        entity_meta(project.get("created_at"), project.get("modified_at"))
 
         name_input = (
             ui.input("Name *", value=project["name"])
@@ -64,7 +66,7 @@ def build_project_detail_page(project_id: int) -> None:
             .classes("w-full")
         )
 
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save_project() -> None:
             try:
@@ -78,15 +80,11 @@ def build_project_detail_page(project_id: int) -> None:
             except (ProjectNameError, ProjectNotFoundError) as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end mt-4"):
-            ui.button("Save", on_click=save_project).props("color=primary")
+        detail_save_row(save_project)
 
         _build_experiments_section(project_id)
 
-        ui.button(
-            icon="arrow_back",
-            on_click=lambda: router.navigate("projects"),
-        ).props("flat round").classes("mt-4")
+        back_button("projects")
 
 
 def _build_experiments_section(project_id: int) -> None:
@@ -125,21 +123,9 @@ def _build_experiments_section(project_id: int) -> None:
         }
         for e in experiments
     ]
-    table = ui.table(
-        columns=columns, rows=rows, row_key="id", pagination=10
-    ).classes("w-full")
-
-    table.add_slot(
-        "body-cell-actions",
-        """
-        <q-td :props="props">
-            <q-btn flat dense icon="visibility"
-                    @click="() => $parent.$emit('view', props.row)" />
-        </q-td>
-        """,
-    )
+    table = entity_table(columns, rows)
 
     def on_view(e) -> None:
         router.navigate("experiment_detail", experiment_id=e.args["id"])
 
-    table.on("view", on_view)
+    add_view_actions(table, on_view)
