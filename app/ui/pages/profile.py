@@ -3,6 +3,7 @@ from pathlib import Path
 from nicegui import ui
 
 from app.config import get_current_config, write_config
+from app.ui.components.forms import dialog_actions, form_message
 
 
 def build_profile_page(base_dir: Path) -> None:
@@ -52,7 +53,7 @@ def _open_edit_dialog(base_dir: Path, refresh) -> None:
             .classes("w-full")
         )
 
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             try:
@@ -69,8 +70,6 @@ def _open_edit_dialog(base_dir: Path, refresh) -> None:
             except ValueError as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Save", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
+        dialog_actions("Save", save, dialog.close)
 
     dialog.open()

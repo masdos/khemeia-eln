@@ -113,6 +113,7 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
     with (
         patch("app.ui.pages.profile.ui") as mock_ui,
         patch("app.ui.pages.profile.write_config") as mock_write,
+        patch("app.ui.components.forms.ui") as mock_forms_ui,
     ):
         mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
@@ -122,10 +123,13 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
         mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
         mock_ui.input = MagicMock(side_effect=[name_mock, email_mock])
-        mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-        mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+        mock_forms_ui.label.return_value = MagicMock()
+        mock_forms_ui.row.return_value.__enter__ = MagicMock(
+            return_value=MagicMock()
+        )
+        mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
-        # Capture buttons: first call is "Edit profile", then inside dialog
+        # Capture buttons: page has "Edit profile", dialog row lives in forms
         button_mocks = []
 
         def button_side_effect(*args, **kwargs):
@@ -135,6 +139,7 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
             return m
 
         mock_ui.button.side_effect = button_side_effect
+        mock_forms_ui.button.side_effect = button_side_effect
 
         from app.ui.pages.profile import build_profile_page
 

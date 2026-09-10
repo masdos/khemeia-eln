@@ -11,6 +11,14 @@ from app.services.inventory_service import (
     SqliteReagentRepository,
 )
 from app.ui import router
+from app.ui.components.forms import dialog_actions, form_message
+from app.ui.components.ghs import ghs_checkboxes
+from app.ui.components.lists import search_toolbar
+from app.ui.components.tables import (
+    add_view_actions,
+    add_view_history_actions,
+    entity_table,
+)
 
 GHS_FIELDS = [
     ("is_explosive", "GHS01", "Explosive"),
@@ -55,16 +63,12 @@ def build_inventory_page() -> None:
 
 
 def _build_reagents_section(service: InventoryService) -> None:
-    with ui.row().classes("w-full items-center gap-4"):
-        search = (
-            ui.input(placeholder="Search reagents...")
-            .props("outlined dense")
-            .classes("flex-1")
-        )
-        ui.button(
-            "Add Reagent",
-            on_click=lambda: _open_reagent_dialog(service, refresh_reagents),
-        ).props("color=primary")
+    search = search_toolbar(
+        placeholder="Search reagents...",
+        action_label="Add Reagent",
+        on_action=lambda: _open_reagent_dialog(service, refresh_reagents),
+        top_margin=False,
+    )
 
     reagent_container = ui.column().classes("w-full")
 
@@ -146,21 +150,7 @@ def _render_reagent_list(
             }
         )
 
-    table = ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes(
-        "w-full"
-    )
-
-    table.add_slot(
-        "body-cell-actions",
-        """
-        <q-td :props="props">
-            <q-btn flat dense icon="visibility"
-                    @click="() => $parent.$emit('view', props.row)" />
-            <q-btn flat dense icon="history"
-                    @click="() => $parent.$emit('history', props.row)" />
-        </q-td>
-        """,
-    )
+    table = entity_table(columns, rows)
 
     def on_view(e) -> None:
         router.navigate("reagent_detail", reagent_id=e.args["id"])
@@ -168,8 +158,7 @@ def _render_reagent_list(
     def on_history(e) -> None:
         _open_history_dialog(service, e.args["id"], e.args["name"])
 
-    table.on("view", on_view)
-    table.on("history", on_history)
+    add_view_history_actions(table, on_view, on_history)
 
 
 def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
@@ -195,13 +184,9 @@ def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
         purity = ui.input("Purity (%)").props("outlined").classes("w-full")
         in_stock = ui.checkbox("In Stock", value=True)
 
-        ui.label("GHS Hazards").classes("font-semibold mt-4")
-        ghs_checkboxes = {}
-        with ui.row().classes("flex-wrap gap-4"):
-            for field, code, label in GHS_FIELDS:
-                ghs_checkboxes[field] = ui.checkbox(f"{code} - {label}", value=False)
+        ghs_state = ghs_checkboxes(GHS_FIELDS)
 
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             from datetime import date as date_type
@@ -233,7 +218,7 @@ def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
                     expiry_date=expiry_val,
                     state=state.value,
                     purity=purity_val,
-                    **{field: cb.value for field, cb in ghs_checkboxes.items()},
+                    **{field: cb.value for field, cb in ghs_state.items()},
                 )
                 dialog.close()
                 ui.notify("Reagent added", type="positive")
@@ -241,9 +226,7 @@ def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
             except InventoryNameError as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Create", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
+        dialog_actions("Create", save, dialog.close)
 
     dialog.open()
 
@@ -298,9 +281,7 @@ def _open_history_dialog(
                 }
                 for h in history
             ]
-            ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes(
-                "w-full"
-            )
+            entity_table(columns, rows)
 
         with ui.row().classes("w-full justify-end mt-4"):
             ui.button("Close", on_click=dialog.close).props("color=primary")
@@ -309,16 +290,12 @@ def _open_history_dialog(
 
 
 def _build_equipment_section(service: InventoryService) -> None:
-    with ui.row().classes("w-full items-center gap-4"):
-        search = (
-            ui.input(placeholder="Search equipment...")
-            .props("outlined dense")
-            .classes("flex-1")
-        )
-        ui.button(
-            "Add Equipment",
-            on_click=lambda: _open_equipment_dialog(service, refresh_equipment),
-        ).props("color=primary")
+    search = search_toolbar(
+        placeholder="Search equipment...",
+        action_label="Add Equipment",
+        on_action=lambda: _open_equipment_dialog(service, refresh_equipment),
+        top_margin=False,
+    )
 
     equip_container = ui.column().classes("w-full")
 
@@ -374,24 +351,12 @@ def _render_equipment_list(service: InventoryService, search_text: str) -> None:
         for e in equipment
     ]
 
-    table = ui.table(
-        columns=columns, rows=rows, row_key="id", pagination=10
-    ).classes("w-full")
-
-    table.add_slot(
-        "body-cell-actions",
-        """
-        <q-td :props="props">
-            <q-btn flat dense icon="visibility"
-                    @click="() => $parent.$emit('view', props.row)" />
-        </q-td>
-        """,
-    )
+    table = entity_table(columns, rows)
 
     def on_view(e) -> None:
         router.navigate("equipment_detail", equipment_id=e.args["id"])
 
-    table.on("view", on_view)
+    add_view_actions(table, on_view)
 
 
 def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None:
@@ -402,7 +367,7 @@ def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None
 
         name = ui.input("Name *").props("outlined").classes("w-full")
         desc = ui.textarea("Description").props("outlined").classes("w-full")
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             try:
@@ -416,8 +381,6 @@ def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None
             except InventoryNameError as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Create", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
+        dialog_actions("Create", save, dialog.close)
 
     dialog.open()

@@ -146,17 +146,31 @@ def _make_service() -> InventoryService:
     )
 
 
-def _mock_page_chrome(mock_ui: MagicMock) -> None:
+def _mock_page_chrome(
+    mock_ui: MagicMock,
+    mock_forms_ui: MagicMock,
+    mock_ghs_ui: MagicMock,
+    mock_meta_ui: MagicMock,
+) -> None:
     mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
-    mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-    mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
     mock_ui.label.return_value = MagicMock()
-    mock_ui.button.return_value = MagicMock()
     mock_ui.separator.return_value = MagicMock()
+    mock_forms_ui.label.return_value = MagicMock()
+    mock_forms_ui.row.return_value.__enter__ = MagicMock(
+        return_value=MagicMock()
+    )
+    mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+    mock_forms_ui.button.return_value = MagicMock()
+    mock_ghs_ui.label.return_value = MagicMock()
+    mock_ghs_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+    mock_ghs_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+    mock_meta_ui.label.return_value = MagicMock()
 
 
-def _mock_form_inputs(mock_ui: MagicMock) -> dict[str, MagicMock]:
+def _mock_form_inputs(
+    mock_ui: MagicMock, mock_ghs_ui: MagicMock
+) -> dict[str, MagicMock]:
     mocks = {
         "name": _make_chainable("Ethanol"),
         "cas": _make_chainable("64-17-5"),
@@ -180,7 +194,7 @@ def _mock_form_inputs(mock_ui: MagicMock) -> dict[str, MagicMock]:
     mock_ui.select = MagicMock(return_value=_make_chainable("liquid"))
     checkbox_mock = MagicMock()
     checkbox_mock.value = False
-    mock_ui.checkbox = MagicMock(return_value=checkbox_mock)
+    mock_ghs_ui.checkbox = MagicMock(return_value=checkbox_mock)
     return mocks
 
 
@@ -194,21 +208,29 @@ def test_detail_page_prefills_current_values() -> None:
 
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
-            _mock_page_chrome(mock_ui)
-            _mock_form_inputs(mock_ui)
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        _mock_page_chrome(
+                            mock_ui, mock_forms_ui, mock_ghs_ui, mock_meta_ui
+                        )
+                        _mock_form_inputs(mock_ui, mock_ghs_ui)
 
-            from app.ui.pages.reagent_detail import build_reagent_detail_page
+                        from app.ui.pages.reagent_detail import (
+                            build_reagent_detail_page,
+                        )
 
-            # when
-            build_reagent_detail_page(reagent["id"])
+                        # when
+                        build_reagent_detail_page(reagent["id"])
 
-            # then
-            input_values = [
-                call.kwargs["value"] for call in mock_ui.input.call_args_list
-            ]
-            assert input_values[0] == "Ethanol"
-            assert input_values[1] == "64-17-5"
-            assert input_values[2] == "CCO"
+                        # then
+                        input_values = [
+                            call.kwargs["value"]
+                            for call in mock_ui.input.call_args_list
+                        ]
+                        assert input_values[0] == "Ethanol"
+                        assert input_values[1] == "64-17-5"
+                        assert input_values[2] == "CCO"
 
 
 def test_saving_from_detail_updates_reagent() -> None:
@@ -219,29 +241,38 @@ def test_saving_from_detail_updates_reagent() -> None:
 
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
-            _mock_page_chrome(mock_ui)
-            mocks = _mock_form_inputs(mock_ui)
-            mocks["name"].value = "Renamed"
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        _mock_page_chrome(
+                            mock_ui, mock_forms_ui, mock_ghs_ui, mock_meta_ui
+                        )
+                        mocks = _mock_form_inputs(mock_ui, mock_ghs_ui)
+                        mocks["name"].value = "Renamed"
 
-            from app.ui.pages.reagent_detail import build_reagent_detail_page
+                        from app.ui.pages.reagent_detail import (
+                            build_reagent_detail_page,
+                        )
 
-            build_reagent_detail_page(reagent["id"])
+                        build_reagent_detail_page(reagent["id"])
 
-            # when - the Save button is clicked
-            save_button = None
-            for call in mock_ui.button.call_args_list:
-                if call.args and call.args[0] == "Save":
-                    save_button = call
-                    break
+                        # when - the Save button is clicked
+                        save_button = None
+                        for call in mock_forms_ui.button.call_args_list:
+                            if call.args and call.args[0] == "Save":
+                                save_button = call
+                                break
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
+                        assert save_button is not None
+                        save_button.kwargs["on_click"]()
 
-            # then
-            assert service.get_reagent(reagent["id"])["name"] == "Renamed"
-            mock_ui.notify.assert_called_once_with(
-                "Reagent updated", type="positive"
-            )
+                        # then
+                        assert service.get_reagent(reagent["id"])["name"] == (
+                            "Renamed"
+                        )
+                        mock_ui.notify.assert_called_once_with(
+                            "Reagent updated", type="positive"
+                        )
 
 
 def test_cas_and_smiles_locked_when_reagent_has_history() -> None:
@@ -253,20 +284,29 @@ def test_cas_and_smiles_locked_when_reagent_has_history() -> None:
 
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
-            _mock_page_chrome(mock_ui)
-            mocks = _mock_form_inputs(mock_ui)
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        with patch("app.ui.components.tables.ui"):
+                            _mock_page_chrome(
+                                mock_ui, mock_forms_ui, mock_ghs_ui, mock_meta_ui
+                            )
+                            mocks = _mock_form_inputs(mock_ui, mock_ghs_ui)
 
-            from app.ui.pages.reagent_detail import build_reagent_detail_page
+                            from app.ui.pages.reagent_detail import (
+                                build_reagent_detail_page,
+                            )
 
-            # when
-            build_reagent_detail_page(reagent["id"])
+                            # when
+                            build_reagent_detail_page(reagent["id"])
 
-            # then
-            for key in ("cas", "smiles"):
-                props_calls = [
-                    call.args for call in mocks[key].props.call_args_list
-                ]
-                assert ("disable",) in props_calls
+                            # then
+                            for key in ("cas", "smiles"):
+                                props_calls = [
+                                    call.args
+                                    for call in mocks[key].props.call_args_list
+                                ]
+                                assert ("disable",) in props_calls
 
 
 def test_cas_and_smiles_enabled_without_history() -> None:
@@ -277,20 +317,28 @@ def test_cas_and_smiles_enabled_without_history() -> None:
 
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
-            _mock_page_chrome(mock_ui)
-            mocks = _mock_form_inputs(mock_ui)
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        _mock_page_chrome(
+                            mock_ui, mock_forms_ui, mock_ghs_ui, mock_meta_ui
+                        )
+                        mocks = _mock_form_inputs(mock_ui, mock_ghs_ui)
 
-            from app.ui.pages.reagent_detail import build_reagent_detail_page
+                        from app.ui.pages.reagent_detail import (
+                            build_reagent_detail_page,
+                        )
 
-            # when
-            build_reagent_detail_page(reagent["id"])
+                        # when
+                        build_reagent_detail_page(reagent["id"])
 
-            # then
-            for key in ("cas", "smiles"):
-                props_calls = [
-                    call.args for call in mocks[key].props.call_args_list
-                ]
-                assert ("disable",) not in props_calls
+                        # then
+                        for key in ("cas", "smiles"):
+                            props_calls = [
+                                call.args
+                                for call in mocks[key].props.call_args_list
+                            ]
+                            assert ("disable",) not in props_calls
 
 
 def test_back_button_returns_to_inventory() -> None:
@@ -301,26 +349,37 @@ def test_back_button_returns_to_inventory() -> None:
 
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
-            with patch("app.ui.pages.reagent_detail.router") as mock_router:
-                _mock_page_chrome(mock_ui)
-                _mock_form_inputs(mock_ui)
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch(
+                    "app.ui.components.forms.router"
+                ) as mock_router:
+                    with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                        with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                            _mock_page_chrome(
+                                mock_ui, mock_forms_ui, mock_ghs_ui, mock_meta_ui
+                            )
+                            _mock_form_inputs(mock_ui, mock_ghs_ui)
 
-                from app.ui.pages.reagent_detail import build_reagent_detail_page
+                            from app.ui.pages.reagent_detail import (
+                                build_reagent_detail_page,
+                            )
 
-                build_reagent_detail_page(reagent["id"])
+                            build_reagent_detail_page(reagent["id"])
 
-                # when - the back button is clicked
-                back_button = None
-                for call in mock_ui.button.call_args_list:
-                    if call.kwargs.get("icon") == "arrow_back":
-                        back_button = call
-                        break
+                            # when - the back button is clicked
+                            back_button = None
+                            for call in mock_forms_ui.button.call_args_list:
+                                if call.kwargs.get("icon") == "arrow_back":
+                                    back_button = call
+                                    break
 
-                assert back_button is not None
-                back_button.kwargs["on_click"]()
+                            assert back_button is not None
+                            back_button.kwargs["on_click"]()
 
-                # then
-                mock_router.navigate.assert_called_once_with("inventory")
+                            # then
+                            mock_router.navigate.assert_called_once_with(
+                                "inventory"
+                            )
 
 
 def test_detail_notifies_when_reagent_missing() -> None:

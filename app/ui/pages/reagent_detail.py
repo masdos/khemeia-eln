@@ -10,7 +10,10 @@ from app.services.inventory_service import (
     SqliteEquipmentRepository,
     SqliteReagentRepository,
 )
-from app.ui import router
+from app.ui.components.forms import back_button, detail_save_row, form_message
+from app.ui.components.ghs import ghs_checkboxes as ghs_checkbox_group
+from app.ui.components.meta import entity_meta
+from app.ui.components.tables import entity_table
 from app.ui.pages.inventory import GHS_FIELDS
 
 
@@ -37,12 +40,7 @@ def build_reagent_detail_page(reagent_id: int) -> None:
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         title_label = ui.label(reagent["name"]).classes("text-2xl font-semibold")
 
-        created = (reagent.get("created_at") or "")[:10]
-        modified = (reagent.get("modified_at") or "")[:10]
-        meta = f"Created: {created}"
-        if modified:
-            meta += f"  ·  Modified: {modified}"
-        ui.label(meta).classes("text-sm text-slate-500")
+        entity_meta(reagent.get("created_at"), reagent.get("modified_at"))
 
         name = (
             ui.input("Name *", value=reagent["name"])
@@ -102,15 +100,9 @@ def build_reagent_detail_page(reagent_id: int) -> None:
         )
         in_stock = ui.checkbox("In Stock", value=bool(reagent.get("in_stock", True)))
 
-        ui.label("GHS Hazards").classes("font-semibold mt-4")
-        ghs_checkboxes = {}
-        with ui.row().classes("flex-wrap gap-4"):
-            for field, code, label in GHS_FIELDS:
-                ghs_checkboxes[field] = ui.checkbox(
-                    f"{code} - {label}", value=bool(reagent.get(field, False))
-                )
+        ghs_state = ghs_checkbox_group(GHS_FIELDS, reagent)
 
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             from datetime import date as date_type
@@ -143,22 +135,18 @@ def build_reagent_detail_page(reagent_id: int) -> None:
                     expiry_date=expiry_val,
                     state=state.value,
                     purity=purity_val,
-                    **{field: cb.value for field, cb in ghs_checkboxes.items()},
+                    **{field: cb.value for field, cb in ghs_state.items()},
                 )
                 title_label.text = name.value
                 ui.notify("Reagent updated", type="positive")
             except InventoryNameError as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end mt-4"):
-            ui.button("Save", on_click=save).props("color=primary")
+        detail_save_row(save)
 
         _build_history_section(service, reagent_id, reagent["name"])
 
-        ui.button(
-            icon="arrow_back",
-            on_click=lambda: router.navigate("inventory"),
-        ).props("flat round").classes("mt-4")
+        back_button("inventory")
 
 
 def _build_history_section(
@@ -206,6 +194,4 @@ def _build_history_section(
         }
         for h in history
     ]
-    ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes(
-        "w-full"
-    )
+    entity_table(columns, rows)

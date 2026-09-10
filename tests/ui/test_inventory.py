@@ -84,29 +84,47 @@ def test_inventory_page_renders_tabs() -> None:
 
     with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.tabs.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.tabs.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.tab.return_value = MagicMock()
-            mock_ui.tab_panels.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.tab_panels.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.tab_panel.return_value.__enter__ = MagicMock(
-                return_value=MagicMock()
-            )
-            mock_ui.tab_panel.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.label.return_value = MagicMock()
-            mock_ui.button.return_value = MagicMock()
-            mock_ui.input.return_value = _make_chainable("")
+            with patch("app.ui.components.lists.ui") as mock_lists_ui:
+                with patch("app.ui.components.tables.ui"):
+                    mock_ui.column.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.column.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.tabs.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.tabs.return_value.__exit__ = MagicMock(return_value=False)
+                    mock_ui.tab.return_value = MagicMock()
+                    mock_ui.tab_panels.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.tab_panels.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.tab_panel.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.tab_panel.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.label.return_value = MagicMock()
+                    mock_lists_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_lists_ui.row.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_lists_ui.input.return_value = _make_chainable("")
+                    mock_lists_ui.button.return_value = MagicMock()
 
-            from app.ui.pages.inventory import build_inventory_page
+                    from app.ui.pages.inventory import build_inventory_page
 
-            build_inventory_page()
+                    build_inventory_page()
 
-            # Tabs were created
-            assert mock_ui.tabs.called
+                    # Tabs were created
+                    assert mock_ui.tabs.called
 
 
 def test_add_reagent_via_dialog() -> None:
@@ -115,44 +133,67 @@ def test_add_reagent_via_dialog() -> None:
 
     with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
+            with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                    mock_ui.dialog.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.dialog.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.card.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.card.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
 
-            # Return different chainables per input call
-            input_values = iter(["Ethanol", "", "", "", "", "", "", ""])
-            mock_ui.input.side_effect = lambda *a, **kw: _make_chainable(
-                next(input_values, "")
-            )
-            mock_ui.textarea.return_value = _make_chainable("")
-            mock_ui.select.return_value = _make_chainable("liquid")
-            # Each checkbox mock needs to support .value
-            checkbox_mock = MagicMock()
-            checkbox_mock.value = False
-            mock_ui.checkbox.return_value = checkbox_mock
-            mock_ui.label.return_value = MagicMock()
-            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                    # Return different chainables per input call
+                    input_values = iter(["Ethanol", "", "", "", "", "", "", ""])
+                    mock_ui.input.side_effect = lambda *a, **kw: _make_chainable(
+                        next(input_values, "")
+                    )
+                    mock_ui.textarea.return_value = _make_chainable("")
+                    mock_ui.select.return_value = _make_chainable("liquid")
+                    # Each checkbox mock needs to support .value
+                    checkbox_mock = MagicMock()
+                    checkbox_mock.value = False
+                    mock_ghs_ui.checkbox.return_value = checkbox_mock
+                    mock_ghs_ui.label.return_value = MagicMock()
+                    mock_ghs_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ghs_ui.row.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.label.return_value = MagicMock()
+                    mock_forms_ui.label.return_value = MagicMock()
+                    mock_forms_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_forms_ui.row.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_forms_ui.button.return_value = MagicMock()
 
-            from app.ui.pages.inventory import _open_reagent_dialog
+                    from app.ui.pages.inventory import _open_reagent_dialog
 
-            refresh = MagicMock()
-            _open_reagent_dialog(service, refresh)
+                    refresh = MagicMock()
+                    _open_reagent_dialog(service, refresh)
 
-            button_calls = mock_ui.button.call_args_list
-            save_button = None
-            for call in button_calls:
-                if call.args and call.args[0] == "Create":
-                    save_button = call
-                    break
+                    button_calls = mock_forms_ui.button.call_args_list
+                    save_button = None
+                    for call in button_calls:
+                        if call.args and call.args[0] == "Create":
+                            save_button = call
+                            break
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
+                    assert save_button is not None
+                    save_button.kwargs["on_click"]()
 
-            reagents = service._reagent_repo.get_all()
-            assert len(reagents) == 1
-            assert reagents[0]["name"] == "Ethanol"
+                    reagents = service._reagent_repo.get_all()
+                    assert len(reagents) == 1
+                    assert reagents[0]["name"] == "Ethanol"
 
 
 def test_add_equipment_via_dialog() -> None:
@@ -161,37 +202,50 @@ def test_add_equipment_via_dialog() -> None:
 
     with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                mock_ui.dialog.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.card.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
-            mock_ui.input.return_value = _make_chainable("HPLC")
-            mock_ui.textarea.return_value = _make_chainable(
-                "High perf. liquid chromatograph"
-            )
-            mock_ui.label.return_value = MagicMock()
+                mock_ui.input.return_value = _make_chainable("HPLC")
+                mock_ui.textarea.return_value = _make_chainable(
+                    "High perf. liquid chromatograph"
+                )
+                mock_ui.label.return_value = MagicMock()
+                mock_forms_ui.label.return_value = MagicMock()
+                mock_forms_ui.row.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(
+                    return_value=False
+                )
+                mock_forms_ui.button.return_value = MagicMock()
 
-            from app.ui.pages.inventory import (
-                _open_equipment_dialog,
-            )
+                from app.ui.pages.inventory import (
+                    _open_equipment_dialog,
+                )
 
-            refresh = MagicMock()
-            _open_equipment_dialog(service, refresh)
+                refresh = MagicMock()
+                _open_equipment_dialog(service, refresh)
 
-            button_calls = mock_ui.button.call_args_list
-            save_button = None
-            for call in button_calls:
-                if call.args and call.args[0] == "Create":
-                    save_button = call
-                    break
+                button_calls = mock_forms_ui.button.call_args_list
+                save_button = None
+                for call in button_calls:
+                    if call.args and call.args[0] == "Create":
+                        save_button = call
+                        break
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
+                assert save_button is not None
+                save_button.kwargs["on_click"]()
 
-            equipment = service._equipment_repo.get_all()
-            assert len(equipment) == 1
-            assert equipment[0]["name"] == "HPLC"
+                equipment = service._equipment_repo.get_all()
+                assert len(equipment) == 1
+                assert equipment[0]["name"] == "HPLC"
 
 
 def test_rejects_blank_reagent_name() -> None:
@@ -200,50 +254,75 @@ def test_rejects_blank_reagent_name() -> None:
 
     with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
+            with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
+                with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                    mock_ui.dialog.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.dialog.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.card.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.card.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
 
-            input_values = iter(["", "", "", "", "", "", "", ""])
-            mock_ui.input.side_effect = lambda *a, **kw: _make_chainable(
-                next(input_values, "")
-            )
-            mock_ui.textarea.return_value = _make_chainable("")
-            mock_ui.select.return_value = _make_chainable("")
-            checkbox_mock = MagicMock()
-            checkbox_mock.value = False
-            mock_ui.checkbox.return_value = checkbox_mock
-            mock_ui.label.return_value = MagicMock()
-            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                    input_values = iter(["", "", "", "", "", "", "", ""])
+                    mock_ui.input.side_effect = lambda *a, **kw: _make_chainable(
+                        next(input_values, "")
+                    )
+                    mock_ui.textarea.return_value = _make_chainable("")
+                    mock_ui.select.return_value = _make_chainable("")
+                    checkbox_mock = MagicMock()
+                    checkbox_mock.value = False
+                    mock_ghs_ui.checkbox.return_value = checkbox_mock
+                    mock_ghs_ui.label.return_value = MagicMock()
+                    mock_ghs_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ghs_ui.row.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_ui.label.return_value = MagicMock()
+                    mock_forms_ui.label.return_value = MagicMock()
+                    mock_forms_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_forms_ui.row.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_forms_ui.button.return_value = MagicMock()
 
-            from app.ui.pages.inventory import _open_reagent_dialog
+                    from app.ui.pages.inventory import _open_reagent_dialog
 
-            refresh = MagicMock()
-            _open_reagent_dialog(service, refresh)
+                    refresh = MagicMock()
+                    _open_reagent_dialog(service, refresh)
 
-            button_calls = mock_ui.button.call_args_list
-            save_button = None
-            for call in button_calls:
-                if call.args and call.args[0] == "Create":
-                    save_button = call
-                    break
+                    button_calls = mock_forms_ui.button.call_args_list
+                    save_button = None
+                    for call in button_calls:
+                        if call.args and call.args[0] == "Create":
+                            save_button = call
+                            break
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
+                    assert save_button is not None
+                    save_button.kwargs["on_click"]()
 
-            reagents = service._reagent_repo.get_all()
+                    reagents = service._reagent_repo.get_all()
             assert len(reagents) == 0
 
 
-def _mock_section_chrome(mock_ui: MagicMock) -> None:
+def _mock_section_chrome(
+    mock_ui: MagicMock, mock_lists_ui: MagicMock
+) -> None:
     mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
-    mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-    mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
-    mock_ui.input.return_value = _make_chainable("")
-    mock_ui.button.return_value = MagicMock()
+    mock_lists_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+    mock_lists_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+    mock_lists_ui.input.return_value = _make_chainable("")
+    mock_lists_ui.button.return_value = MagicMock()
     mock_ui.label.return_value = MagicMock()
 
 
@@ -256,29 +335,33 @@ def test_reagent_view_action_navigates_to_detail() -> None:
     with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
             with patch("app.ui.pages.inventory.router") as mock_router:
-                _mock_section_chrome(mock_ui)
+                with patch("app.ui.components.lists.ui") as mock_lists_ui:
+                    with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                        _mock_section_chrome(mock_ui, mock_lists_ui)
 
-                from app.ui.pages.inventory import _build_reagents_section
+                        from app.ui.pages.inventory import _build_reagents_section
 
-                _build_reagents_section(service)
+                        _build_reagents_section(service)
 
-                # when - the view action of the table row is triggered
-                table = mock_ui.table.return_value.classes.return_value
-                view_handler = None
-                for call in table.on.call_args_list:
-                    if call.args and call.args[0] == "view":
-                        view_handler = call.args[1]
-                        break
+                        # when - the view action of the table row is triggered
+                        table = (
+                            mock_tables_ui.table.return_value.classes.return_value
+                        )
+                        view_handler = None
+                        for call in table.on.call_args_list:
+                            if call.args and call.args[0] == "view":
+                                view_handler = call.args[1]
+                                break
 
-                assert view_handler is not None
-                event = MagicMock()
-                event.args = {"id": reagent_id}
-                view_handler(event)
+                        assert view_handler is not None
+                        event = MagicMock()
+                        event.args = {"id": reagent_id}
+                        view_handler(event)
 
-                # then - navigates to the reagent detail page
-                mock_router.navigate.assert_called_once_with(
-                    "reagent_detail", reagent_id=reagent_id
-                )
+                        # then - navigates to the reagent detail page
+                        mock_router.navigate.assert_called_once_with(
+                            "reagent_detail", reagent_id=reagent_id
+                        )
 
 
 def test_equipment_view_action_navigates_to_detail() -> None:
@@ -290,26 +373,30 @@ def test_equipment_view_action_navigates_to_detail() -> None:
     with patch("app.ui.pages.inventory._get_service", return_value=service):
         with patch("app.ui.pages.inventory.ui") as mock_ui:
             with patch("app.ui.pages.inventory.router") as mock_router:
-                _mock_section_chrome(mock_ui)
+                with patch("app.ui.components.lists.ui") as mock_lists_ui:
+                    with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                        _mock_section_chrome(mock_ui, mock_lists_ui)
 
-                from app.ui.pages.inventory import _build_equipment_section
+                        from app.ui.pages.inventory import _build_equipment_section
 
-                _build_equipment_section(service)
+                        _build_equipment_section(service)
 
-                # when - the view action of the table row is triggered
-                table = mock_ui.table.return_value.classes.return_value
-                view_handler = None
-                for call in table.on.call_args_list:
-                    if call.args and call.args[0] == "view":
-                        view_handler = call.args[1]
-                        break
+                        # when - the view action of the table row is triggered
+                        table = (
+                            mock_tables_ui.table.return_value.classes.return_value
+                        )
+                        view_handler = None
+                        for call in table.on.call_args_list:
+                            if call.args and call.args[0] == "view":
+                                view_handler = call.args[1]
+                                break
 
-                assert view_handler is not None
-                event = MagicMock()
-                event.args = {"id": equipment_id}
-                view_handler(event)
+                        assert view_handler is not None
+                        event = MagicMock()
+                        event.args = {"id": equipment_id}
+                        view_handler(event)
 
-                # then - navigates to the equipment detail page
-                mock_router.navigate.assert_called_once_with(
-                    "equipment_detail", equipment_id=equipment_id
-                )
+                        # then - navigates to the equipment detail page
+                        mock_router.navigate.assert_called_once_with(
+                            "equipment_detail", equipment_id=equipment_id
+                        )

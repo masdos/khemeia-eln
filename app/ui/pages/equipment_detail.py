@@ -10,7 +10,8 @@ from app.services.inventory_service import (
     SqliteEquipmentRepository,
     SqliteReagentRepository,
 )
-from app.ui import router
+from app.ui.components.forms import back_button, detail_save_row, form_message
+from app.ui.components.meta import entity_meta
 
 
 def _get_service() -> InventoryService:
@@ -34,12 +35,7 @@ def build_equipment_detail_page(equipment_id: int) -> None:
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         title_label = ui.label(equipment["name"]).classes("text-2xl font-semibold")
 
-        created = (equipment.get("created_at") or "")[:10]
-        modified = (equipment.get("modified_at") or "")[:10]
-        meta = f"Created: {created}"
-        if modified:
-            meta += f"  ·  Modified: {modified}"
-        ui.label(meta).classes("text-sm text-slate-500")
+        entity_meta(equipment.get("created_at"), equipment.get("modified_at"))
 
         name_input = (
             ui.input("Name *", value=equipment["name"])
@@ -52,7 +48,7 @@ def build_equipment_detail_page(equipment_id: int) -> None:
             .classes("w-full")
         )
 
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save_equipment() -> None:
             try:
@@ -66,10 +62,6 @@ def build_equipment_detail_page(equipment_id: int) -> None:
             except (InventoryNameError, EquipmentNotFoundError) as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end mt-4"):
-            ui.button("Save", on_click=save_equipment).props("color=primary")
+        detail_save_row(save_equipment)
 
-        ui.button(
-            icon="arrow_back",
-            on_click=lambda: router.navigate("inventory"),
-        ).props("flat round").classes("mt-4")
+        back_button("inventory")

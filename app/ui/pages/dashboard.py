@@ -4,6 +4,7 @@ from nicegui import ui
 
 from app.database.connection import get_connection
 from app.services.experiment_service import (
+    ExperimentNotFoundError,
     ExperimentReferenceError,
     ExperimentService,
     ExperimentStateError,
@@ -16,6 +17,13 @@ from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
 from app.ui import router
+from app.ui.components.dialogs import ConfirmBlocked, confirm_delete_dialog
+from app.ui.components.forms import dialog_actions, form_message
+from app.ui.components.tables import (
+    add_experiment_actions,
+    add_state_badge,
+    entity_table,
+)
 
 
 def _get_experiment_service() -> ExperimentService:
@@ -141,35 +149,8 @@ def _render_table(
     ]
 
     with container:
-        table = (
-            ui.table(
-                columns=columns, rows=rows, row_key="id", pagination=10
-            )
-            .classes("w-full")
-        )
-
-        table.add_slot(
-            "body-cell-state",
-            """
-            <q-td :props="props">
-                <q-badge :color="props.row.state === 'Running' ? 'blue' :
-                                  props.row.state === 'Success' ? 'green' : 'red'"
-                         :label="props.row.state" />
-            </q-td>
-            """,
-        )
-
-        table.add_slot(
-            "body-cell-actions",
-            """
-            <q-td :props="props">
-                <q-btn flat dense icon="visibility"
-                       @click.stop="$parent.$emit('view', props.row)" />
-                <q-btn flat dense icon="delete" color="negative"
-                       @click.stop="$parent.$emit('request-delete', props.row)" />
-            </q-td>
-            """,
-        )
+        table = entity_table(columns, rows)
+        add_state_badge(table)
 
         def on_view(e) -> None:
             router.navigate("experiment_detail", experiment_id=e.args["id"])
@@ -177,34 +158,23 @@ def _render_table(
         def on_request_delete(e) -> None:
             _confirm_delete(service, e.args["id"], refresh)
 
-        table.on("view", on_view)
-        table.on("request-delete", on_request_delete)
+        add_experiment_actions(table, on_view, on_request_delete)
 
 
 def _confirm_delete(service: ExperimentService, experiment_id: int, refresh) -> None:
-    with ui.dialog() as dialog, ui.card():
-        ui.label("Delete this experiment?")
-        ui.label("This action cannot be undone.").classes("text-sm text-slate-500")
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button(
-                "Delete",
-                on_click=lambda: _do_delete(service, experiment_id, dialog, refresh),
-            ).props("color=negative")
-            ui.button("Cancel", on_click=dialog.close)
+    def do_delete() -> None:
+        try:
+            service.delete_experiment(experiment_id)
+        except ExperimentNotFoundError:
+            raise ConfirmBlocked("Experiment not found.") from None
 
-    dialog.open()
-
-
-def _do_delete(
-    service: ExperimentService,
-    experiment_id: int,
-    dialog,
-    refresh,
-) -> None:
-    service.delete_experiment(experiment_id)
-    dialog.close()
-    ui.notify("Experiment deleted", type="positive")
-    refresh()
+    confirm_delete_dialog(
+        title="Delete this experiment?",
+        question="This action cannot be undone.",
+        success_message="Experiment deleted",
+        on_confirm=do_delete,
+        on_success=refresh,
+    )
 
 
 def _open_create_dialog(service: ExperimentService, refresh) -> None:
@@ -253,7 +223,7 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
         ui.label("Question").classes("font-semibold mt-4")
         question_input = ui.textarea().props("outlined").classes("w-full")
 
-        message = ui.label().classes("text-negative mt-2")
+        message = form_message()
 
         def save() -> None:
             try:
@@ -273,9 +243,7 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
             ) as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Create", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
+        dialog_actions("Create", save, dialog.close)
 
     dialog.open()
 

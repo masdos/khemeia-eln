@@ -88,20 +88,25 @@ def test_dashboard_lists_experiments() -> None:
         return_value=service,
     ):
         with patch("app.ui.pages.dashboard.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.input.return_value = _make_chainable("")
-            mock_ui.select.return_value = _make_chainable("All")
-            mock_ui.label.return_value = MagicMock()
+            with patch("app.ui.components.tables.ui"):
+                mock_ui.column.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.row.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.input.return_value = _make_chainable("")
+                mock_ui.select.return_value = _make_chainable("All")
+                mock_ui.label.return_value = MagicMock()
 
-            from app.ui.pages.dashboard import build_dashboard_page
+                from app.ui.pages.dashboard import build_dashboard_page
 
-            build_dashboard_page()
+                build_dashboard_page()
 
-            experiments = service.list_experiments()
-            assert len(experiments) == 2
+                experiments = service.list_experiments()
+                assert len(experiments) == 2
 
 
 def test_dashboard_filters_by_state() -> None:
@@ -120,18 +125,23 @@ def test_dashboard_filters_by_state() -> None:
         return_value=service,
     ):
         with patch("app.ui.pages.dashboard.ui") as mock_ui:
-            mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.input.return_value = _make_chainable("")
-            mock_ui.select.return_value = _make_chainable("Running")
-            mock_ui.label.return_value = MagicMock()
+            with patch("app.ui.components.tables.ui"):
+                mock_ui.column.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.row.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.input.return_value = _make_chainable("")
+                mock_ui.select.return_value = _make_chainable("Running")
+                mock_ui.label.return_value = MagicMock()
 
-            from app.ui.pages.dashboard import build_dashboard_page
+                from app.ui.pages.dashboard import build_dashboard_page
 
-            build_dashboard_page()
+                build_dashboard_page()
 
-            running = service.list_experiments({"state": "Running"})
-            assert len(running) == 1
-            assert running[0]["title"] == "Running One"
+                running = service.list_experiments({"state": "Running"})
+                assert len(running) == 1
+                assert running[0]["title"] == "Running One"

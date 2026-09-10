@@ -51,6 +51,9 @@ from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
 from app.ui import router
+from app.ui.components.forms import back_button, detail_save_row
+from app.ui.components.markdown_editor import markdown_editor
+from app.ui.components.meta import entity_meta
 
 
 def _strip_svg_rect(svg: str) -> str:
@@ -132,11 +135,7 @@ def build_experiment_detail_page(
         ui.label(title).classes("text-2xl font-semibold")
 
         if not is_new and experiment:
-            created = experiment["created_at"][:10]
-            modified = experiment["modified_at"][:10]
-            ui.label(f"Created: {created}  ·  Modified: {modified}").classes(
-                "text-sm text-slate-500"
-            )
+            entity_meta(experiment["created_at"], experiment["modified_at"])
 
         # --- Basic fields ---
         project_options = {p["id"]: p["name"] for p in projects}
@@ -189,64 +188,14 @@ def build_experiment_detail_page(
             .classes("w-full")
         )
 
-        def _make_markdown_editor(label: str, value: str):
-            ui.label(label).classes("font-semibold mt-2")
-
-            state = {"textarea": None}
-
-            def _insert(text):
-                if state["textarea"]:
-                    t = state["textarea"]
-                    t.set_value(t.value + text)
-
-            with ui.row().classes("w-full gap-1 mt-1"):
-                ui.button(
-                    "H3", on_click=lambda: _insert("\n### Subsubtitle\n")
-                ).props("flat dense")
-                ui.button(
-                    "Bold", on_click=lambda: _insert(" **text** ")
-                ).props("flat dense")
-                ui.button(
-                    "Italic", on_click=lambda: _insert(" _text_ ")
-                ).props("flat dense")
-                ui.button(
-                    "Table",
-                    on_click=lambda: _insert(
-                        "\n| Column 1 | Column 2 |\n| --- | --- |\n| Data | Data |\n"
-                    ),
-                ).props("flat dense")
-                ui.button(
-                    "List", on_click=lambda: _insert("\n- Item 1\n- Item 2\n")
-                ).props("flat dense")
-
-            with ui.row().classes("w-full gap-4 items-start no-wrap"):
-                textarea = (
-                    ui.textarea(value=value, placeholder="Markdown content...")
-                    .props("outlined")
-                    .style("width: 50%")
-                )
-                state["textarea"] = textarea
-
-                preview = (
-                    ui.markdown(value or "")
-                    .style("width: 50%")
-                    .classes("border rounded p-2 overflow-auto min-h-[8rem]")
-                )
-
-            def _update(e):
-                preview.content = textarea.value or ""
-
-            textarea.on_value_change(_update)
-            return textarea
-
-        experimental_procedure_input = _make_markdown_editor(
+        experimental_procedure_input = markdown_editor(
             "Experimental Procedure",
             experiment.get("experimental_procedure_markdown", "")
             if experiment
             else "",
         )
 
-        result_input = _make_markdown_editor(
+        result_input = markdown_editor(
             "Result",
             experiment.get("result_markdown", "") if experiment else "",
         )
@@ -297,11 +246,7 @@ def build_experiment_detail_page(
             ) as error:
                 message.text = str(error)
 
-        with ui.row().classes("w-full justify-end mt-4"):
-            ui.button(
-                "Save",
-                on_click=save_experiment,
-            ).props("color=primary")
+        detail_save_row(save_experiment)
 
         # --- Reagents & Equipment section ---
         if not is_new:
@@ -313,10 +258,7 @@ def build_experiment_detail_page(
             # --- Export section ---
             _build_export_section(experiment_id, export_svc, base_dir)
 
-        ui.button(
-            icon="arrow_back",
-            on_click=lambda: router.navigate("dashboard"),
-        ).props("flat round").classes("mt-4")
+        back_button("dashboard")
 
 
 def _build_resources_section(

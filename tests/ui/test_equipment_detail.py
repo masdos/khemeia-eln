@@ -83,20 +83,30 @@ def test_detail_page_prefills_current_values() -> None:
 
     with patch("app.ui.pages.equipment_detail._get_service", return_value=service):
         with patch("app.ui.pages.equipment_detail.ui") as mock_ui:
-            _mock_page_chrome(mock_ui)
-            mock_ui.input = MagicMock(return_value=_make_chainable("HPLC"))
-            mock_ui.textarea = MagicMock(
-                return_value=_make_chainable("Chromatograph")
-            )
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                    _mock_page_chrome(mock_ui)
+                    mock_forms_ui.label.return_value = MagicMock()
+                    mock_meta_ui.label.return_value = MagicMock()
+                    mock_ui.input = MagicMock(
+                        return_value=_make_chainable("HPLC")
+                    )
+                    mock_ui.textarea = MagicMock(
+                        return_value=_make_chainable("Chromatograph")
+                    )
 
-            from app.ui.pages.equipment_detail import build_equipment_detail_page
+                    from app.ui.pages.equipment_detail import (
+                        build_equipment_detail_page,
+                    )
 
-            # when
-            build_equipment_detail_page(equipment["id"])
+                    # when
+                    build_equipment_detail_page(equipment["id"])
 
-            # then
-            assert mock_ui.input.call_args.kwargs["value"] == "HPLC"
-            assert mock_ui.textarea.call_args.kwargs["value"] == "Chromatograph"
+                    # then
+                    assert mock_ui.input.call_args.kwargs["value"] == "HPLC"
+                    assert mock_ui.textarea.call_args.kwargs["value"] == (
+                        "Chromatograph"
+                    )
 
 
 def test_saving_from_detail_updates_equipment() -> None:
@@ -107,31 +117,48 @@ def test_saving_from_detail_updates_equipment() -> None:
 
     with patch("app.ui.pages.equipment_detail._get_service", return_value=service):
         with patch("app.ui.pages.equipment_detail.ui") as mock_ui:
-            _mock_page_chrome(mock_ui)
-            mock_ui.input = MagicMock(return_value=_make_chainable("Renamed"))
-            mock_ui.textarea = MagicMock(return_value=_make_chainable("New desc"))
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                    _mock_page_chrome(mock_ui)
+                    mock_forms_ui.label.return_value = MagicMock()
+                    mock_forms_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_forms_ui.row.return_value.__exit__ = MagicMock(
+                        return_value=False
+                    )
+                    mock_forms_ui.button.return_value = MagicMock()
+                    mock_meta_ui.label.return_value = MagicMock()
+                    mock_ui.input = MagicMock(
+                        return_value=_make_chainable("Renamed")
+                    )
+                    mock_ui.textarea = MagicMock(
+                        return_value=_make_chainable("New desc")
+                    )
 
-            from app.ui.pages.equipment_detail import build_equipment_detail_page
+                    from app.ui.pages.equipment_detail import (
+                        build_equipment_detail_page,
+                    )
 
-            build_equipment_detail_page(equipment["id"])
+                    build_equipment_detail_page(equipment["id"])
 
-            # when - the Save button is clicked
-            save_button = None
-            for call in mock_ui.button.call_args_list:
-                if call.args and call.args[0] == "Save":
-                    save_button = call
-                    break
+                    # when - the Save button is clicked
+                    save_button = None
+                    for call in mock_forms_ui.button.call_args_list:
+                        if call.args and call.args[0] == "Save":
+                            save_button = call
+                            break
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
+                    assert save_button is not None
+                    save_button.kwargs["on_click"]()
 
-            # then
-            updated = service.get_equipment(equipment["id"])
-            assert updated["name"] == "Renamed"
-            assert updated["description"] == "New desc"
-            mock_ui.notify.assert_called_once_with(
-                "Equipment updated", type="positive"
-            )
+                    # then
+                    updated = service.get_equipment(equipment["id"])
+                    assert updated["name"] == "Renamed"
+                    assert updated["description"] == "New desc"
+                    mock_ui.notify.assert_called_once_with(
+                        "Equipment updated", type="positive"
+                    )
 
 
 def test_back_button_returns_to_inventory() -> None:
@@ -142,27 +169,40 @@ def test_back_button_returns_to_inventory() -> None:
 
     with patch("app.ui.pages.equipment_detail._get_service", return_value=service):
         with patch("app.ui.pages.equipment_detail.ui") as mock_ui:
-            with patch("app.ui.pages.equipment_detail.router") as mock_router:
-                _mock_page_chrome(mock_ui)
-                mock_ui.input = MagicMock(return_value=_make_chainable("HPLC"))
-                mock_ui.textarea = MagicMock(return_value=_make_chainable(""))
+            with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                with patch(
+                    "app.ui.components.forms.router"
+                ) as mock_router:
+                    with patch("app.ui.components.meta.ui") as mock_meta_ui:
+                        _mock_page_chrome(mock_ui)
+                        mock_forms_ui.label.return_value = MagicMock()
+                        mock_forms_ui.button.return_value = MagicMock()
+                        mock_meta_ui.label.return_value = MagicMock()
+                        mock_ui.input = MagicMock(
+                            return_value=_make_chainable("HPLC")
+                        )
+                        mock_ui.textarea = MagicMock(
+                            return_value=_make_chainable("")
+                        )
 
-                from app.ui.pages.equipment_detail import build_equipment_detail_page
+                        from app.ui.pages.equipment_detail import (
+                            build_equipment_detail_page,
+                        )
 
-                build_equipment_detail_page(equipment["id"])
+                        build_equipment_detail_page(equipment["id"])
 
-                # when - the back button is clicked
-                back_button = None
-                for call in mock_ui.button.call_args_list:
-                    if call.kwargs.get("icon") == "arrow_back":
-                        back_button = call
-                        break
+                        # when - the back button is clicked
+                        back_button = None
+                        for call in mock_forms_ui.button.call_args_list:
+                            if call.kwargs.get("icon") == "arrow_back":
+                                back_button = call
+                                break
 
-                assert back_button is not None
-                back_button.kwargs["on_click"]()
+                        assert back_button is not None
+                        back_button.kwargs["on_click"]()
 
-                # then
-                mock_router.navigate.assert_called_once_with("inventory")
+                        # then
+                        mock_router.navigate.assert_called_once_with("inventory")
 
 
 def test_detail_notifies_when_equipment_missing() -> None:
