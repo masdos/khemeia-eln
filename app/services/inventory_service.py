@@ -50,6 +50,12 @@ class ReagentRepository(Protocol):
 
     def get_by_id(self, reagent_id: int) -> dict[str, Any] | None: ...
 
+    def get_all(self) -> Sequence[dict[str, Any]]: ...
+
+    def update(
+        self, reagent_id: int, **fields: object
+    ) -> dict[str, Any] | None: ...
+
     def link_to_experiment(
         self,
         experiment_id: int,
@@ -75,6 +81,12 @@ class EquipmentRepository(Protocol):
     def create(self, name: str, description: str = "") -> int: ...
 
     def get_by_id(self, equipment_id: int) -> dict[str, Any] | None: ...
+
+    def get_all(self) -> Sequence[dict[str, Any]]: ...
+
+    def update(
+        self, equipment_id: int, **fields: object
+    ) -> dict[str, Any] | None: ...
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None: ...
 
@@ -139,6 +151,11 @@ class SqliteReagentRepository:
         rows = reagent_repository.get_all(self._connection)
         return [_row_to_dict(row) for row in rows]
 
+    def update(self, reagent_id: int, **fields: object) -> dict[str, Any] | None:
+        return _row_to_dict(
+            reagent_repository.update(self._connection, reagent_id, **fields)
+        )
+
     def link_to_experiment(
         self,
         experiment_id: int,
@@ -185,6 +202,11 @@ class SqliteEquipmentRepository:
     def get_all(self) -> Sequence[dict[str, Any]]:
         rows = equipment_repository.get_all(self._connection)
         return [_row_to_dict(row) for row in rows]
+
+    def update(self, equipment_id: int, **fields: object) -> dict[str, Any] | None:
+        return _row_to_dict(
+            equipment_repository.update(self._connection, equipment_id, **fields)
+        )
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None:
         equipment_repository.link_to_experiment(
@@ -279,6 +301,113 @@ class InventoryService:
 
         logger.info("Equipment created equipment_id=%s", equipment_id)
         return equipment
+
+    def get_reagent(self, reagent_id: int) -> dict[str, Any]:
+        reagent = self._reagent_repo.get_by_id(reagent_id)
+        if reagent is None:
+            raise ReagentNotFoundError(
+                f"Reagent with id {reagent_id} does not exist"
+            )
+
+        return reagent
+
+    def update_reagent(
+        self,
+        reagent_id: int,
+        name: str | None = None,
+        cas_number: str | None = None,
+        smiles: str | None = None,
+        in_stock: bool | None = None,
+        lot_number: str | None = None,
+        supplier: str | None = None,
+        expiry_date: date | None = None,
+        state: str | None = None,
+        purity: float | None = None,
+        is_explosive: bool | None = None,
+        is_flammable: bool | None = None,
+        is_oxidizer: bool | None = None,
+        is_gas_under_pressure: bool | None = None,
+        is_corrosive: bool | None = None,
+        is_acute_toxic: bool | None = None,
+        is_harmful_irritant: bool | None = None,
+        is_health_hazard: bool | None = None,
+        is_environmental_hazard: bool | None = None,
+    ) -> dict[str, Any]:
+        if self._reagent_repo.get_by_id(reagent_id) is None:
+            raise ReagentNotFoundError(
+                f"Reagent with id {reagent_id} does not exist"
+            )
+
+        fields: dict[str, Any] = {}
+        if name is not None:
+            _require_valid_name(name, "Reagent")
+            fields["name"] = name
+        for key, value in (
+            ("cas_number", cas_number),
+            ("smiles", smiles),
+            ("in_stock", in_stock),
+            ("lot_number", lot_number),
+            ("supplier", supplier),
+            ("expiry_date", expiry_date),
+            ("state", state),
+            ("purity", purity),
+            ("is_explosive", is_explosive),
+            ("is_flammable", is_flammable),
+            ("is_oxidizer", is_oxidizer),
+            ("is_gas_under_pressure", is_gas_under_pressure),
+            ("is_corrosive", is_corrosive),
+            ("is_acute_toxic", is_acute_toxic),
+            ("is_harmful_irritant", is_harmful_irritant),
+            ("is_health_hazard", is_health_hazard),
+            ("is_environmental_hazard", is_environmental_hazard),
+        ):
+            if value is not None:
+                fields[key] = value
+
+        updated = self._reagent_repo.update(reagent_id, **fields)
+        if updated is None:
+            raise ReagentNotFoundError(
+                f"Reagent with id {reagent_id} does not exist"
+            )
+
+        logger.info("Reagent updated reagent_id=%s", reagent_id)
+        return updated
+
+    def get_equipment(self, equipment_id: int) -> dict[str, Any]:
+        equipment = self._equipment_repo.get_by_id(equipment_id)
+        if equipment is None:
+            raise EquipmentNotFoundError(
+                f"Equipment with id {equipment_id} does not exist"
+            )
+
+        return equipment
+
+    def update_equipment(
+        self,
+        equipment_id: int,
+        name: str | None = None,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        if self._equipment_repo.get_by_id(equipment_id) is None:
+            raise EquipmentNotFoundError(
+                f"Equipment with id {equipment_id} does not exist"
+            )
+
+        fields: dict[str, Any] = {}
+        if name is not None:
+            _require_valid_name(name, "Equipment")
+            fields["name"] = name
+        if description is not None:
+            fields["description"] = description
+
+        updated = self._equipment_repo.update(equipment_id, **fields)
+        if updated is None:
+            raise EquipmentNotFoundError(
+                f"Equipment with id {equipment_id} does not exist"
+            )
+
+        logger.info("Equipment updated equipment_id=%s", equipment_id)
+        return updated
 
     def link_reagent_to_experiment(
         self,

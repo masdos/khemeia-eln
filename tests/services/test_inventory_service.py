@@ -69,6 +69,13 @@ class InMemoryReagentRepository:
     def get_by_id(self, reagent_id: int) -> dict[str, Any] | None:
         return self._reagents.get(reagent_id)
 
+    def update(self, reagent_id: int, **fields: object) -> dict[str, Any] | None:
+        reagent = self._reagents.get(reagent_id)
+        if reagent is None:
+            return None
+        reagent.update(fields)
+        return reagent
+
     def link_to_experiment(
         self,
         experiment_id: int,
@@ -130,6 +137,15 @@ class InMemoryEquipmentRepository:
 
     def get_by_id(self, equipment_id: int) -> dict[str, Any] | None:
         return self._equipment.get(equipment_id)
+
+    def update(
+        self, equipment_id: int, **fields: object
+    ) -> dict[str, Any] | None:
+        equipment = self._equipment.get(equipment_id)
+        if equipment is None:
+            return None
+        equipment.update(fields)
+        return equipment
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None:
         self._links.setdefault(experiment_id, []).append(equipment_id)
@@ -331,3 +347,93 @@ class TestGetExperimentResources:
         assert resources["reagents"][0]["name"] == "Toluene"
         assert len(resources["equipment"]) == 1
         assert resources["equipment"][0]["name"] == "Separatory funnel"
+
+
+class TestGetReagent:
+    def test_returns_reagent_data(self, service: InventoryService) -> None:
+        # given
+        reagent_id = service.add_reagent(name="Ethanol")["id"]
+
+        # when
+        reagent = service.get_reagent(reagent_id)
+
+        # then
+        assert reagent["name"] == "Ethanol"
+
+    def test_rejects_missing_reagent(self, service: InventoryService) -> None:
+        # when / then
+        with pytest.raises(ReagentNotFoundError, match="does not exist"):
+            service.get_reagent(999)
+
+
+class TestUpdateReagent:
+    def test_updates_provided_fields(self, service: InventoryService) -> None:
+        # given
+        reagent_id = service.add_reagent(name="Ethanol")["id"]
+
+        # when
+        updated = service.update_reagent(
+            reagent_id, lot_number="LOT-7", supplier="Sigma", in_stock=False
+        )
+
+        # then
+        assert updated["lot_number"] == "LOT-7"
+        assert updated["supplier"] == "Sigma"
+        assert updated["in_stock"] is False
+        assert updated["name"] == "Ethanol"
+
+    def test_rejects_blank_name(self, service: InventoryService) -> None:
+        # given
+        reagent_id = service.add_reagent(name="Ethanol")["id"]
+
+        # when / then
+        with pytest.raises(InventoryNameError, match="cannot be blank"):
+            service.update_reagent(reagent_id, name="   ")
+
+    def test_rejects_missing_reagent(self, service: InventoryService) -> None:
+        # when / then
+        with pytest.raises(ReagentNotFoundError, match="does not exist"):
+            service.update_reagent(999, name="Ghost")
+
+
+class TestGetEquipment:
+    def test_returns_equipment_data(self, service: InventoryService) -> None:
+        # given
+        equipment_id = service.add_equipment(name="HPLC")["id"]
+
+        # when
+        equipment = service.get_equipment(equipment_id)
+
+        # then
+        assert equipment["name"] == "HPLC"
+
+    def test_rejects_missing_equipment(self, service: InventoryService) -> None:
+        # when / then
+        with pytest.raises(EquipmentNotFoundError, match="does not exist"):
+            service.get_equipment(999)
+
+
+class TestUpdateEquipment:
+    def test_updates_provided_fields(self, service: InventoryService) -> None:
+        # given
+        equipment_id = service.add_equipment(name="HPLC")["id"]
+
+        # when
+        updated = service.update_equipment(equipment_id, description="New desc")
+
+        # then
+        assert updated["description"] == "New desc"
+        assert updated["name"] == "HPLC"
+
+    def test_rejects_blank_name(self, service: InventoryService) -> None:
+        # given
+        equipment_id = service.add_equipment(name="HPLC")["id"]
+
+        # when / then
+        with pytest.raises(InventoryNameError, match="cannot be blank"):
+            service.update_equipment(equipment_id, name="")
+
+    def test_rejects_missing_equipment(self, service: InventoryService) -> None:
+        # when / then
+        with pytest.raises(EquipmentNotFoundError, match="does not exist"):
+            service.update_equipment(999, name="Ghost")
