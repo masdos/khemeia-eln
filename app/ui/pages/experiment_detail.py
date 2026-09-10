@@ -297,10 +297,11 @@ def build_experiment_detail_page(
             ) as error:
                 message.text = str(error)
 
-        ui.button(
-            "Save",
-            on_click=save_experiment,
-        ).props("color=primary").classes("mt-4")
+        with ui.row().classes("w-full justify-end mt-4"):
+            ui.button(
+                "Save",
+                on_click=save_experiment,
+            ).props("color=primary")
 
         # --- Reagents & Equipment section ---
         if not is_new:

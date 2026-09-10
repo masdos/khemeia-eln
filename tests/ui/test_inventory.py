@@ -99,6 +99,7 @@ def test_inventory_page_renders_tabs() -> None:
             mock_ui.tab_panel.return_value.__exit__ = MagicMock(return_value=False)
             mock_ui.label.return_value = MagicMock()
             mock_ui.button.return_value = MagicMock()
+            mock_ui.input.return_value = _make_chainable("")
 
             from app.ui.pages.inventory import build_inventory_page
 

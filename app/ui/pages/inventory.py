@@ -54,26 +54,47 @@ def build_inventory_page() -> None:
 
 
 def _build_reagents_section(service: InventoryService) -> None:
+    with ui.row().classes("w-full items-center gap-4"):
+        search = (
+            ui.input(placeholder="Search reagents...")
+            .props("outlined dense")
+            .classes("flex-1")
+        )
+        ui.button(
+            "Add Reagent",
+            on_click=lambda: _open_reagent_dialog(service, refresh_reagents),
+        ).props("color=primary")
+
     reagent_container = ui.column().classes("w-full")
 
     def refresh_reagents() -> None:
         reagent_container.clear()
         with reagent_container:
-            ui.button(
-                "Add Reagent",
-                on_click=lambda: _open_reagent_dialog(service, refresh_reagents),
-            ).props("color=primary").classes("mb-4")
+            _render_reagent_list(service, search.value or "", refresh_reagents)
 
-            _render_reagent_list(service, refresh_reagents)
-
+    search.on_value_change(lambda: refresh_reagents())
     refresh_reagents()
 
 
-def _render_reagent_list(service: InventoryService, refresh: callable) -> None:
+def _render_reagent_list(
+    service: InventoryService, search_text: str, refresh: callable
+) -> None:
     reagents = service._reagent_repo.get_all()
+    query = (search_text or "").strip().lower()
+    if query:
+        reagents = [
+            r
+            for r in reagents
+            if query in (r.get("name") or "").lower()
+            or query in (r.get("cas_number") or "").lower()
+            or query in (r.get("lot_number") or "").lower()
+        ]
 
     if not reagents:
-        ui.label("No reagents in inventory.").classes("text-slate-500")
+        if query:
+            ui.label("No reagents match the search.").classes("text-slate-500")
+        else:
+            ui.label("No reagents in inventory.").classes("text-slate-500")
         return
 
     columns = [
@@ -281,26 +302,44 @@ def _open_history_dialog(
 
 
 def _build_equipment_section(service: InventoryService) -> None:
+    with ui.row().classes("w-full items-center gap-4"):
+        search = (
+            ui.input(placeholder="Search equipment...")
+            .props("outlined dense")
+            .classes("flex-1")
+        )
+        ui.button(
+            "Add Equipment",
+            on_click=lambda: _open_equipment_dialog(service, refresh_equipment),
+        ).props("color=primary")
+
     equip_container = ui.column().classes("w-full")
 
     def refresh_equipment() -> None:
         equip_container.clear()
         with equip_container:
-            ui.button(
-                "Add Equipment",
-                on_click=lambda: _open_equipment_dialog(service, refresh_equipment),
-            ).props("color=primary").classes("mb-4")
+            _render_equipment_list(service, search.value or "")
 
-            _render_equipment_list(service)
-
+    search.on_value_change(lambda: refresh_equipment())
     refresh_equipment()
 
 
-def _render_equipment_list(service: InventoryService) -> None:
+def _render_equipment_list(service: InventoryService, search_text: str) -> None:
     equipment = service._equipment_repo.get_all()
+    query = (search_text or "").strip().lower()
+    if query:
+        equipment = [
+            e
+            for e in equipment
+            if query in (e.get("name") or "").lower()
+            or query in (e.get("description") or "").lower()
+        ]
 
     if not equipment:
-        ui.label("No equipment in inventory.").classes("text-slate-500")
+        if query:
+            ui.label("No equipment matches the search.").classes("text-slate-500")
+        else:
+            ui.label("No equipment in inventory.").classes("text-slate-500")
         return
 
     columns = [
