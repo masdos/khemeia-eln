@@ -292,13 +292,35 @@ If reloading fails, the passphrase cache (`gpg-agent`) has likely expired, and y
    ```
 3. **Wait or Exit:** Pause your execution or exit with a status message asking the user to restart you once the cache is warm.
 
+### AI Model Trailer
+Every commit authored with agent assistance must include an `AI-Model` trailer.
+Commits made entirely without agent involvement do not require this trailer.
+If a commit involves both human and agent work, include the trailer for the
+agent's contribution.
+
+Determine the value using the following priority order. Each level is a
+*source* of the value, not a license to reformat or translate what that
+source reports — copy it verbatim once found:
+
+1. The exact model identifier reported by the agent's runtime or configuration.
+2. If unavailable, the visible model name shown by the runtime or UI.
+3. If unavailable, the agent identity explicitly stated by the current
+   session. This counts as an available source, not an inference — use it exactly as stated.
+4. If none of the above is available, use `UNKNOWN`. Do not guess, combine,
+   or construct a value from partial information.
+
+Preserve the reported capitalization, punctuation, and wording. Do not
+invent a value, translate it, or add a tool prefix.
+
+Format:
+`AI-Model: <model name>`
+
 ### Commit Message Guidelines
 - Generate commit messages in English. 
 - Format: type(scope): description. 
 - Subject line: imperative mood, less than or equal to 50 characters. Blank Line between subject and body. 
 - Body: explain *why*, wrap at 72 characters, use `-` bullets.
-- Add a trailer at the end of the commit message (after a blank line following the body), following git trailer conventions:
-  `AI-Model: <exact model identifier as reported by the agent's runtime/config>` If the model cannot be determined, use `AI-Model: UNKNOWN`.
+- Add an `AI-Model` trailer at the end of the commit message, after a blank line following the body, following git trailer conventions.
 
 ---
 
