@@ -68,11 +68,13 @@ def _build_sidebar() -> ui.column:
     global _sidebar
     sidebar = (
         ui.column()
-        .classes("w-60 h-full p-4 gap-1")
+        .classes("w-60 shrink-0 p-4 gap-1 sticky top-4 self-start")
         .style(
             "background-color: #FFFFFF; border-radius: 12px;"
             " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
-            " border: 1px solid #E5E7EB"
+            " border: 1px solid #E5E7EB;"
+            " position: sticky; top: 1rem;"
+            " max-height: calc(100vh - 2rem); overflow-y: auto"
         )
     )
     with sidebar:
@@ -142,11 +144,11 @@ def setup_ui(base_dir: Path) -> None:
             return
 
         ui.query("body").classes("bg-slate-100")
-        with ui.row().classes("w-full min-h-screen gap-4 p-4"):
+        with ui.row().classes("w-full min-h-screen gap-4 p-4 items-start flex-nowrap"):
             _build_sidebar()
             content = (
                 ui.column()
-                .classes("w-full max-w-6xl p-6 rounded-xl")
+                .classes("flex-1 min-w-0 max-w-6xl p-6 rounded-xl")
                 .style(
                     "background-color: #FFFFFF; border-radius: 12px;"
                     " box-shadow: 0 1px 3px rgba(0,0,0,0.08);"
