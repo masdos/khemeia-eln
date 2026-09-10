@@ -70,7 +70,7 @@ def _open_edit_dialog(base_dir: Path, refresh) -> None:
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Save", on_click=save).props("color=primary")
+            ui.button("Cancel", on_click=dialog.close).props("outline")
 
     dialog.open()

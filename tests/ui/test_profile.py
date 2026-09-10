@@ -144,8 +144,8 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
         edit_click = button_mocks[0][1]["on_click"]
         edit_click()
 
-        # Find the Save button inside the dialog (second button created)
-        save_click = button_mocks[2][1]["on_click"]
+        # Find the Save button inside the dialog (first button in dialog row)
+        save_click = button_mocks[1][1]["on_click"]
         save_click()
 
         # then

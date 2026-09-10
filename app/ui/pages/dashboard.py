@@ -186,11 +186,11 @@ def _confirm_delete(service: ExperimentService, experiment_id: int, refresh) -> 
         ui.label("Delete this experiment?")
         ui.label("This action cannot be undone.").classes("text-sm text-slate-500")
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close)
             ui.button(
                 "Delete",
                 on_click=lambda: _do_delete(service, experiment_id, dialog, refresh),
             ).props("color=negative")
+            ui.button("Cancel", on_click=dialog.close)
 
     dialog.open()
 
@@ -274,8 +274,8 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Create", on_click=save).props("color=primary")
+            ui.button("Cancel", on_click=dialog.close).props("outline")
 
     dialog.open()
 

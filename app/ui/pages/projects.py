@@ -144,8 +144,8 @@ def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Create", on_click=save).props("color=primary")
+            ui.button("Cancel", on_click=dialog.close).props("outline")
 
     dialog.open()
 
@@ -189,8 +189,8 @@ def _open_edit_dialog(
                 message.text = str(error)
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close).props("outline")
             ui.button("Save", on_click=save).props("color=primary")
+            ui.button("Cancel", on_click=dialog.close).props("outline")
 
     dialog.open()
 
@@ -225,7 +225,7 @@ def _open_delete_dialog(
                 message.text = "Project not found."
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=dialog.close).props("flat")
             ui.button("Delete", on_click=confirm_delete).props("color=negative")
+            ui.button("Cancel", on_click=dialog.close).props("flat")
 
     dialog.open()
