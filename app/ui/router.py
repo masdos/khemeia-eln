@@ -83,11 +83,15 @@ def _refresh_internal() -> None:
 
 def _render_current_view() -> None:
     from app.ui.pages.dashboard import build_dashboard_page
+    from app.ui.pages.equipment_detail import build_equipment_detail_page
     from app.ui.pages.experiment_detail import build_experiment_detail_page
     from app.ui.pages.inventory import build_inventory_page
     from app.ui.pages.profile import build_profile_page
+    from app.ui.pages.project_detail import build_project_detail_page
     from app.ui.pages.projects import build_projects_page
+    from app.ui.pages.protocol_detail import build_protocol_detail_page
     from app.ui.pages.protocols import build_protocols_page
+    from app.ui.pages.reagent_detail import build_reagent_detail_page
 
     view = _current_view
     kwargs = _current_kwargs
@@ -105,6 +109,14 @@ def _render_current_view() -> None:
             experiment_id=kwargs["experiment_id"],
             base_dir=_base_dir,
         )
+    elif view == "project_detail":
+        build_project_detail_page(project_id=kwargs["project_id"])
+    elif view == "protocol_detail":
+        build_protocol_detail_page(protocol_id=kwargs["protocol_id"])
+    elif view == "reagent_detail":
+        build_reagent_detail_page(reagent_id=kwargs["reagent_id"])
+    elif view == "equipment_detail":
+        build_equipment_detail_page(equipment_id=kwargs["equipment_id"])
     elif view == "profile":
         build_profile_page(base_dir=_base_dir)
     else:

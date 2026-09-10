@@ -134,44 +134,48 @@ def test_create_project_via_dialog() -> None:
             assert len(projects) == 1
 
 
-def test_edit_project_via_dialog() -> None:
-    """Editing a project should call service.update_project."""
+def test_view_action_navigates_to_project_detail() -> None:
+    """View action should navigate to the project detail page."""
     # given
     service, _repo = _make_service()
-    project = service.create_project("Original", "Original desc")
+    project = service.create_project("Alpha", "First project")
 
     with patch("app.ui.pages.projects._get_service", return_value=service):
         with patch("app.ui.pages.projects.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
+            with patch("app.ui.pages.projects.router") as mock_router:
+                mock_ui.column.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.row.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.input.return_value = _make_chainable("")
+                mock_ui.button.return_value = MagicMock()
+                mock_ui.label.return_value = MagicMock()
 
-            name_mock = _make_chainable("Updated")
-            desc_mock = _make_chainable("Updated desc")
-            mock_ui.input = MagicMock(return_value=name_mock)
-            mock_ui.textarea = MagicMock(return_value=desc_mock)
-            mock_ui.label.return_value = MagicMock()
+                from app.ui.pages.projects import build_projects_page
 
-            from app.ui.pages.projects import _open_edit_dialog
+                build_projects_page()
 
-            refresh = MagicMock()
-            _open_edit_dialog(service, project["id"], refresh)
+                # when - the view action of the table row is triggered
+                table = mock_ui.table.return_value.classes.return_value
+                view_handler = None
+                for call in table.on.call_args_list:
+                    if call.args and call.args[0] == "view":
+                        view_handler = call.args[1]
+                        break
 
-            # Get the save callback
-            button_calls = mock_ui.button.call_args_list
-            save_button = None
-            for call in button_calls:
-                if call.args and call.args[0] == "Save":
-                    save_button = call
-                    break
+                assert view_handler is not None
+                event = MagicMock()
+                event.args = {"id": project["id"]}
+                view_handler(event)
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
-
-            # Then - project should be updated
-            updated = service.get_project(project["id"])
-            assert updated["name"] == "Updated"
+                # then - navigates to the project detail page
+                mock_router.navigate.assert_called_once_with(
+                    "project_detail", project_id=project["id"]
+                )
 
 
 def test_delete_project_shows_error_for_linked_experiments() -> None:

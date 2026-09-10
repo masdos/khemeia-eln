@@ -124,41 +124,47 @@ def test_create_protocol_via_dialog() -> None:
             assert len(protocols) == 1
 
 
-def test_edit_protocol_via_dialog() -> None:
-    """Editing a protocol should call service.update_protocol."""
+def test_view_action_navigates_to_protocol_detail() -> None:
+    """View action should navigate to the protocol detail page."""
     service, _repo = _make_service()
-    protocol = service.create_protocol("Original", "# Original")
+    protocol = service.create_protocol("SOP-A", "# Content A")
 
     with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
-            mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-            mock_ui.card.return_value.__enter__ = MagicMock(return_value=MagicMock())
-            mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
-            name_mock = _make_chainable("Updated")
-            content_mock = _make_chainable("# Updated")
-            mock_ui.input = MagicMock(return_value=name_mock)
-            mock_ui.textarea = MagicMock(return_value=content_mock)
-            mock_ui.label.return_value = MagicMock()
-            mock_ui.markdown.return_value = MagicMock()
+            with patch("app.ui.pages.protocols.router") as mock_router:
+                mock_ui.column.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.row.return_value.__enter__ = MagicMock(
+                    return_value=MagicMock()
+                )
+                mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                mock_ui.input.return_value = _make_chainable("")
+                mock_ui.button.return_value = MagicMock()
+                mock_ui.label.return_value = MagicMock()
 
-            from app.ui.pages.protocols import _open_edit_dialog
+                from app.ui.pages.protocols import build_protocols_page
 
-            refresh = MagicMock()
-            _open_edit_dialog(service, protocol["id"], refresh)
+                build_protocols_page()
 
-            button_calls = mock_ui.button.call_args_list
-            save_button = None
-            for call in button_calls:
-                if call.args and call.args[0] == "Save":
-                    save_button = call
-                    break
+                # when - the view action of the table row is triggered
+                table = mock_ui.table.return_value.classes.return_value
+                view_handler = None
+                for call in table.on.call_args_list:
+                    if call.args and call.args[0] == "view":
+                        view_handler = call.args[1]
+                        break
 
-            assert save_button is not None
-            save_button.kwargs["on_click"]()
+                assert view_handler is not None
+                event = MagicMock()
+                event.args = {"id": protocol["id"]}
+                view_handler(event)
 
-            updated = service.get_protocol(protocol["id"])
-            assert updated["name"] == "Updated"
+                # then - navigates to the protocol detail page
+                mock_router.navigate.assert_called_once_with(
+                    "protocol_detail", protocol_id=protocol["id"]
+                )
 
 
 def test_delete_protocol_shows_error_for_linked_experiments() -> None:

@@ -235,3 +235,81 @@ def test_rejects_blank_reagent_name() -> None:
 
             reagents = service._reagent_repo.get_all()
             assert len(reagents) == 0
+
+
+def _mock_section_chrome(mock_ui: MagicMock) -> None:
+    mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+    mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+    mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+    mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+    mock_ui.input.return_value = _make_chainable("")
+    mock_ui.button.return_value = MagicMock()
+    mock_ui.label.return_value = MagicMock()
+
+
+def test_reagent_view_action_navigates_to_detail() -> None:
+    """Reagent view action should navigate to the reagent detail page."""
+    # given
+    service = _make_service()
+    reagent_id = service.add_reagent(name="Ethanol")["id"]
+
+    with patch("app.ui.pages.inventory._get_service", return_value=service):
+        with patch("app.ui.pages.inventory.ui") as mock_ui:
+            with patch("app.ui.pages.inventory.router") as mock_router:
+                _mock_section_chrome(mock_ui)
+
+                from app.ui.pages.inventory import _build_reagents_section
+
+                _build_reagents_section(service)
+
+                # when - the view action of the table row is triggered
+                table = mock_ui.table.return_value.classes.return_value
+                view_handler = None
+                for call in table.on.call_args_list:
+                    if call.args and call.args[0] == "view":
+                        view_handler = call.args[1]
+                        break
+
+                assert view_handler is not None
+                event = MagicMock()
+                event.args = {"id": reagent_id}
+                view_handler(event)
+
+                # then - navigates to the reagent detail page
+                mock_router.navigate.assert_called_once_with(
+                    "reagent_detail", reagent_id=reagent_id
+                )
+
+
+def test_equipment_view_action_navigates_to_detail() -> None:
+    """Equipment view action should navigate to the equipment detail page."""
+    # given
+    service = _make_service()
+    equipment_id = service.add_equipment(name="HPLC")["id"]
+
+    with patch("app.ui.pages.inventory._get_service", return_value=service):
+        with patch("app.ui.pages.inventory.ui") as mock_ui:
+            with patch("app.ui.pages.inventory.router") as mock_router:
+                _mock_section_chrome(mock_ui)
+
+                from app.ui.pages.inventory import _build_equipment_section
+
+                _build_equipment_section(service)
+
+                # when - the view action of the table row is triggered
+                table = mock_ui.table.return_value.classes.return_value
+                view_handler = None
+                for call in table.on.call_args_list:
+                    if call.args and call.args[0] == "view":
+                        view_handler = call.args[1]
+                        break
+
+                assert view_handler is not None
+                event = MagicMock()
+                event.args = {"id": equipment_id}
+                view_handler(event)
+
+                # then - navigates to the equipment detail page
+                mock_router.navigate.assert_called_once_with(
+                    "equipment_detail", equipment_id=equipment_id
+                )

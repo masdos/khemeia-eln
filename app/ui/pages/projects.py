@@ -10,6 +10,7 @@ from app.services.project_service import (
     ProjectService,
     SqliteProjectRepository,
 )
+from app.ui import router
 
 
 def _get_service() -> ProjectService:
@@ -104,21 +105,21 @@ def _render_table(
             "body-cell-actions",
             """
             <q-td :props="props">
-                <q-btn flat dense icon="edit"
-                       @click="() => $parent.$emit('edit', props.row)" />
+                <q-btn flat dense icon="visibility"
+                        @click="() => $parent.$emit('view', props.row)" />
                 <q-btn flat dense icon="delete" color="negative"
-                       @click="() => $parent.$emit('delete', props.row)" />
+                        @click="() => $parent.$emit('delete', props.row)" />
             </q-td>
             """,
         )
 
-        def on_edit(e) -> None:
-            _open_edit_dialog(service, e.args["id"], refresh)
+        def on_view(e) -> None:
+            router.navigate("project_detail", project_id=e.args["id"])
 
         def on_delete(e) -> None:
             _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-        table.on("edit", on_edit)
+        table.on("view", on_view)
         table.on("delete", on_delete)
 
 
@@ -145,51 +146,6 @@ def _open_create_dialog(service: ProjectService, refresh: callable) -> None:
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
             ui.button("Create", on_click=save).props("color=primary")
-            ui.button("Cancel", on_click=dialog.close).props("outline")
-
-    dialog.open()
-
-
-def _open_edit_dialog(
-    service: ProjectService, project_id: int, refresh: callable
-) -> None:
-    try:
-        project = service.get_project(project_id)
-    except ProjectNotFoundError:
-        ui.notify("Project not found", type="negative")
-        return
-
-    dialog = ui.dialog()
-
-    with dialog, ui.card().classes("w-[32rem] max-w-full"):
-        ui.label("Edit Project").classes("text-xl font-semibold")
-        name_input = (
-            ui.input("Name *", value=project["name"])
-            .props("outlined")
-            .classes("w-full")
-        )
-        desc_input = (
-            ui.textarea("Description", value=project.get("description", ""))
-            .props("outlined")
-            .classes("w-full")
-        )
-        message = ui.label().classes("text-negative mt-2")
-
-        def save() -> None:
-            try:
-                service.update_project(
-                    project_id=project_id,
-                    name=name_input.value,
-                    description=desc_input.value,
-                )
-                dialog.close()
-                ui.notify("Project updated", type="positive")
-                refresh()
-            except (ProjectNameError, ProjectNotFoundError) as error:
-                message.text = str(error)
-
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Save", on_click=save).props("color=primary")
             ui.button("Cancel", on_click=dialog.close).props("outline")
 
     dialog.open()

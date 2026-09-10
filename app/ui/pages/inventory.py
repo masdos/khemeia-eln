@@ -10,6 +10,7 @@ from app.services.inventory_service import (
     SqliteEquipmentRepository,
     SqliteReagentRepository,
 )
+from app.ui import router
 
 GHS_FIELDS = [
     ("is_explosive", "GHS01", "Explosive"),
@@ -153,15 +154,21 @@ def _render_reagent_list(
         "body-cell-actions",
         """
         <q-td :props="props">
+            <q-btn flat dense icon="visibility"
+                    @click="() => $parent.$emit('view', props.row)" />
             <q-btn flat dense icon="history"
-                   @click="() => $parent.$emit('history', props.row)" />
+                    @click="() => $parent.$emit('history', props.row)" />
         </q-td>
         """,
     )
 
+    def on_view(e) -> None:
+        router.navigate("reagent_detail", reagent_id=e.args["id"])
+
     def on_history(e) -> None:
         _open_history_dialog(service, e.args["id"], e.args["name"])
 
+    table.on("view", on_view)
     table.on("history", on_history)
 
 
@@ -350,6 +357,12 @@ def _render_equipment_list(service: InventoryService, search_text: str) -> None:
             "field": "description",
             "align": "left",
         },
+        {
+            "name": "actions",
+            "label": "Actions",
+            "field": "actions",
+            "align": "center",
+        },
     ]
 
     rows = [
@@ -361,7 +374,24 @@ def _render_equipment_list(service: InventoryService, search_text: str) -> None:
         for e in equipment
     ]
 
-    ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes("w-full")
+    table = ui.table(
+        columns=columns, rows=rows, row_key="id", pagination=10
+    ).classes("w-full")
+
+    table.add_slot(
+        "body-cell-actions",
+        """
+        <q-td :props="props">
+            <q-btn flat dense icon="visibility"
+                    @click="() => $parent.$emit('view', props.row)" />
+        </q-td>
+        """,
+    )
+
+    def on_view(e) -> None:
+        router.navigate("equipment_detail", equipment_id=e.args["id"])
+
+    table.on("view", on_view)
 
 
 def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None:
