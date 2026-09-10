@@ -7,6 +7,7 @@ call instead of ``ui.navigate.to`` / ``ui.navigate.reload``.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -19,6 +20,7 @@ _content: ui.column | None = None
 _current_view: str = "dashboard"
 _current_kwargs: dict = {}
 _base_dir: Path | None = None
+_navigate_listeners: list[Callable[[str], None]] = []
 
 
 def setup(content: ui.column, base_dir: Path) -> None:
@@ -41,7 +43,20 @@ def navigate(view: str, **kwargs: object) -> None:
     _current_view = view
     _current_kwargs = kwargs
     _refresh_internal()
+    for listener in _navigate_listeners:
+        listener(view)
     logger.info("Navigated to view=%s kwargs=%s", view, kwargs)
+
+
+def on_navigate(callback: Callable[[str], None]) -> None:
+    """Register a callback invoked after each navigation.
+
+    Used by the SPA shell to update persistent chrome (e.g. sidebar
+    active state) without rebuilding it.
+    """
+    if callback not in _navigate_listeners:
+        _navigate_listeners.append(callback)
+    logger.info("Navigate listener registered listener=%s", callback)
 
 
 def get_current_view() -> str:

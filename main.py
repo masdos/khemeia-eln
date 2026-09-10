@@ -38,19 +38,27 @@ NAV_ITEMS = [
 ]
 
 
-_sidebar: ui.column | None = None
+_sidebar_buttons: dict[str, ui.button] = {}
+
+
+def _update_sidebar_active(view: str | None = None) -> None:
+    current = view if view is not None else router.get_current_view()
+    for item_view, btn in _sidebar_buttons.items():
+        if item_view == current:
+            btn.classes(add="bg-slate-100", remove="hover:bg-slate-100")
+        else:
+            btn.classes(add="hover:bg-slate-100", remove="bg-slate-100")
 
 
 def _render_sidebar_content() -> None:
+    _sidebar_buttons.clear()
     ui.image("app/ui/assets/logo.png").classes("w-36 mx-auto")
-    current = router.get_current_view()
     for label, view, icon in NAV_ITEMS:
-        is_active = view == current
         btn = (
             ui.button(
                 icon=icon,
                 text=label,
-                on_click=lambda v=view: _navigate_and_refresh(v),
+                on_click=lambda v=view: router.navigate(v),
             )
             .props("flat color=black")
             .classes(
@@ -58,14 +66,11 @@ def _render_sidebar_content() -> None:
                 " justify-start"
             )
         )
-        if is_active:
-            btn.classes("bg-slate-100")
-        else:
-            btn.classes("hover:bg-slate-100")
+        _sidebar_buttons[view] = btn
+    _update_sidebar_active()
 
 
 def _build_sidebar() -> ui.column:
-    global _sidebar
     sidebar = (
         ui.column()
         .classes("w-60 shrink-0 p-4 gap-1 sticky top-4 self-start")
@@ -79,20 +84,8 @@ def _build_sidebar() -> ui.column:
     )
     with sidebar:
         _render_sidebar_content()
-    _sidebar = sidebar
+    router.on_navigate(_update_sidebar_active)
     return sidebar
-
-
-def _refresh_sidebar() -> None:
-    if _sidebar is not None:
-        _sidebar.clear()
-        with _sidebar:
-            _render_sidebar_content()
-
-
-def _navigate_and_refresh(view: str) -> None:
-    router.navigate(view)
-    _refresh_sidebar()
 
 
 def _build_welcome_dialog(base_dir: Path) -> None:
