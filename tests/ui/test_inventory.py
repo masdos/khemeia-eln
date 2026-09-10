@@ -142,7 +142,7 @@ def test_add_reagent_via_dialog() -> None:
             button_calls = mock_ui.button.call_args_list
             save_button = None
             for call in button_calls:
-                if call.args and call.args[0] == "Save":
+                if call.args and call.args[0] == "Create":
                     save_button = call
                     break
 
@@ -181,7 +181,7 @@ def test_add_equipment_via_dialog() -> None:
             button_calls = mock_ui.button.call_args_list
             save_button = None
             for call in button_calls:
-                if call.args and call.args[0] == "Save":
+                if call.args and call.args[0] == "Create":
                     save_button = call
                     break
 
@@ -225,7 +225,7 @@ def test_rejects_blank_reagent_name() -> None:
             button_calls = mock_ui.button.call_args_list
             save_button = None
             for call in button_calls:
-                if call.args and call.args[0] == "Save":
+                if call.args and call.args[0] == "Create":
                     save_button = call
                     break
 
