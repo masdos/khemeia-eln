@@ -259,7 +259,40 @@ Write all generated text in clear English, including code comments, documentatio
 - Keep comments focused on intent and behavior, not obvious line-by-line restatements
 - Domain terms from the data model (e.g. `experiment`, `reagent`, `smiles`) may be used as-is in code and comments without translation
 
-# Commit Message Guidelines
+
+## Git Commit & GPG Signing Protocol
+
+You are required to cryptographically sign every git commit using GPG (`git commit -S`). If the GPG signing process fails or hangs, you must follow this recovery protocol immediately. Do not attempt to bypass signing unless explicitly instructed below.
+
+### Error Detection
+You can detect a GPG failure if the `git commit` command:
+- Hangs indefinitely (waiting for a passphrase input).
+- Throws an error containing: `error: gpg failed to sign the data` or `fatal: failed to write commit object`.
+
+### Recovery Workflow (Step-by-Step)
+
+#### Step 1: Wake up and Reload GPG
+If the GPG daemon is unresponsive or misconfigured, execute the following commands to restart and refresh the agent:
+```bash
+gpgconf --launch gpg-agent
+gpg-connect-agent /bye
+gpgconf --reload gpg-agent
+```
+*Note: If running on Windows, use `gpg-connect-agent.exe /bye`.*
+
+After reloading, retry your commit (`git commit -S -m "..."`).
+
+#### Step 2: Cache Validation & User Notification
+If reloading fails, the passphrase cache (`gpg-agent`) has likely expired, and you lack the interactive permissions to type the passphrase. 
+
+1. **Stop your execution loop.** Do not retry blindly.
+2. **Output a clear message to the user** asking them to re-authenticate the local GPG cache. Recommend they run this command in their local terminal:
+   ```bash
+   echo "unlocking cache" | gpg --clearsign
+   ```
+3. **Wait or Exit:** Pause your execution or exit with a status message asking the user to restart you once the cache is warm.
+
+### Commit Message Guidelines
 - Generate commit messages in English. 
 - Format: type(scope): description. 
 - Subject line: imperative mood, less than or equal to 50 characters. Blank Line between subject and body. 
