@@ -395,7 +395,7 @@
         "Si Ollama no está disponible o el modelo recomendado no está instalado, generate_report() devuelve None y no propaga la excepción",
         "tests/services/test_ai_service.py inyecta un cliente Ollama simulado y verifica generación exitosa, degradación elegante y generación a partir de varios experimentos"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 27,

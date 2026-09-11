@@ -1,6 +1,8 @@
 from unittest.mock import patch
 from urllib.error import URLError
 
+import pytest
+
 from app.services.ollama_client import RECOMMENDED_MODEL, OllamaClient
 
 
@@ -53,9 +55,7 @@ def test_reports_missing_recommended_model_when_ollama_has_other_models() -> Non
 def test_reports_ready_when_recommended_model_is_installed() -> None:
     # given
     client = OllamaClient()
-    response = _Response(
-        b'{"models": [{"name": "llama3.2:3b"}, {"name": "qwen3:4b"}]}'
-    )
+    response = _Response(b'{"models": [{"name": "llama3.2:3b"}, {"name": "qwen3:4b"}]}')
 
     # when
     with patch("app.services.ollama_client.urlopen", return_value=response):
@@ -65,3 +65,30 @@ def test_reports_ready_when_recommended_model_is_installed() -> None:
     assert status.is_available is True
     assert RECOMMENDED_MODEL in status.installed_models
     assert status.is_recommended_model_ready is True
+
+
+def test_returns_completion_text_when_generate_succeeds() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"response": "# Report"}')
+
+    # when
+    with patch(
+        "app.services.ollama_client.urlopen", return_value=response
+    ) as open_mock:
+        text = client.generate(RECOMMENDED_MODEL, "Summarize.")
+
+    # then
+    assert text == "# Report"
+    assert open_mock.called
+
+
+def test_raises_when_generate_response_has_no_text() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"response": "  "}')
+
+    # when / then
+    with patch("app.services.ollama_client.urlopen", return_value=response):
+        with pytest.raises(ValueError, match="did not contain text"):
+            client.generate(RECOMMENDED_MODEL, "Summarize.")
