@@ -380,7 +380,7 @@
         "qwen3:4b es la constante de modelo recomendado inicial y se considera listo únicamente cuando aparece entre los modelos instalados",
         "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre servicio no disponible, modelo recomendado ausente y modelo recomendado disponible"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 26,
