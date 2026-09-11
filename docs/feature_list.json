@@ -370,16 +370,15 @@
     },
     {
       "id": 25,
-      "name": "ai_providers",
+      "name": "ollama_client",
       "phase": "ai_reports",
-      "title": "Interfaz AIProvider e implementaciones",
-      "description": "Definir la interfaz AIProvider y sus tres implementaciones concretas (LMStudio, Ollama, RemoteAPI) para desacoplar el backend de IA del resto del sistema.",
+      "title": "Cliente local de Ollama",
+      "description": "Integrar el cliente local de Ollama para comprobar su disponibilidad y los modelos descargados antes de generar informes. El modelo recomendado inicialmente es qwen3:4b.",
       "acceptance": [
-        "Existe app/services/ai/ai_provider.py con la clase abstracta AIProvider con el método generate(prompt: str) → str",
-        "Existen app/services/ai/lmstudio_provider.py (endpoint http://localhost:1234/v1), ollama_provider.py (http://localhost:11434/v1) y remote_provider.py (endpoint configurable desde config.json)",
-        "Si el endpoint no responde, el provider lanza una excepción AIProviderUnavailableError (no bloquea el resto de la app)",
-        "El provider activo se instancia en función del campo ai_provider de config.json",
-        "tests/services/test_ai_providers.py usa mock del endpoint HTTP y verifica que cada provider construye la petición correctamente y maneja el error de conexión"
+        "Existe app/services/ollama_client.py que consulta el endpoint local http://localhost:11434/api/tags",
+        "El cliente expone si Ollama está disponible y los nombres de los modelos instalados, sin bloquear el resto de la app si el endpoint no responde",
+        "qwen3:4b es la constante de modelo recomendado inicial y se considera listo únicamente cuando aparece entre los modelos instalados",
+        "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre servicio no disponible, modelo recomendado ausente y modelo recomendado disponible"
       ],
       "status": "pending"
     },
@@ -388,25 +387,29 @@
       "name": "ai_service",
       "phase": "ai_reports",
       "title": "AIService",
-      "description": "Orquesta la generación de informes científicos: selecciona el proveedor activo, construye el prompt con los datos de uno o varios experimentos y devuelve el borrador en Markdown.",
+      "description": "Orquesta la generación de informes científicos con Ollama: construye el prompt con los datos de uno o varios experimentos y devuelve el borrador en Markdown.",
       "acceptance": [
         "Existe app/services/ai_service.py con el método generate_report(experiments_data) → str que devuelve Markdown, aceptando uno o varios experimentos",
         "El system prompt instruye al modelo a generar un informe técnico científico estructurado",
-        "Si el AIProvider lanza AIProviderUnavailableError, generate_report() devuelve None y no propaga la excepción",
-        "tests/services/test_ai_service.py inyecta un provider mock y verifica: generación exitosa, degradación elegante ante provider no disponible, generación a partir de varios experimentos"
+        "AIService usa exclusivamente OllamaClient y qwen3:4b; no existe selección ni abstracción de proveedores de IA",
+        "Si Ollama no está disponible o el modelo recomendado no está instalado, generate_report() devuelve None y no propaga la excepción",
+        "tests/services/test_ai_service.py inyecta un cliente Ollama simulado y verifica generación exitosa, degradación elegante y generación a partir de varios experimentos"
       ],
       "status": "pending"
     },
     {
       "id": 27,
-      "name": "ui_profile_ai_settings",
+      "name": "ui_ollama_readiness",
       "phase": "ai_reports",
-      "title": "Ampliación de Profile: selección de proveedor de IA (UI)",
-      "description": "Amplía la página Profile del MVP añadiendo el selector de proveedor de IA activo, ahora que ai_providers y ai_service existen.",
+      "title": "Página AI Reports: preparación de Ollama (UI)",
+      "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y el modelo recomendado, y muestra si el entorno local está listo para generar informes.",
       "acceptance": [
-        "app/ui/pages/profile.py añade un campo ai_provider (lmstudio, ollama, remote) al formulario existente",
-        "Al guardar, se actualiza config.json y el cambio es efectivo en la siguiente llamada a AIService sin reiniciar la aplicación",
-        "Smoke test manual: cambiar el proveedor de IA y verificar que el siguiente informe generado usa el proveedor actualizado"
+        "Existe app/ui/pages/ai_reports.py y el ítem AI Reports se añade a la navegación principal",
+        "La página enlaza a la documentación oficial de instalación de Ollama para Windows y a la ficha oficial del modelo qwen3:4b",
+        "La página muestra el comando ollama pull qwen3:4b e informa de que la instalación y la descarga se realizan fuera de la aplicación",
+        "Un indicador verde muestra que Ollama responde y qwen3:4b está instalado; un indicador rojo explica si falta Ollama o el modelo",
+        "Hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
+        "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, estados verde y rojo, y actualización manual"
       ],
       "status": "pending"
     },
@@ -429,15 +432,15 @@
       "name": "ui_ai_assistant",
       "phase": "ai_reports",
       "title": "Página AI Assistant (UI)",
-      "description": "Interfaz para generar borradores de informes científicos a partir de experimentos seleccionados y exportarlos a Markdown o PDF.",
+      "description": "Interfaz para generar borradores de informes científicos con Ollama a partir de experimentos seleccionados y exportarlos a Markdown o PDF.",
       "acceptance": [
         "Existe app/ui/pages/ai_assistant.py con un selector múltiple de experimentos",
         "El ítem 'AI Assistant' se añade a la navegación principal solo a partir de esta fase",
         "Al pulsar 'Generar borrador', se llama a AIService y el resultado se muestra en un área de texto editable",
-        "Si AIService devuelve None (provider no disponible), se muestra un mensaje de aviso sin romper la interfaz",
+        "Si AIService devuelve None porque Ollama o qwen3:4b no están listos, se muestra un aviso con acceso a AI Reports sin romper la interfaz",
         "Hay un botón 'Exportar Markdown' que llama a ExportService.export_ai_report_markdown",
         "Hay un botón 'Exportar PDF' que llama a ExportService.export_ai_report_pdf",
-        "Smoke test manual: generar un informe con LM Studio activo, editar el borrador y exportar a PDF"
+        "Smoke test manual: con Ollama y qwen3:4b listos, generar un informe, editar el borrador y exportarlo a PDF"
       ],
       "status": "pending"
     }
