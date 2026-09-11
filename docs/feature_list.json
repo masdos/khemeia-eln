@@ -366,7 +366,7 @@
         "Ningún método almacena ni devuelve rutas absolutas; la resolución de rutas sigue siendo responsabilidad de FileService/ExportService",
         "tests/repositories/test_report_repository.py cubre creación, vinculación múltiple a experimentos y consulta usando SQLite :memory:"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 25,
