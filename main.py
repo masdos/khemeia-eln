@@ -34,6 +34,7 @@ NAV_ITEMS = [
     ("Projects", "projects", "folder"),
     ("Protocols", "protocols", "article"),
     ("Inventory", "inventory", "shelves"),
+    ("AI Reports", "ai_reports", "smart_toy"),
     ("Profile", "profile", "contact_page"),
 ]
 

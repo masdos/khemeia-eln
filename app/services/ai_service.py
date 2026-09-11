@@ -46,19 +46,18 @@ class AIService:
             logger.warning("AI provider unavailable error=%s", str(error))
             return None
 
-        if not status.is_available or not status.is_recommended_model_ready:
+        if not status.is_ready:
             logger.warning(
-                "AI model not ready is_available=%s model_ready=%s",
+                "AI model not ready is_available=%s has_models=%s",
                 status.is_available,
-                status.is_recommended_model_ready,
+                status.has_models,
             )
             return None
 
+        model = _resolve_model(self._model, status.installed_models)
         prompt = _build_user_prompt(experiments)
         try:
-            report = self._ollama_client.generate(
-                self._model, f"{SYSTEM_PROMPT}\n\n{prompt}"
-            )
+            report = self._ollama_client.generate(model, f"{SYSTEM_PROMPT}\n\n{prompt}")
         except Exception as error:
             logger.warning("Report generation failed error=%s", str(error))
             return None
@@ -69,6 +68,14 @@ class AIService:
 
         logger.info("Report generated count=%s", len(experiments))
         return report.strip()
+
+
+def _resolve_model(preferred: str, installed: Sequence[str]) -> str:
+    """Return the preferred model, or the first installed one as fallback."""
+    if preferred in installed:
+        return preferred
+    logger.info("Preferred model missing model=%s fallback=%s", preferred, installed[0])
+    return installed[0]
 
 
 def _normalize_experiments(

@@ -373,12 +373,12 @@
       "name": "ollama_client",
       "phase": "ai_reports",
       "title": "Cliente local de Ollama",
-      "description": "Integrar el cliente local de Ollama para comprobar su disponibilidad y los modelos descargados antes de generar informes. El modelo recomendado inicialmente es qwen3:4b.",
+      "description": "Integrar el cliente local de Ollama para comprobar su disponibilidad y los modelos descargados antes de generar informes. qwen3:4b es el modelo preferido, pero cualquier modelo local vale.",
       "acceptance": [
         "Existe app/services/ollama_client.py que consulta el endpoint local http://localhost:11434/api/tags",
         "El cliente expone si Ollama está disponible y los nombres de los modelos instalados, sin bloquear el resto de la app si el endpoint no responde",
-        "qwen3:4b es la constante de modelo recomendado inicial y se considera listo únicamente cuando aparece entre los modelos instalados",
-        "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre servicio no disponible, modelo recomendado ausente y modelo recomendado disponible"
+        "qwen3:4b es la constante de modelo preferido; se considera listo cuando hay al menos un modelo instalado, sea cual sea",
+        "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre servicio no disponible, sin modelos instalados y listo con cualquier modelo local"
       ],
       "status": "done"
     },
@@ -391,8 +391,8 @@
       "acceptance": [
         "Existe app/services/ai_service.py con el método generate_report(experiments_data) → str que devuelve Markdown, aceptando uno o varios experimentos",
         "El system prompt instruye al modelo a generar un informe técnico científico estructurado",
-        "AIService usa exclusivamente OllamaClient y qwen3:4b; no existe selección ni abstracción de proveedores de IA",
-        "Si Ollama no está disponible o el modelo recomendado no está instalado, generate_report() devuelve None y no propaga la excepción",
+        "AIService usa exclusivamente OllamaClient con qwen3:4b como modelo preferido y el primer modelo instalado como alternativa; no existe selección ni abstracción de proveedores de IA",
+        "Si Ollama no está disponible o no hay ningún modelo instalado, generate_report() devuelve None y no propaga la excepción",
         "tests/services/test_ai_service.py inyecta un cliente Ollama simulado y verifica generación exitosa, degradación elegante y generación a partir de varios experimentos"
       ],
       "status": "done"
@@ -402,16 +402,16 @@
       "name": "ui_ollama_readiness",
       "phase": "ai_reports",
       "title": "Página AI Reports: preparación de Ollama (UI)",
-      "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y el modelo recomendado, y muestra si el entorno local está listo para generar informes.",
+      "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y cualquier modelo local, y muestra si el entorno local está listo para generar informes.",
       "acceptance": [
         "Existe app/ui/pages/ai_reports.py y el ítem AI Reports se añade a la navegación principal",
-        "La página enlaza a la documentación oficial de instalación de Ollama para Windows y a la ficha oficial del modelo qwen3:4b",
-        "La página muestra el comando ollama pull qwen3:4b e informa de que la instalación y la descarga se realizan fuera de la aplicación",
-        "Un indicador verde muestra que Ollama responde y qwen3:4b está instalado; un indicador rojo explica si falta Ollama o el modelo",
-        "Hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
-        "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, estados verde y rojo, y actualización manual"
+        "La página solo muestra la guía de descarga de Ollama (https://ollama.com/download) cuando Ollama no responde, y solo muestra la guía de descarga de modelos (librería, qwen y gemma con sus comandos pull) cuando no hay modelos instalados; todos los enlaces abren en el navegador predeterminado con new_tab=True",
+        "Si hay modelos instalados pero ninguno en ejecución (según /api/ps), la página lista todos los instalados y muestra ollama run con el primero como ejemplo, aclarando que puede usar cualquiera",
+        "Un indicador verde muestra que Ollama responde y hay un modelo en ejecución; en caso contrario un indicador explica el estado (falta Ollama, faltan modelos o modelo detenido)",
+        "La comprobación de estado se ejecuta en un hilo worker para no bloquear la interfaz, y hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
+        "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, los cuatro estados y actualización manual"
       ],
-      "status": "pending"
+      "status": "in_progress"
     },
     {
       "id": 28,

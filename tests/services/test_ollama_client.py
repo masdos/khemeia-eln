@@ -92,3 +92,60 @@ def test_raises_when_generate_response_has_no_text() -> None:
     with patch("app.services.ollama_client.urlopen", return_value=response):
         with pytest.raises(ValueError, match="did not contain text"):
             client.generate(RECOMMENDED_MODEL, "Summarize.")
+
+
+def test_reports_ready_with_any_installed_model() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"models": [{"name": "gemma3:4b"}]}')
+
+    # when
+    with patch("app.services.ollama_client.urlopen", return_value=response):
+        status = client.get_status()
+
+    # then
+    assert status.is_ready is True
+    assert status.has_models is True
+
+
+def test_reports_not_ready_without_installed_models() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"models": []}')
+
+    # when
+    with patch("app.services.ollama_client.urlopen", return_value=response):
+        status = client.get_status()
+
+    # then
+    assert status.is_available is True
+    assert status.has_models is False
+    assert status.is_ready is False
+
+
+def test_returns_running_models_when_ps_succeeds() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"models": [{"name": "qwen2.5:7b"}]}')
+
+    # when
+    with patch("app.services.ollama_client.urlopen", return_value=response):
+        running = client.get_running_models()
+
+    # then
+    assert running == ("qwen2.5:7b",)
+
+
+def test_returns_empty_running_models_when_ps_fails() -> None:
+    # given
+    client = OllamaClient()
+
+    # when
+    with patch(
+        "app.services.ollama_client.urlopen",
+        side_effect=URLError("Connection refused"),
+    ):
+        running = client.get_running_models()
+
+    # then
+    assert running == ()

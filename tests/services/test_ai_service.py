@@ -110,10 +110,26 @@ def test_returns_none_when_ollama_is_unavailable() -> None:
     assert client.seen_prompts == []
 
 
-def test_returns_none_when_recommended_model_is_missing() -> None:
+def test_uses_any_installed_model_when_preferred_is_missing() -> None:
     # given
     client = FakeOllamaClient(
-        status=OllamaStatus(is_available=True, installed_models=("llama3.2:3b",))
+        status=OllamaStatus(is_available=True, installed_models=("gemma3:4b",)),
+        response="# Draft",
+    )
+    service = AIService(client)  # type: ignore[arg-type]
+
+    # when
+    report = service.generate_report(_experiment())
+
+    # then
+    assert report == "# Draft"
+    assert client.seen_models == ["gemma3:4b"]
+
+
+def test_returns_none_when_no_model_is_installed() -> None:
+    # given
+    client = FakeOllamaClient(
+        status=OllamaStatus(is_available=True, installed_models=())
     )
     service = AIService(client)  # type: ignore[arg-type]
 

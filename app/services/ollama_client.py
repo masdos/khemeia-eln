@@ -18,6 +18,16 @@ class OllamaStatus:
     installed_models: tuple[str, ...]
 
     @property
+    def has_models(self) -> bool:
+        """Return whether any local model is installed."""
+        return len(self.installed_models) > 0
+
+    @property
+    def is_ready(self) -> bool:
+        """Return whether Ollama can generate with a local model."""
+        return self.is_available and self.has_models
+
+    @property
     def is_recommended_model_ready(self) -> bool:
         """Return whether the recommended model is installed locally."""
         return RECOMMENDED_MODEL in self.installed_models
@@ -75,6 +85,24 @@ class OllamaClient:
             raise ValueError("Ollama response did not contain text")
         logger.debug("Ollama completion generated model=%s", model)
         return text
+
+    def get_running_models(self) -> tuple[str, ...]:
+        """Return names of models currently loaded, or empty when unknown."""
+        request = Request(f"{self._base_url}/api/ps", method="GET")
+
+        try:
+            with urlopen(request, timeout=self._timeout_seconds) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except (
+            OSError,
+            TimeoutError,
+            URLError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+        ):
+            return ()
+
+        return _model_names(payload)
 
 
 def _model_names(payload: object) -> tuple[str, ...]:
