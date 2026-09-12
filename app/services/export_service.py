@@ -26,6 +26,7 @@ from app.repositories import (
     project_repository,
     protocol_repository,
     reagent_repository,
+    report_repository,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,6 +70,16 @@ class AttachmentRepository(Protocol):
     """Data access contract for attachment reads required by ExportService."""
 
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]: ...
+
+
+class ReportRepository(Protocol):
+    """Data access contract for AI report persistence."""
+
+    def create(self, file_name: str, stored_name: str, extension: str) -> int: ...
+
+    def link_to_experiments(
+        self, report_id: int, experiment_ids: Sequence[int]
+    ) -> None: ...
 
 
 class SqliteExperimentRepository:
@@ -138,6 +149,25 @@ class SqliteAttachmentRepository:
         return [_row_to_dict(row) for row in rows]
 
 
+class SqliteReportRepository:
+    """Adapter that backs the report write contract with SQLite functions."""
+
+    def __init__(self, connection: sqlite3.Connection) -> None:
+        self._connection = connection
+
+    def create(self, file_name: str, stored_name: str, extension: str) -> int:
+        return report_repository.create(
+            self._connection, file_name, stored_name, extension
+        )
+
+    def link_to_experiments(
+        self, report_id: int, experiment_ids: Sequence[int]
+    ) -> None:
+        report_repository.link_to_experiments(
+            self._connection, report_id, experiment_ids
+        )
+
+
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
         return None
@@ -159,6 +189,7 @@ class ExportService:
         attachment_repo: AttachmentRepository,
         user_name: str = "",
         user_email: str = "",
+        report_repo: ReportRepository | None = None,
     ) -> None:
         self._base_dir = base_dir
         self._experiment_repo = experiment_repo
@@ -169,6 +200,7 @@ class ExportService:
         self._attachment_repo = attachment_repo
         self._user_name = user_name
         self._user_email = user_email
+        self._report_repo = report_repo
 
     def export_experiment_markdown(self, experiment_id: int) -> Path:
         """Export an experiment to Markdown under BASE_DIR/exports/."""
@@ -215,6 +247,62 @@ class ExportService:
 
         logger.info("Experiment exported to pdf experiment_id=%s", experiment_id)
         return file_path
+
+    def export_ai_report_markdown(
+        self, markdown_content: str, experiment_ids: Sequence[int]
+    ) -> Path:
+        """Export AI generated Markdown and register it as a report."""
+        self._validate_ai_report_input(markdown_content, experiment_ids)
+        report_repo = self._require_report_repo()
+        file_name, stored_name = _build_ai_report_names("md")
+
+        file_path = self._exports_dir() / stored_name
+        file_path.write_text(markdown_content, encoding="utf-8")
+
+        report_id = report_repo.create(file_name, stored_name, "md")
+        report_repo.link_to_experiments(report_id, list(experiment_ids))
+
+        logger.info(
+            "AI report exported to markdown stored_name=%s report_id=%s",
+            stored_name,
+            report_id,
+        )
+        return file_path
+
+    def export_ai_report_pdf(
+        self, markdown_content: str, experiment_ids: Sequence[int]
+    ) -> Path:
+        """Export AI generated Markdown as PDF and register it as a report."""
+        self._validate_ai_report_input(markdown_content, experiment_ids)
+        report_repo = self._require_report_repo()
+        file_name, stored_name = _build_ai_report_names("pdf")
+
+        file_path = self._exports_dir() / stored_name
+        _write_markdown_pdf(file_path, markdown_content)
+
+        report_id = report_repo.create(file_name, stored_name, "pdf")
+        report_repo.link_to_experiments(report_id, list(experiment_ids))
+
+        logger.info(
+            "AI report exported to pdf stored_name=%s report_id=%s",
+            stored_name,
+            report_id,
+        )
+        return file_path
+
+    def _require_report_repo(self) -> ReportRepository:
+        if self._report_repo is None:
+            raise RuntimeError("Report repository is not configured")
+        return self._report_repo
+
+    @staticmethod
+    def _validate_ai_report_input(
+        markdown_content: str, experiment_ids: Sequence[int]
+    ) -> None:
+        if not markdown_content or not markdown_content.strip():
+            raise ValueError("markdown_content must not be empty")
+        if not experiment_ids:
+            raise ValueError("experiment_ids must contain at least one id")
 
     def _build_markdown(
         self,
@@ -296,6 +384,17 @@ class ExportService:
         exports_dir = self._base_dir / "exports"
         exports_dir.mkdir(parents=True, exist_ok=True)
         return exports_dir
+
+
+def _build_ai_report_names(extension: str) -> tuple[str, str]:
+    """Build human readable and unique storage names for an AI report."""
+    import uuid
+    from datetime import datetime, timezone
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    file_name = f"ai_report_{timestamp}.{extension}"
+    stored_name = f"{uuid.uuid4().hex}.{extension}"
+    return file_name, stored_name
 
 
 def _write_markdown_pdf(file_path: Path, markdown: str) -> None:

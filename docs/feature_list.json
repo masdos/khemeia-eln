@@ -425,7 +425,7 @@
         "Ambos métodos escriben el fichero de salida en BASE_DIR/exports/ y devuelven la ruta absoluta",
         "tests/services/test_export_service.py (ampliado) cubre la exportación de un informe IA y su registro en ReportRepository con un repositorio en memoria"
       ],
-      "status": "pending"
+      "status": "done"
     },
     {
       "id": 29,

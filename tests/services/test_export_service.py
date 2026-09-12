@@ -89,6 +89,31 @@ class InMemoryAttachmentRepository:
         return self._attachments_by_experiment.get(experiment_id, [])
 
 
+class InMemoryReportRepository:
+    """Test double recording AI reports without SQLite."""
+
+    def __init__(self) -> None:
+        self._reports: dict[int, dict[str, Any]] = {}
+        self._links: dict[int, list[int]] = {}
+        self._next_id = 1
+
+    def create(self, file_name: str, stored_name: str, extension: str) -> int:
+        report_id = self._next_id
+        self._next_id += 1
+        self._reports[report_id] = {
+            "id": report_id,
+            "file_name": file_name,
+            "stored_name": stored_name,
+            "extension": extension,
+        }
+        return report_id
+
+    def link_to_experiments(
+        self, report_id: int, experiment_ids: Sequence[int]
+    ) -> None:
+        self._links[report_id] = list(experiment_ids)
+
+
 @pytest.fixture(name="experiment_repository")
 def experiment_repository_fixture() -> InMemoryExperimentRepository:
     return InMemoryExperimentRepository()
@@ -117,6 +142,11 @@ def protocol_repository_fixture() -> InMemoryProtocolRepository:
 @pytest.fixture(name="attachment_repository")
 def attachment_repository_fixture() -> InMemoryAttachmentRepository:
     return InMemoryAttachmentRepository()
+
+
+@pytest.fixture(name="report_repository")
+def report_repository_fixture() -> InMemoryReportRepository:
+    return InMemoryReportRepository()
 
 
 @pytest.fixture(name="service")
@@ -354,3 +384,157 @@ class TestConvertInlineMarkdown:
 
         # then
         assert result == "<b>Bold1</b> and <b>Bold2</b>"
+
+
+@pytest.fixture(name="ai_service")
+def ai_service_fixture(
+    tmp_path: Path,
+    experiment_repository: InMemoryExperimentRepository,
+    reagent_repository: InMemoryReagentRepository,
+    equipment_repository: InMemoryEquipmentRepository,
+    project_repository: InMemoryProjectRepository,
+    protocol_repository: InMemoryProtocolRepository,
+    attachment_repository: InMemoryAttachmentRepository,
+    report_repository: InMemoryReportRepository,
+) -> ExportService:
+    # given
+    return ExportService(
+        tmp_path,
+        experiment_repository,
+        reagent_repository,
+        equipment_repository,
+        project_repository,
+        protocol_repository,
+        attachment_repository,
+        report_repo=report_repository,
+    )
+
+
+class TestExportAiReportMarkdown:
+    def test_writes_markdown_file_under_exports_with_content(
+        self, ai_service: ExportService, tmp_path: Path
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        file_path = ai_service.export_ai_report_markdown(markdown, [1, 2])
+
+        # then
+        assert file_path.parent == tmp_path / "exports"
+        assert file_path.suffix == ".md"
+        assert file_path.is_absolute()
+        assert file_path.exists()
+        assert file_path.read_text(encoding="utf-8") == markdown
+
+    def test_registers_report_and_links_it_to_experiments(
+        self,
+        ai_service: ExportService,
+        report_repository: InMemoryReportRepository,
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        file_path = ai_service.export_ai_report_markdown(markdown, [1, 2])
+
+        # then
+        assert len(report_repository._reports) == 1
+        report = next(iter(report_repository._reports.values()))
+        assert report["file_name"].endswith(".md")
+        assert report["stored_name"] == file_path.name
+        assert report["extension"] == "md"
+        assert report_repository._links[report["id"]] == [1, 2]
+
+    def test_stores_only_relative_names_without_absolute_paths(
+        self,
+        ai_service: ExportService,
+        report_repository: InMemoryReportRepository,
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        ai_service.export_ai_report_markdown(markdown, [1])
+
+        # then
+        report = next(iter(report_repository._reports.values()))
+        assert "/" not in report["stored_name"]
+        assert "\\" not in report["stored_name"]
+        assert str(report_repository._links) is not None
+
+    def test_rejects_empty_markdown_content(self, ai_service: ExportService) -> None:
+        # given
+        empty_markdown = "   "
+
+        # when / then
+        with pytest.raises(ValueError, match="markdown_content"):
+            ai_service.export_ai_report_markdown(empty_markdown, [1])
+
+    def test_rejects_export_without_linked_experiments(
+        self, ai_service: ExportService
+    ) -> None:
+        # given
+        markdown = "# AI Report"
+
+        # when / then
+        with pytest.raises(ValueError, match="experiment_ids"):
+            ai_service.export_ai_report_markdown(markdown, [])
+
+
+class TestExportAiReportPdf:
+    def test_writes_pdf_file_under_exports_with_pdf_header(
+        self, ai_service: ExportService, tmp_path: Path
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        file_path = ai_service.export_ai_report_pdf(markdown, [1])
+
+        # then
+        assert file_path.parent == tmp_path / "exports"
+        assert file_path.suffix == ".pdf"
+        assert file_path.is_absolute()
+        assert file_path.exists()
+        assert file_path.read_bytes().startswith(b"%PDF")
+
+    def test_registers_pdf_report_and_links_it_to_experiments(
+        self,
+        ai_service: ExportService,
+        report_repository: InMemoryReportRepository,
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        file_path = ai_service.export_ai_report_pdf(markdown, [3])
+
+        # then
+        assert len(report_repository._reports) == 1
+        report = next(iter(report_repository._reports.values()))
+        assert report["file_name"].endswith(".pdf")
+        assert report["stored_name"] == file_path.name
+        assert report["extension"] == "pdf"
+        assert report_repository._links[report["id"]] == [3]
+
+    def test_generates_unique_filenames_for_consecutive_reports(
+        self, ai_service: ExportService
+    ) -> None:
+        # given
+        markdown = "# AI Report"
+
+        # when
+        first = ai_service.export_ai_report_pdf(markdown, [1])
+        second = ai_service.export_ai_report_pdf(markdown, [1])
+
+        # then
+        assert first != second
+
+    def test_rejects_empty_markdown_content(self, ai_service: ExportService) -> None:
+        # given
+        empty_markdown = ""
+
+        # when / then
+        with pytest.raises(ValueError, match="markdown_content"):
+            ai_service.export_ai_report_pdf(empty_markdown, [1])
