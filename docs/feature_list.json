@@ -411,7 +411,7 @@
         "La comprobación de estado se ejecuta en un hilo worker para no bloquear la interfaz, y hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
         "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, los cuatro estados y actualización manual"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": 28,
