@@ -3,7 +3,6 @@ from urllib.error import URLError
 
 from app.services.ai_service import AIService
 from app.services.ollama_client import (
-    RECOMMENDED_MODEL,
     OllamaClient,
     OllamaStatus,
 )
@@ -39,8 +38,8 @@ class FakeOllamaClient:
         return self._response
 
 
-def _ready_status() -> OllamaStatus:
-    return OllamaStatus(is_available=True, installed_models=(RECOMMENDED_MODEL,))
+def _ready_status(*models: str) -> OllamaStatus:
+    return OllamaStatus(is_available=True, installed_models=models)
 
 
 def _experiment(title: str = "Synthesis of Aspirin") -> dict[str, Any]:
@@ -54,40 +53,43 @@ def _experiment(title: str = "Synthesis of Aspirin") -> dict[str, Any]:
     }
 
 
-def test_returns_markdown_draft_for_single_experiment() -> None:
+def test_returns_markdown_draft_for_given_model() -> None:
     # given
     client: OllamaClient = FakeOllamaClient(
-        status=_ready_status(), response="# Report\n\nContent."
+        status=_ready_status("qwen3:4b"), response="# Report\n\nContent."
     )  # type: ignore[assignment]
     service = AIService(client)
 
     # when
-    report = service.generate_report(_experiment())
+    report = service.generate_report(_experiment(), "qwen3:4b")
 
     # then
     assert report == "# Report\n\nContent."
+    assert client.seen_models == ["qwen3:4b"]
 
 
-def test_sends_recommended_model_and_experiment_content() -> None:
+def test_sends_experiment_content_in_prompt() -> None:
     # given
-    client = FakeOllamaClient(status=_ready_status(), response="# Draft")
+    client = FakeOllamaClient(status=_ready_status("gemma3:4b"), response="# Draft")
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    service.generate_report(_experiment(title="Aspirin"))
+    service.generate_report(_experiment(title="Aspirin"), "gemma3:4b")
 
     # then
-    assert client.seen_models == [RECOMMENDED_MODEL]
+    assert client.seen_models == ["gemma3:4b"]
     assert "Aspirin" in client.seen_prompts[0]
 
 
 def test_combines_several_experiments_into_one_prompt() -> None:
     # given
-    client = FakeOllamaClient(status=_ready_status(), response="# Combined")
+    client = FakeOllamaClient(status=_ready_status("qwen3:4b"), response="# Combined")
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    report = service.generate_report([_experiment("Alpha"), _experiment("Beta")])
+    report = service.generate_report(
+        [_experiment("Alpha"), _experiment("Beta")], "qwen3:4b"
+    )
 
     # then
     assert report == "# Combined"
@@ -103,38 +105,33 @@ def test_returns_none_when_ollama_is_unavailable() -> None:
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    report = service.generate_report(_experiment())
+    report = service.generate_report(_experiment(), "qwen3:4b")
 
     # then
     assert report is None
     assert client.seen_prompts == []
 
 
-def test_uses_any_installed_model_when_preferred_is_missing() -> None:
+def test_returns_none_when_given_model_is_not_installed() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(is_available=True, installed_models=("gemma3:4b",)),
-        response="# Draft",
-    )
+    client = FakeOllamaClient(status=_ready_status("gemma3:4b"), response="# Draft")
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    report = service.generate_report(_experiment())
+    report = service.generate_report(_experiment(), "qwen3:4b")
 
     # then
-    assert report == "# Draft"
-    assert client.seen_models == ["gemma3:4b"]
+    assert report is None
+    assert client.seen_prompts == []
 
 
-def test_returns_none_when_no_model_is_installed() -> None:
+def test_returns_none_when_no_model_is_given() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(is_available=True, installed_models=())
-    )
+    client = FakeOllamaClient(status=_ready_status("qwen3:4b"), response="# Draft")
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    report = service.generate_report(_experiment())
+    report = service.generate_report(_experiment(), "  ")
 
     # then
     assert report is None
@@ -144,13 +141,13 @@ def test_returns_none_when_no_model_is_installed() -> None:
 def test_returns_none_when_generation_raises() -> None:
     # given
     client = FakeOllamaClient(
-        status=_ready_status(),
+        status=_ready_status("qwen3:4b"),
         generate_error=URLError("Connection refused"),
     )
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    report = service.generate_report(_experiment())
+    report = service.generate_report(_experiment(), "qwen3:4b")
 
     # then
     assert report is None
@@ -159,13 +156,13 @@ def test_returns_none_when_generation_raises() -> None:
 def test_returns_none_when_status_check_raises() -> None:
     # given
     client = FakeOllamaClient(
-        status=_ready_status(),
+        status=_ready_status("qwen3:4b"),
         status_error=URLError("Connection refused"),
     )
     service = AIService(client)  # type: ignore[arg-type]
 
     # when
-    report = service.generate_report(_experiment())
+    report = service.generate_report(_experiment(), "qwen3:4b")
 
     # then
     assert report is None

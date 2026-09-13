@@ -4,7 +4,7 @@ import logging
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from app.services.ollama_client import RECOMMENDED_MODEL, OllamaClient
+from app.services.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,24 +20,27 @@ SYSTEM_PROMPT = (
 
 
 class AIService:
-    """Generates scientific report drafts with the local Ollama model."""
+    """Generates scientific report drafts with an explicit Ollama model."""
 
-    def __init__(
-        self,
-        ollama_client: OllamaClient,
-        model: str = RECOMMENDED_MODEL,
-    ) -> None:
+    def __init__(self, ollama_client: OllamaClient) -> None:
         self._ollama_client = ollama_client
-        self._model = model
 
     def generate_report(
         self,
         experiments_data: Mapping[str, Any] | Sequence[Mapping[str, Any]],
+        model: str,
     ) -> str | None:
-        """Return a Markdown report draft, or None when AI is not ready."""
+        """Return a Markdown report draft, or None when AI is not ready.
+
+        The model is always chosen by the caller; it must be installed
+        at call time or no report is generated.
+        """
         experiments = _normalize_experiments(experiments_data)
         if not experiments:
             logger.warning("Report generation skipped count=%s", 0)
+            return None
+        if not model or not model.strip():
+            logger.warning("Report generation skipped without model")
             return None
 
         try:
@@ -46,15 +49,17 @@ class AIService:
             logger.warning("AI provider unavailable error=%s", str(error))
             return None
 
-        if not status.is_ready:
+        if not status.is_available:
+            logger.warning("AI provider unavailable")
+            return None
+        if model not in status.installed_models:
             logger.warning(
-                "AI model not ready is_available=%s has_models=%s",
-                status.is_available,
-                status.has_models,
+                "AI model not installed model=%s installed=%s",
+                model,
+                status.installed_models,
             )
             return None
 
-        model = _resolve_model(self._model, status.installed_models)
         prompt = _build_user_prompt(experiments)
         logger.info("Generating report count=%s model=%s", len(experiments), model)
         try:
@@ -69,14 +74,6 @@ class AIService:
 
         logger.info("Report generated count=%s model=%s", len(experiments), model)
         return report.strip()
-
-
-def _resolve_model(preferred: str, installed: Sequence[str]) -> str:
-    """Return the preferred model, or the first installed one as fallback."""
-    if preferred in installed:
-        return preferred
-    logger.info("Preferred model missing model=%s fallback=%s", preferred, installed[0])
-    return installed[0]
 
 
 def _normalize_experiments(
