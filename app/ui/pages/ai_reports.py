@@ -21,26 +21,22 @@ CHECKING_MESSAGE = "Checking Ollama status..."
 READY = "ready"
 MISSING_OLLAMA = "missing_ollama"
 MISSING_MODEL = "missing_model"
-MODEL_STOPPED = "model_stopped"
 
 
 @dataclass(frozen=True)
 class Readiness:
-    """Ollama availability with installed and running local models."""
+    """Ollama availability with installed local models."""
 
     is_available: bool
     installed_models: tuple[str, ...] = ()
-    running_models: tuple[str, ...] = ()
 
     @property
     def state(self) -> str:
-        """Return ready, missing_ollama, missing_model or model_stopped."""
+        """Return ready, missing_ollama or missing_model."""
         if not self.is_available:
             return MISSING_OLLAMA
         if not self.installed_models:
             return MISSING_MODEL
-        if not self.running_models:
-            return MODEL_STOPPED
         return READY
 
 
@@ -54,15 +50,9 @@ def get_readiness(client: OllamaClient | None = None) -> Readiness:
         return Readiness(is_available=False)
     if not status.is_available:
         return Readiness(is_available=False)
-    try:
-        running = ollama.get_running_models()
-    except Exception as error:
-        logger.warning("Running models check failed error=%s", str(error))
-        running = ()
     return Readiness(
         is_available=True,
         installed_models=status.installed_models,
-        running_models=running,
     )
 
 
@@ -80,14 +70,10 @@ def describe_status(readiness: Readiness) -> tuple[str, str]:
             "(qwen or gemma are recommended) "
             "by running one of these commands in a terminal:"
         )
-    if readiness.state == MODEL_STOPPED:
-        count = len(readiness.installed_models)
-        return MODEL_STOPPED, (
-            f"{count} local model(s) detected but none is running. "
-            "Start the one you want in a terminal, for example:"
-        )
+    count = len(readiness.installed_models)
     return READY, (
-        f"Ollama is responding and {readiness.running_models[0]} is running. Ready."
+        f"Ollama is responding with {count} local model(s) installed. "
+        "Ready to generate reports."
     )
 
 
@@ -128,11 +114,13 @@ def _render_status(
         if state == READY:
             ui.badge("Ready", color="green")
             ui.label(message)
+            for name in readiness.installed_models:
+                ui.label(f"- {name}")
         elif state == MISSING_OLLAMA:
             ui.badge("Not ready", color="red")
             ui.label(message)
             ui.link("Download Ollama", OLLAMA_DOWNLOAD_URL, new_tab=True)
-        elif state == MISSING_MODEL:
+        else:
             ui.badge("Not ready", color="red")
             ui.label(message)
             ui.link("Ollama model library", MODELS_LIBRARY_URL, new_tab=True)
@@ -140,13 +128,6 @@ def _render_status(
             ui.code(QWEN_PULL_COMMAND)
             ui.link("gemma (recommended)", GEMMA_MODEL_URL, new_tab=True)
             ui.code(GEMMA_PULL_COMMAND)
-        else:
-            ui.badge("Idle", color="orange")
-            ui.label(message)
-            for name in readiness.installed_models:
-                ui.label(f"- {name}")
-            ui.label("Example with the first model; use any from the list:")
-            ui.code(f"ollama run {readiness.installed_models[0]}")
 
 
 def build_ai_reports_page(ollama_client: OllamaClient | None = None) -> None:

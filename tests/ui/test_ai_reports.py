@@ -22,16 +22,11 @@ class FakeOllamaClient:
     def __init__(
         self,
         status: OllamaStatus,
-        running: tuple[str, ...] = (),
         status_error: Exception | None = None,
-        running_error: Exception | None = None,
     ) -> None:
         self._status = status
-        self._running = running
         self._status_error = status_error
-        self._running_error = running_error
         self.status_calls = 0
-        self.running_calls = 0
 
     def get_status(self) -> OllamaStatus:
         self.status_calls += 1
@@ -39,11 +34,8 @@ class FakeOllamaClient:
             raise self._status_error
         return self._status
 
-    def get_running_models(self) -> tuple[str, ...]:
-        self.running_calls += 1
-        if self._running_error is not None:
-            raise self._running_error
-        return self._running
+    def get_installed_models(self) -> tuple[str, ...]:
+        return self.get_status().installed_models
 
 
 async def _inline_io_bound(function, *args):
@@ -81,12 +73,10 @@ def _run_refresh(mock_ui: MagicMock, mock_run: MagicMock) -> None:
     asyncio.run(refresh())
 
 
-def test_accepts_any_running_model_as_ready() -> None:
+def test_accepts_any_installed_model_as_ready() -> None:
     # given
     readiness = get_readiness(
-        FakeOllamaClient(
-            status=OllamaStatus(True, ("qwen2.5:7b",)), running=("qwen2.5:7b",)
-        )  # type: ignore[arg-type]
+        FakeOllamaClient(status=OllamaStatus(True, ("qwen2.5:7b",)))  # type: ignore[arg-type]
     )
 
     # when
@@ -94,8 +84,22 @@ def test_accepts_any_running_model_as_ready() -> None:
 
     # then
     assert state == "ready"
-    assert "qwen2.5:7b" in message
-    assert "is running" in message
+    assert "1 local model(s) installed" in message
+    assert "Ready to generate" in message
+
+
+def test_accepts_several_installed_models_as_ready() -> None:
+    # given
+    readiness = get_readiness(
+        FakeOllamaClient(status=OllamaStatus(True, ("qwen3:4b", "gemma3:4b")))  # type: ignore[arg-type]
+    )
+
+    # when
+    state, message = describe_status(readiness)
+
+    # then
+    assert state == "ready"
+    assert "2 local model(s) installed" in message
 
 
 def test_describes_missing_ollama_with_download_guidance() -> None:
@@ -129,23 +133,6 @@ def test_describes_missing_model_with_library_guidance() -> None:
     assert "gemma" in message
 
 
-def test_describes_stopped_model_with_run_guidance() -> None:
-    # given
-    readiness = get_readiness(
-        FakeOllamaClient(
-            status=OllamaStatus(True, ("gemma3:4b", "qwen2.5:7b")), running=()
-        )  # type: ignore[arg-type]
-    )
-
-    # when
-    state, message = describe_status(readiness)
-
-    # then
-    assert state == "model_stopped"
-    assert "none is running" in message
-    assert "for example" in message
-
-
 def test_returns_unavailable_when_status_check_raises() -> None:
     # given
     client = FakeOllamaClient(
@@ -161,26 +148,9 @@ def test_returns_unavailable_when_status_check_raises() -> None:
     assert readiness.state == "missing_ollama"
 
 
-def test_keeps_available_when_running_check_raises() -> None:
-    # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("gemma3:4b",)),
-        running_error=ConnectionError("refused"),
-    )
-
-    # when
-    readiness = get_readiness(client)  # type: ignore[arg-type]
-
-    # then
-    assert readiness.is_available is True
-    assert readiness.state == "model_stopped"
-
-
 def test_renders_instantly_without_blocking_on_network() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("gemma3:4b",)), running=("gemma3:4b",)
-    )
+    client = FakeOllamaClient(status=OllamaStatus(True, ("gemma3:4b",)))
 
     # when
     with (
@@ -192,7 +162,6 @@ def test_renders_instantly_without_blocking_on_network() -> None:
 
         # then — no network call during build, placeholder shown instead
         assert client.status_calls == 0
-        assert client.running_calls == 0
         mock_ui.badge.assert_called_with("Checking...", color="grey")
         labels = [call.args[0] for call in mock_ui.label.call_args_list]
         assert CHECKING_MESSAGE in labels
@@ -202,9 +171,7 @@ def test_renders_instantly_without_blocking_on_network() -> None:
 
 def test_hides_setup_links_until_status_is_known() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("gemma3:4b",)), running=("gemma3:4b",)
-    )
+    client = FakeOllamaClient(status=OllamaStatus(True, ("gemma3:4b",)))
 
     # when
     with (
@@ -222,11 +189,9 @@ def test_hides_setup_links_until_status_is_known() -> None:
         assert any("default browser" in label for label in labels)
 
 
-def test_shows_green_indicator_for_running_model() -> None:
+def test_shows_green_indicator_for_installed_models() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("gemma3:4b",)), running=("gemma3:4b",)
-    )
+    client = FakeOllamaClient(status=OllamaStatus(True, ("gemma3:4b",)))
 
     # when
     with (
@@ -240,6 +205,29 @@ def test_shows_green_indicator_for_running_model() -> None:
 
         # then
         mock_ui.badge.assert_called_with("Ready", color="green")
+
+
+def test_lists_installed_models_without_run_commands() -> None:
+    # given
+    client = FakeOllamaClient(status=OllamaStatus(True, ("qwen3:4b", "gemma3:4b")))
+
+    # when
+    with (
+        patch("app.ui.pages.ai_reports.ui") as mock_ui,
+        patch("app.ui.pages.ai_reports.run") as mock_run,
+    ):
+        _setup_ui_mock(mock_ui)
+        build_ai_reports_page(client)  # type: ignore[arg-type]
+        mock_ui.code.reset_mock()
+        mock_ui.label.reset_mock()
+        _run_refresh(mock_ui, mock_run)
+
+        # then — installed models listed, no terminal run guidance
+        labels = [call.args[0] for call in mock_ui.label.call_args_list]
+        assert "- qwen3:4b" in labels
+        assert "- gemma3:4b" in labels
+        assert mock_ui.code.call_count == 0
+        assert mock_ui.link.call_count == 0
 
 
 def test_shows_download_link_only_when_ollama_missing() -> None:
@@ -293,35 +281,6 @@ def test_shows_model_recommendations_only_when_no_model_detected() -> None:
         mock_ui.code.assert_any_call(GEMMA_PULL_COMMAND)
 
 
-def test_shows_run_command_only_when_model_is_stopped() -> None:
-    # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("qwen2.5:7b", "gemma3:4b")), running=()
-    )
-
-    # when
-    with (
-        patch("app.ui.pages.ai_reports.ui") as mock_ui,
-        patch("app.ui.pages.ai_reports.run") as mock_run,
-    ):
-        _setup_ui_mock(mock_ui)
-        build_ai_reports_page(client)  # type: ignore[arg-type]
-        mock_ui.badge.reset_mock()
-        mock_ui.link.reset_mock()
-        mock_ui.code.reset_mock()
-        mock_ui.label.reset_mock()
-        _run_refresh(mock_ui, mock_run)
-
-        # then
-        mock_ui.badge.assert_called_with("Idle", color="orange")
-        assert mock_ui.link.call_count == 0
-        labels = [call.args[0] for call in mock_ui.label.call_args_list]
-        assert "- qwen2.5:7b" in labels
-        assert "- gemma3:4b" in labels
-        assert any("Example" in label for label in labels)
-        mock_ui.code.assert_called_once_with("ollama run qwen2.5:7b")
-
-
 def test_refreshes_status_manually_without_restart() -> None:
     # given
     client = FakeOllamaClient(status=OllamaStatus(False, ()))
@@ -336,7 +295,6 @@ def test_refreshes_status_manually_without_restart() -> None:
         _run_refresh(mock_ui, mock_run)
 
         client._status = OllamaStatus(True, ("gemma3:4b",))
-        client._running = ("gemma3:4b",)
         refresh_button = mock_ui.button.call_args.kwargs["on_click"]
         mock_run.io_bound.side_effect = _inline_io_bound
         status_container.clear.reset_mock()
@@ -374,9 +332,7 @@ def test_discards_cancelled_check_silently() -> None:
 
 def test_skips_render_when_page_was_left() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("gemma3:4b",)), running=("gemma3:4b",)
-    )
+    client = FakeOllamaClient(status=OllamaStatus(True, ("gemma3:4b",)))
 
     # when
     with (
@@ -396,9 +352,7 @@ def test_skips_render_when_page_was_left() -> None:
 
 def test_skips_render_when_container_is_gone_mid_check() -> None:
     # given
-    client = FakeOllamaClient(
-        status=OllamaStatus(True, ("gemma3:4b",)), running=("gemma3:4b",)
-    )
+    client = FakeOllamaClient(status=OllamaStatus(True, ("gemma3:4b",)))
 
     # when
     with (
