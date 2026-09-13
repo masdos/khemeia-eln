@@ -442,7 +442,7 @@
         "Hay un botón 'Exportar PDF' que llama a ExportService.export_ai_report_pdf",
         "Smoke test manual: con Ollama y qwen3:4b listos, generar un informe, editar el borrador y exportarlo a PDF"
       ],
-      "status": "pending"
+      "status": "done"
     }
   ]
 }

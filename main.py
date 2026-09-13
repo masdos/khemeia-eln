@@ -35,6 +35,7 @@ NAV_ITEMS = [
     ("Protocols", "protocols", "article"),
     ("Inventory", "inventory", "shelves"),
     ("AI Reports", "ai_reports", "smart_toy"),
+    ("AI Assistant", "ai_assistant", "psychology"),
     ("Profile", "profile", "contact_page"),
 ]
 
