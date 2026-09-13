@@ -94,23 +94,13 @@ class OllamaClient:
         logger.debug("Ollama completion generated model=%s", model)
         return text
 
-    def get_running_models(self) -> tuple[str, ...]:
-        """Return names of models currently loaded, or empty when unknown."""
-        request = Request(f"{self._base_url}/api/ps", method="GET")
+    def get_installed_models(self) -> tuple[str, ...]:
+        """Return names of installed local models, or empty when unknown.
 
-        try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except (
-            OSError,
-            TimeoutError,
-            URLError,
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ):
-            return ()
-
-        return _model_names(payload)
+        Readiness depends only on the server responding and at least one
+        model being installed; memory-loaded state is never consulted.
+        """
+        return self.get_status().installed_models
 
 
 def _model_names(payload: object) -> tuple[str, ...]:

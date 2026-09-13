@@ -127,20 +127,20 @@ def test_reports_not_ready_without_installed_models() -> None:
     assert status.is_ready is False
 
 
-def test_returns_running_models_when_ps_succeeds() -> None:
+def test_returns_installed_models_when_server_lists_several() -> None:
     # given
     client = OllamaClient()
-    response = _Response(b'{"models": [{"name": "qwen2.5:7b"}]}')
+    response = _Response(b'{"models": [{"name": "qwen3:4b"}, {"name": "gemma3:4b"}]}')
 
     # when
     with patch("app.services.ollama_client.urlopen", return_value=response):
-        running = client.get_running_models()
+        installed = client.get_installed_models()
 
     # then
-    assert running == ("qwen2.5:7b",)
+    assert installed == ("qwen3:4b", "gemma3:4b")
 
 
-def test_returns_empty_running_models_when_ps_fails() -> None:
+def test_returns_empty_installed_models_when_server_unreachable() -> None:
     # given
     client = OllamaClient()
 
@@ -149,10 +149,23 @@ def test_returns_empty_running_models_when_ps_fails() -> None:
         "app.services.ollama_client.urlopen",
         side_effect=URLError("Connection refused"),
     ):
-        running = client.get_running_models()
+        installed = client.get_installed_models()
 
     # then
-    assert running == ()
+    assert installed == ()
+
+
+def test_returns_empty_installed_models_when_no_model_installed() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"models": []}')
+
+    # when
+    with patch("app.services.ollama_client.urlopen", return_value=response):
+        installed = client.get_installed_models()
+
+    # then
+    assert installed == ()
 
 
 def test_uses_long_timeout_for_generation_instead_of_status_timeout() -> None:
