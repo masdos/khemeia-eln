@@ -382,7 +382,7 @@
         "El cliente NO consulta /api/ps ni ningún otro endpoint para determinar si un modelo está cargado en memoria",
         "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre: servidor no disponible, sin modelos instalados, servidor disponible con uno o varios modelos"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": 26,
@@ -397,7 +397,7 @@
         "Si Ollama no está disponible, o el modelo indicado en model no figura entre los modelos instalados en el momento de la llamada, generate_report() devuelve None y no propaga la excepción",
         "tests/services/test_ai_service.py inyecta un cliente Ollama simulado y verifica: generación exitosa con un modelo dado, degradación elegante si Ollama no responde, degradación elegante si el modelo indicado no está instalado, y generación a partir de varios experimentos"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": 27,
@@ -413,7 +413,7 @@
         "La comprobación de estado se ejecuta en un hilo worker para no bloquear la interfaz, y hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
         "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, los dos estados y actualización manual"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": 28,
@@ -462,7 +462,7 @@
         "Si al cargar la página last_used_model está definido pero ya no aparece en la lista de modelos instalados devuelta por /api/tags, se descarta la preferencia guardada y el dropdown se muestra vacío (no se sustituye automáticamente por otro modelo)",
         "tests/ui/test_ai_assistant.py (ampliado) cubre: dropdown con 0 modelos instalados, revalidación tras borrar el modelo previamente guardado, persistencia de last_used_model tras generación exitosa, y botón deshabilitado sin selección"
       ],
-      "status": "pending"
+      "status": "done"
     }
   ]
 }

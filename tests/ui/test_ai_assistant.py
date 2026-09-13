@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+from app.config import clear_current_config, load_config, write_config
 from app.ui.pages import ai_assistant
 from app.ui.pages.ai_assistant import (
     build_ai_assistant_page,
@@ -30,10 +31,10 @@ class FakeAIService:
 
     def __init__(self, draft: str | None) -> None:
         self._draft = draft
-        self.calls: list[Any] = []
+        self.calls: list[tuple[list[Any], str]] = []
 
-    def generate_report(self, experiments_data: Any) -> str | None:
-        self.calls.append(list(experiments_data))
+    def generate_report(self, experiments_data: Any, model: str) -> str | None:
+        self.calls.append((list(experiments_data), model))
         return self._draft
 
 
@@ -58,6 +59,16 @@ class FakeExportService:
         return self._base / "report.pdf"
 
 
+class FakeOllamaClient:
+    """Test double listing installed models without HTTP."""
+
+    def __init__(self, installed: tuple[str, ...] = ("qwen3:4b", "gemma3:4b")) -> None:
+        self._installed = installed
+
+    def get_installed_models(self) -> tuple[str, ...]:
+        return self._installed
+
+
 def _chainable(value: Any = None) -> MagicMock:
     mock = MagicMock()
     mock.value = value
@@ -77,10 +88,13 @@ def _container() -> MagicMock:
 
 class _UIContext:
     def __init__(self) -> None:
-        self.select = _chainable([1])
+        self.experiment_select = _chainable([1])
+        self.model_select = _chainable(None)
+        self.select_handler: Any = None
         self.draft = _chainable("")
         self.message = _chainable()
         self.warning = _container()
+        self.info_icon = _chainable()
         self.buttons: dict[str, MagicMock] = {}
 
     def button_factory(self, *args: Any, **kwargs: Any) -> MagicMock:
@@ -88,17 +102,13 @@ class _UIContext:
         mock = _chainable()
         mock.text_value = text
         self.buttons[str(text)] = mock
-        kwargs_on_click = kwargs.get("on_click")
-        if kwargs_on_click is not None:
-            mock.click = kwargs_on_click
+        on_click = kwargs.get("on_click")
+        if on_click is not None:
+            mock.click = on_click
         return mock
 
 
-def _setup_ui(
-    mock_ui: MagicMock, context: _UIContext, choices_value: Any = None
-) -> None:
-    if choices_value is not None:
-        context.select.value = choices_value
+def _setup_ui(mock_ui: MagicMock, context: _UIContext) -> None:
     page_container = _container()
     pending = [page_container, context.warning]
 
@@ -110,13 +120,18 @@ def _setup_ui(
     def make_row(*args: Any, **kwargs: Any) -> MagicMock:
         return _container()
 
+    def capture_select_handler(handler: Any) -> MagicMock:
+        context.select_handler = handler
+        return MagicMock()
+
     mock_ui.column.side_effect = make_column
     mock_ui.row.side_effect = make_row
-    mock_ui.label.side_effect = lambda *a, **k: _chainable()
+    mock_ui.select.side_effect = [context.experiment_select, context.model_select]
     mock_ui.textarea.return_value = context.draft
-    mock_ui.select.return_value = context.select
     mock_ui.button.side_effect = context.button_factory
+    mock_ui.icon.return_value = context.info_icon
     mock_ui.notify.return_value = None
+    context.model_select.on_value_change.side_effect = capture_select_handler
 
 
 def _build_page(
@@ -124,7 +139,9 @@ def _build_page(
     context: _UIContext,
     experiments: list[dict[str, Any]] | None = None,
     draft: str | None = "# Draft",
-    choices_value: Any = None,
+    installed: tuple[str, ...] = ("qwen3:4b", "gemma3:4b"),
+    chosen_model: str | None = "qwen3:4b",
+    base_dir: Path | None = None,
 ) -> tuple[FakeExperimentService, FakeAIService, FakeExportService]:
     experiments = (
         experiments
@@ -134,12 +151,18 @@ def _build_page(
     experiment_service = FakeExperimentService(experiments)
     ai_service = FakeAIService(draft)
     export_service = FakeExportService(Path("/tmp"))
-    _setup_ui(mock_ui, context, choices_value)
+    ollama_client = FakeOllamaClient(installed)
+    _setup_ui(mock_ui, context)
     build_ai_assistant_page(
+        base_dir,
         experiment_service=experiment_service,  # type: ignore[arg-type]
         ai_service=ai_service,  # type: ignore[arg-type]
         export_service=export_service,  # type: ignore[arg-type]
+        ollama_client=ollama_client,  # type: ignore[arg-type]
     )
+    context.model_select.value = chosen_model
+    if context.select_handler is not None:
+        context.select_handler()
     return experiment_service, ai_service, export_service
 
 
@@ -166,23 +189,96 @@ def test_builds_page_with_multiple_experiment_selector() -> None:
         _build_page(mock_ui, context)
 
         # then
-        assert mock_ui.select.call_count == 1
-        assert mock_ui.select.call_args.kwargs["multiple"] is True
-        options = mock_ui.select.call_args.kwargs["options"]
-        assert set(options) == {1, 2}
+        assert mock_ui.select.call_count == 2
+        experiment_call = mock_ui.select.call_args_list[0]
+        assert experiment_call.kwargs["multiple"] is True
+        assert set(experiment_call.kwargs["options"]) == {1, 2}
 
 
-def test_generates_draft_into_editable_textarea() -> None:
+def test_populates_model_dropdown_with_installed_models() -> None:
     # given
     context = _UIContext()
 
     # when
     with patch.object(ai_assistant, "ui") as mock_ui:
-        _, ai_service, _ = _build_page(mock_ui, context, draft="# Report")
+        _build_page(mock_ui, context, installed=("qwen3:4b", "gemma3:4b"))
+
+        # then
+        model_call = mock_ui.select.call_args_list[1]
+        assert list(model_call.kwargs["options"]) == ["qwen3:4b", "gemma3:4b"]
+
+
+def test_leaves_model_dropdown_empty_without_preselection() -> None:
+    # given
+    context = _UIContext()
+    clear_current_config()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_model=None)
+
+        # then
+        model_call = mock_ui.select.call_args_list[1]
+        assert model_call.kwargs["value"] is None
+
+
+def test_disables_generate_button_without_model_selection() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_model=None)
+
+        # then
+        generate_button = context.buttons["Generate draft"]
+        assert generate_button.disable.called
+
+
+def test_enables_generate_button_once_model_is_chosen() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_model=None)
+        generate_button = context.buttons["Generate draft"]
+        generate_button.enable.reset_mock()
+        context.model_select.value = "gemma3:4b"
+        context.select_handler()
+
+        # then
+        assert generate_button.enable.called
+
+
+def test_shows_recommended_models_in_info_tooltip() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(mock_ui, context)
+
+        # then
+        mock_ui.icon.assert_called_once_with("info")
+        tooltip = context.info_icon.tooltip.call_args.args[0]
+        assert "qwen3:4b" in tooltip
+        assert "gemma" in tooltip
+
+
+def test_generates_draft_into_editable_textarea_with_chosen_model() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _, ai_service, _ = _build_page(
+            mock_ui, context, draft="# Report", chosen_model="gemma3:4b"
+        )
         context.buttons["Generate draft"].click()
 
         # then
-        assert len(ai_service.calls) == 1
+        assert ai_service.calls == [([{"id": 1, "title": "Exp A"}], "gemma3:4b")]
         assert context.draft.value == "# Report"
         assert context.warning.visible is False
 
@@ -202,6 +298,19 @@ def test_shows_warning_with_ai_reports_access_when_ai_not_ready() -> None:
             assert context.warning.visible is True
             mock_navigate.assert_called_once_with("ai_reports")
             assert context.draft.value == ""
+
+
+def test_requires_model_before_generating() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _, ai_service, _ = _build_page(mock_ui, context, chosen_model=None)
+        context.buttons["Generate draft"].click()
+
+        # then
+        assert ai_service.calls == []
 
 
 def test_exports_edited_draft_to_markdown() -> None:
@@ -234,6 +343,70 @@ def test_exports_edited_draft_to_pdf() -> None:
         assert export_service.markdown_calls == []
 
 
+def test_shows_empty_dropdown_when_no_model_installed() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(mock_ui, context, installed=(), chosen_model=None)
+
+        # then
+        model_call = mock_ui.select.call_args_list[1]
+        assert list(model_call.kwargs["options"]) == []
+        assert model_call.kwargs["value"] is None
+        assert context.buttons["Generate draft"].disable.called
+
+
+def test_discards_saved_model_when_no_longer_installed(tmp_path: Path) -> None:
+    # given
+    context = _UIContext()
+    write_config(
+        {
+            "user_name": "Ada",
+            "user_email": "ada@example.com",
+            "last_used_model": "qwen3:4b",
+        },
+        base_dir=tmp_path,
+    )
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(
+            mock_ui,
+            context,
+            installed=("gemma3:4b",),
+            chosen_model=None,
+            base_dir=tmp_path,
+        )
+
+        # then — stale preference ignored, no automatic substitution
+        model_call = mock_ui.select.call_args_list[1]
+        assert model_call.kwargs["value"] is None
+    clear_current_config()
+
+
+def test_persists_last_used_model_after_successful_generation(
+    tmp_path: Path,
+) -> None:
+    # given
+    context = _UIContext()
+    write_config(
+        {"user_name": "Ada", "user_email": "ada@example.com"}, base_dir=tmp_path
+    )
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_model="gemma3:4b", base_dir=tmp_path)
+        context.buttons["Generate draft"].click()
+
+    # then
+    saved = load_config(base_dir=tmp_path, load_env_file=False)
+    assert saved is not None
+    assert saved.last_used_model == "gemma3:4b"
+    clear_current_config()
+
+
 def test_skips_missing_experiments_when_collecting_data() -> None:
     # given
     experiment_service = FakeExperimentService([{"id": 1, "title": "Exp A"}])
@@ -250,7 +423,7 @@ def test_returns_none_when_ai_reports_nothing() -> None:
     ai_service = FakeAIService(None)
 
     # when
-    draft = generate_draft(ai_service, [{"id": 1}])  # type: ignore[arg-type]
+    draft = generate_draft(ai_service, [{"id": 1}], "qwen3:4b")  # type: ignore[arg-type]
 
     # then
     assert draft is None
@@ -267,3 +440,31 @@ def test_dispatches_export_by_selected_format(tmp_path: Path) -> None:
     # then
     assert markdown_path.name == "report.md"
     assert pdf_path.name == "report.pdf"
+
+
+def test_restores_saved_model_when_still_installed(tmp_path: Path) -> None:
+    # given
+    context = _UIContext()
+    write_config(
+        {
+            "user_name": "Ada",
+            "user_email": "ada@example.com",
+            "last_used_model": "gemma3:4b",
+        },
+        base_dir=tmp_path,
+    )
+
+    # when
+    with patch.object(ai_assistant, "ui") as mock_ui:
+        _build_page(
+            mock_ui,
+            context,
+            installed=("qwen3:4b", "gemma3:4b"),
+            chosen_model=None,
+            base_dir=tmp_path,
+        )
+
+        # then — valid preference restored, nothing else substituted
+        model_call = mock_ui.select.call_args_list[1]
+        assert model_call.kwargs["value"] == "gemma3:4b"
+    clear_current_config()

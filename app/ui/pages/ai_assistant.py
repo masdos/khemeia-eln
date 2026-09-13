@@ -7,17 +7,16 @@ from typing import Any
 
 from nicegui import ui
 
-from app.config import get_current_config
+from app.config import ConfigValidationError, get_current_config, write_config
 from app.database.connection import get_connection
 from app.services.ai_service import AIService
 from app.services.experiment_service import (
     ExperimentService,
     SqliteExperimentRepository,
 )
+from app.services.export_service import ExportService, SqliteReportRepository
 from app.services.export_service import (
-    ExportService,
-    SqliteAttachmentRepository,
-    SqliteReportRepository,
+    SqliteAttachmentRepository as ExportSqliteAttachmentRepository,
 )
 from app.services.export_service import (
     SqliteEquipmentRepository as ExportSqliteEquipmentRepository,
@@ -45,7 +44,11 @@ NO_AI_WARNING = (
     "Ollama is not ready. Open AI Reports to install Ollama and download a local model."
 )
 SELECTION_REQUIRED = "Select at least one experiment."
+MODEL_REQUIRED = "Select a model."
 DRAFT_REQUIRED = "Generate a draft before exporting."
+RECOMMENDED_MODELS_TOOLTIP = (
+    "Recommended lightweight models: qwen3:4b, gemma. You can use any installed model."
+)
 
 
 def get_experiment_choices(experiment_service: ExperimentService) -> dict[int, str]:
@@ -75,9 +78,10 @@ def collect_experiments_data(
 def generate_draft(
     ai_service: AIService,
     experiments_data: Sequence[Mapping[str, Any]],
+    model: str,
 ) -> str | None:
-    """Generate a report draft, returning None when AI is not ready."""
-    draft = ai_service.generate_report(experiments_data)
+    """Generate a report draft with the chosen model, or None when not ready."""
+    draft = ai_service.generate_report(experiments_data, model)
     if draft is None:
         logger.warning("AI draft generation returned no content")
         return None
@@ -112,16 +116,46 @@ def _get_services(base_dir: Path) -> dict[str, Any]:
         equipment_repo=ExportSqliteEquipmentRepository(conn),
         project_repo=ExportSqliteProjectRepository(conn),
         protocol_repo=ExportSqliteProtocolRepository(conn),
-        attachment_repo=SqliteAttachmentRepository(conn),
+        attachment_repo=ExportSqliteAttachmentRepository(conn),
         user_name=config.user_name,
         user_email=config.user_email,
         report_repo=SqliteReportRepository(conn),
     )
+    ollama_client = OllamaClient()
     return {
         "experiment_service": experiment_service,
-        "ai_service": AIService(OllamaClient()),
+        "ai_service": AIService(ollama_client),
         "export_service": export_service,
+        "ollama_client": ollama_client,
     }
+
+
+def _load_saved_model() -> str | None:
+    """Return the remembered model, or None when there is no profile."""
+    try:
+        return get_current_config().last_used_model
+    except ConfigValidationError:
+        return None
+
+
+def _persist_last_used_model(base_dir: Path | None, model: str) -> None:
+    """Remember the used model in config.json for the next session."""
+    if base_dir is None:
+        return
+    try:
+        current = get_current_config()
+    except ConfigValidationError as error:
+        logger.warning("Last used model not saved error=%s", str(error))
+        return
+    write_config(
+        {
+            "user_name": current.user_name,
+            "user_email": current.user_email,
+            "last_used_model": model,
+        },
+        base_dir=base_dir,
+    )
+    logger.info("Last used model saved model=%s", model)
 
 
 def build_ai_assistant_page(
@@ -130,9 +164,15 @@ def build_ai_assistant_page(
     experiment_service: ExperimentService | None = None,
     ai_service: AIService | None = None,
     export_service: ExportService | None = None,
+    ollama_client: OllamaClient | None = None,
 ) -> None:
     """Build the AI Assistant page for drafting reports from experiments."""
-    if experiment_service is None or ai_service is None or export_service is None:
+    if (
+        experiment_service is None
+        or ai_service is None
+        or export_service is None
+        or ollama_client is None
+    ):
         if base_dir is None:
             from app.bootstrap import run_bootstrap
 
@@ -141,11 +181,21 @@ def build_ai_assistant_page(
         experiment_service = experiment_service or services["experiment_service"]
         ai_service = ai_service or services["ai_service"]
         export_service = export_service or services["export_service"]
+        ollama_client = ollama_client or services["ollama_client"]
+
+    try:
+        installed_models = list(ollama_client.get_installed_models())
+    except Exception as error:
+        logger.warning("Installed models check failed error=%s", str(error))
+        installed_models = []
+
+    saved_model = _load_saved_model()
+    initial_model = saved_model if saved_model in installed_models else None
 
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label("AI Assistant").classes("text-2xl font-semibold")
         ui.label(
-            "Select experiments, generate a draft with Ollama, "
+            "Select experiments, choose a model, generate a draft with Ollama, "
             "edit it and export to Markdown or PDF."
         ).classes("text-slate-600 mt-2")
 
@@ -155,6 +205,16 @@ def build_ai_assistant_page(
             .props("outlined")
             .classes("w-full")
         )
+
+        with ui.row().classes("w-full items-center gap-2"):
+            model_select = (
+                ui.select(options=installed_models, value=initial_model, label="Model")
+                .props("outlined")
+                .classes("flex-1")
+            )
+            ui.icon("info").tooltip(RECOMMENDED_MODELS_TOOLTIP).classes(
+                "text-slate-500"
+            )
 
         message = ui.label().classes("text-negative")
 
@@ -177,11 +237,15 @@ def build_ai_assistant_page(
             if not ids:
                 message.text = SELECTION_REQUIRED
                 return
+            model = model_select.value
+            if not model:
+                message.text = MODEL_REQUIRED
+                return
             experiments_data = collect_experiments_data(experiment_service, ids)
             if not experiments_data:
                 message.text = SELECTION_REQUIRED
                 return
-            draft = generate_draft(ai_service, experiments_data)
+            draft = generate_draft(ai_service, experiments_data, model)
             if draft is None:
                 warning_container.visible = True
                 ui.notify(NO_AI_WARNING, type="warning")
@@ -189,6 +253,7 @@ def build_ai_assistant_page(
             warning_container.visible = False
             message.text = ""
             draft_area.value = draft
+            _persist_last_used_model(base_dir, model)
             ui.notify("Draft generated", type="positive")
 
         def on_export(file_format: str) -> None:
@@ -208,7 +273,18 @@ def build_ai_assistant_page(
             message.text = ""
             ui.notify(f"Report exported to {file_path.name}", type="positive")
 
-        ui.button("Generate draft", on_click=on_generate).props("color=primary")
+        generate_button = ui.button("Generate draft", on_click=on_generate).props(
+            "color=primary"
+        )
+
+        def refresh_generate_state() -> None:
+            if model_select.value:
+                generate_button.enable()
+            else:
+                generate_button.disable()
+
+        model_select.on_value_change(lambda: refresh_generate_state())
+        refresh_generate_state()
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
             ui.button("Export Markdown", on_click=lambda: on_export("md")).props(
