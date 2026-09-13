@@ -77,16 +77,17 @@
       "name": "config_profile",
       "phase": "mvp",
       "title": "Configuración de perfil de usuario (config.json)",
-      "description": "Gestionar el perfil monousuario mediante config.json. Si el fichero no existe o está incompleto, mostrar un formulario de bienvenida bloqueante en NiceGUI antes de cargar la app. En esta fase el perfil solo contiene datos de autoría, sin proveedor de IA.",
+      "description": "Gestionar el perfil monousuario mediante config.json. Si el fichero no existe o está incompleto, mostrar un formulario de bienvenida bloqueante en NiceGUI antes de cargar la app. Se añade el campo opcional last_used_model para recordar la última selección de modelo de IA del usuario.",
       "acceptance": [
         "Existe app/config.py que lee/escribe config.json con los campos obligatorios: user_name, user_email",
         "config.py acepta un campo opcional ai_provider aunque no lo exige ni lo usa en esta fase (se activará en ai_reports)",
+        "config.py acepta un campo opcional last_used_model (str | None) que no es obligatorio para pasar el formulario de bienvenida",
         "Si config.json no existe o le faltan user_name o user_email, la UI muestra un formulario bloqueante que impide acceder al resto de la app",
         "Al guardar el formulario, se crea config.json en BASE_DIR/config.json y se carga la aplicación normalmente",
         "user_name y user_email quedan accesibles globalmente sin pasarlos como parámetro en cada operación",
-        "tests/services/test_config.py cubre: lectura con fichero existente, lectura sin fichero, escritura y validación de campos obligatorios"
+        "tests/services/test_config.py cubre: lectura con fichero existente, lectura sin fichero, escritura, validación de campos obligatorios y lectura/escritura de last_used_model"
       ],
-      "status": "done"
+      "status": "in_progress"
     },
     {
       "id": 5,
@@ -373,45 +374,46 @@
       "name": "ollama_client",
       "phase": "ai_reports",
       "title": "Cliente local de Ollama",
-      "description": "Integrar el cliente local de Ollama para comprobar su disponibilidad y los modelos descargados antes de generar informes. qwen3:4b es el modelo preferido, pero cualquier modelo local vale.",
+      "description": "Integrar el cliente local de Ollama para comprobar su disponibilidad y los modelos descargados antes de generar informes. La disponibilidad se basa únicamente en que el servidor responda y haya al menos un modelo instalado, sin depender de qué modelo esté cargado en memoria.",
       "acceptance": [
         "Existe app/services/ollama_client.py que consulta el endpoint local http://localhost:11434/api/tags",
         "El cliente expone si Ollama está disponible y los nombres de los modelos instalados, sin bloquear el resto de la app si el endpoint no responde",
-        "qwen3:4b es la constante de modelo preferido; se considera listo cuando hay al menos un modelo instalado, sea cual sea",
-        "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre servicio no disponible, sin modelos instalados y listo con cualquier modelo local"
+        "qwen3:4b es la constante de modelo recomendado, usada solo como sugerencia informativa en la UI, nunca como fallback automático de generación",
+        "El cliente NO consulta /api/ps ni ningún otro endpoint para determinar si un modelo está cargado en memoria",
+        "tests/services/test_ollama_client.py usa respuestas HTTP simuladas y cubre: servidor no disponible, sin modelos instalados, servidor disponible con uno o varios modelos"
       ],
-      "status": "done"
+      "status": "in_progress"
     },
     {
       "id": 26,
       "name": "ai_service",
       "phase": "ai_reports",
       "title": "AIService",
-      "description": "Orquesta la generación de informes científicos con Ollama: construye el prompt con los datos de uno o varios experimentos y devuelve el borrador en Markdown.",
+      "description": "Orquesta la generación de informes científicos con Ollama: construye el prompt con los datos de uno o varios experimentos y devuelve el borrador en Markdown. El modelo a usar es siempre un parámetro explícito provisto por el llamador (elegido por el usuario en el dropdown de la UI); AIService no resuelve ni asume ningún modelo por su cuenta.",
       "acceptance": [
-        "Existe app/services/ai_service.py con el método generate_report(experiments_data) → str que devuelve Markdown, aceptando uno o varios experimentos",
+        "Existe app/services/ai_service.py con el método generate_report(experiments_data, model: str) → str que devuelve Markdown, aceptando uno o varios experimentos",
         "El system prompt instruye al modelo a generar un informe técnico científico estructurado",
-        "AIService usa exclusivamente OllamaClient con qwen3:4b como modelo preferido y el primer modelo instalado como alternativa; no existe selección ni abstracción de proveedores de IA",
-        "Si Ollama no está disponible o no hay ningún modelo instalado, generate_report() devuelve None y no propaga la excepción",
-        "tests/services/test_ai_service.py inyecta un cliente Ollama simulado y verifica generación exitosa, degradación elegante y generación a partir de varios experimentos"
+        "AIService usa exclusivamente OllamaClient y el parámetro model recibido; no existe selección, resolución ni fallback interno de modelo",
+        "Si Ollama no está disponible, o el modelo indicado en model no figura entre los modelos instalados en el momento de la llamada, generate_report() devuelve None y no propaga la excepción",
+        "tests/services/test_ai_service.py inyecta un cliente Ollama simulado y verifica: generación exitosa con un modelo dado, degradación elegante si Ollama no responde, degradación elegante si el modelo indicado no está instalado, y generación a partir de varios experimentos"
       ],
-      "status": "done"
+      "status": "in_progress"
     },
     {
       "id": 27,
       "name": "ui_ollama_readiness",
       "phase": "ai_reports",
       "title": "Página AI Reports: preparación de Ollama (UI)",
-      "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y cualquier modelo local, y muestra si el entorno local está listo para generar informes.",
+      "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y descargar al menos un modelo local, y muestra si el entorno local está listo para generar informes. El estado 'listo' depende únicamente de que el servidor responda y haya al menos un modelo instalado, sin requerir que ningún modelo esté cargado en memoria ni que el usuario ejecute comandos de chat en terminal.",
       "acceptance": [
         "Existe app/ui/pages/ai_reports.py y el ítem AI Reports se añade a la navegación principal",
         "La página solo muestra la guía de descarga de Ollama (https://ollama.com/download) cuando Ollama no responde, y solo muestra la guía de descarga de modelos (librería, qwen y gemma con sus comandos pull) cuando no hay modelos instalados; todos los enlaces abren en el navegador predeterminado con new_tab=True",
-        "Si hay modelos instalados pero ninguno en ejecución (según /api/ps), la página lista todos los instalados y muestra ollama run con el primero como ejemplo, aclarando que puede usar cualquiera",
-        "Un indicador verde muestra que Ollama responde y hay un modelo en ejecución; en caso contrario un indicador explica el estado (falta Ollama, faltan modelos o modelo detenido)",
+        "La página NO consulta /api/ps ni indica al usuario que ejecute `ollama run <modelo>` en una terminal para dejarlo 'corriendo'",
+        "Un indicador verde muestra que Ollama responde y hay al menos un modelo instalado; en caso contrario un indicador explica el estado (falta Ollama o faltan modelos)",
         "La comprobación de estado se ejecuta en un hilo worker para no bloquear la interfaz, y hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
-        "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, los cuatro estados y actualización manual"
+        "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, los dos estados y actualización manual"
       ],
-      "status": "done"
+      "status": "in_progress"
     },
     {
       "id": 28,
@@ -443,6 +445,24 @@
         "Smoke test manual: con Ollama y qwen3:4b listos, generar un informe, editar el borrador y exportarlo a PDF"
       ],
       "status": "done"
+    },
+    {
+      "id": 30,
+      "name": "model_selector",
+      "phase": "ai_reports",
+      "title": "Selector de modelo Ollama en AI Assistant (UI)",
+      "description": "Añade un dropdown en la página AI Assistant para que el usuario elija, de entre sus modelos Ollama instalados, cuál usar para generar el informe. La app solo sugiere un modelo ligero de forma informativa; la elección real siempre la hace el usuario. La última selección se recuerda entre sesiones vía config.json.",
+      "acceptance": [
+        "app/ui/pages/ai_assistant.py incluye un dropdown poblado con OllamaClient.get_installed_models(), revalidado en cada carga de la página (sin caché entre cargas)",
+        "El dropdown está vacío por defecto en cada carga; no se preselecciona ningún modelo automáticamente",
+        "El botón 'Generar borrador' permanece deshabilitado mientras no haya un modelo seleccionado en el dropdown",
+        "Junto al dropdown hay un icono informativo ('i') cuyo tooltip indica el/los modelo(s) ligero(s) recomendado(s) (qwen3:4b, gemma), sin afectar la selección ni el estado del dropdown",
+        "Al pulsar 'Generar borrador', se llama a AIService.generate_report(experiments_data, model) usando exactamente el modelo elegido en el dropdown",
+        "Tras una generación exitosa, el modelo usado se guarda en config.json como last_used_model",
+        "Si al cargar la página last_used_model está definido pero ya no aparece en la lista de modelos instalados devuelta por /api/tags, se descarta la preferencia guardada y el dropdown se muestra vacío (no se sustituye automáticamente por otro modelo)",
+        "tests/ui/test_ai_assistant.py (ampliado) cubre: dropdown con 0 modelos instalados, revalidación tras borrar el modelo previamente guardado, persistencia de last_used_model tras generación exitosa, y botón deshabilitado sin selección"
+      ],
+      "status": "pending"
     }
   ]
 }
