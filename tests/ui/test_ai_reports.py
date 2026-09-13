@@ -10,6 +10,7 @@ from app.ui.pages.ai_reports import (
     OLLAMA_DOWNLOAD_URL,
     QWEN_MODEL_URL,
     QWEN_PULL_COMMAND,
+    SERVE_COMMAND,
     build_ai_reports_page,
     describe_status,
     get_readiness,
@@ -102,7 +103,7 @@ def test_accepts_several_installed_models_as_ready() -> None:
     assert "2 local model(s) installed" in message
 
 
-def test_describes_missing_ollama_with_download_guidance() -> None:
+def test_describes_missing_ollama_with_download_and_serve_guidance() -> None:
     # given
     readiness = get_readiness(
         FakeOllamaClient(status=OllamaStatus(False, ()))  # type: ignore[arg-type]
@@ -111,10 +112,12 @@ def test_describes_missing_ollama_with_download_guidance() -> None:
     # when
     state, message = describe_status(readiness)
 
-    # then
+    # then — single message covers both cases for a non-technical audience
     assert state == "missing_ollama"
     assert "not responding" in message
-    assert "outside the application" in message
+    assert "official page" in message
+    assert "already installed" in message
+    assert "Refresh" in message
 
 
 def test_describes_missing_model_with_library_guidance() -> None:
@@ -230,7 +233,7 @@ def test_lists_installed_models_without_run_commands() -> None:
         assert mock_ui.link.call_count == 0
 
 
-def test_shows_download_link_only_when_ollama_missing() -> None:
+def test_shows_download_link_and_serve_command_when_ollama_missing() -> None:
     # given
     client = FakeOllamaClient(status=OllamaStatus(False, ()))
 
@@ -243,13 +246,15 @@ def test_shows_download_link_only_when_ollama_missing() -> None:
         build_ai_reports_page(client)  # type: ignore[arg-type]
         mock_ui.badge.reset_mock()
         mock_ui.link.reset_mock()
+        mock_ui.code.reset_mock()
         _run_refresh(mock_ui, mock_run)
 
-        # then
+        # then — both remedies shown: download page and serve command
         mock_ui.badge.assert_called_with("Not ready", color="red")
         mock_ui.link.assert_called_once_with(
             "Download Ollama", OLLAMA_DOWNLOAD_URL, new_tab=True
         )
+        mock_ui.code.assert_called_once_with(SERVE_COMMAND)
 
 
 def test_shows_model_recommendations_only_when_no_model_detected() -> None:

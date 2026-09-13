@@ -15,6 +15,7 @@ QWEN_MODEL_URL = "https://ollama.com/library/qwen3"
 GEMMA_MODEL_URL = "https://ollama.com/library/gemma3"
 QWEN_PULL_COMMAND = "ollama pull qwen3"
 GEMMA_PULL_COMMAND = "ollama pull gemma3"
+SERVE_COMMAND = "ollama serve"
 
 CHECKING_MESSAGE = "Checking Ollama status..."
 
@@ -60,8 +61,11 @@ def describe_status(readiness: Readiness) -> tuple[str, str]:
     """Return state and user-facing message for a readiness."""
     if readiness.state == MISSING_OLLAMA:
         return MISSING_OLLAMA, (
-            "Ollama is not responding. Download it from the official page "
-            "and install it outside the application."
+            "Ollama is not responding. AI features need the Ollama server "
+            "running: if you do not have it yet, download it from the "
+            "official page and install it outside the application; "
+            "if you already installed it, start it with this command "
+            "in a terminal, then press Refresh:"
         )
     if readiness.state == MISSING_MODEL:
         return MISSING_MODEL, (
@@ -120,6 +124,7 @@ def _render_status(
             ui.badge("Not ready", color="red")
             ui.label(message)
             ui.link("Download Ollama", OLLAMA_DOWNLOAD_URL, new_tab=True)
+            ui.code(SERVE_COMMAND)
         else:
             ui.badge("Not ready", color="red")
             ui.label(message)

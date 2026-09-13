@@ -407,7 +407,7 @@
       "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y descargar al menos un modelo local, y muestra si el entorno local está listo para generar informes. El estado 'listo' depende únicamente de que el servidor responda y haya al menos un modelo instalado, sin requerir que ningún modelo esté cargado en memoria ni que el usuario ejecute comandos de chat en terminal.",
       "acceptance": [
         "Existe app/ui/pages/ai_reports.py y el ítem AI Reports se añade a la navegación principal",
-        "La página solo muestra la guía de descarga de Ollama (https://ollama.com/download) cuando Ollama no responde, y solo muestra la guía de descarga de modelos (librería, qwen y gemma con sus comandos pull) cuando no hay modelos instalados; todos los enlaces abren en el navegador predeterminado con new_tab=True",
+        "La página muestra un mensaje único cuando Ollama no responde: guía de descarga de Ollama (https://ollama.com/download) para quien aún no lo tenga, junto con la orden `ollama serve` para quien ya lo tenga instalado; solo muestra la guía de descarga de modelos (librería, qwen y gemma con sus comandos pull) cuando no hay modelos instalados; todos los enlaces abren en el navegador predeterminado con new_tab=True",
         "La página NO consulta /api/ps ni indica al usuario que ejecute `ollama run <modelo>` en una terminal para dejarlo 'corriendo'",
         "Un indicador verde muestra que Ollama responde y hay al menos un modelo instalado; en caso contrario un indicador explica el estado (falta Ollama o faltan modelos)",
         "La comprobación de estado se ejecuta en un hilo worker para no bloquear la interfaz, y hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
