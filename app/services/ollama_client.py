@@ -8,6 +8,8 @@ logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 RECOMMENDED_MODEL = "qwen3:4b"
+STATUS_TIMEOUT_SECONDS = 2.0
+GENERATE_TIMEOUT_SECONDS = 300.0
 
 
 @dataclass(frozen=True)
@@ -39,10 +41,12 @@ class OllamaClient:
     def __init__(
         self,
         base_url: str = OLLAMA_BASE_URL,
-        timeout_seconds: float = 2.0,
+        timeout_seconds: float = STATUS_TIMEOUT_SECONDS,
+        generate_timeout_seconds: float = GENERATE_TIMEOUT_SECONDS,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._timeout_seconds = timeout_seconds
+        self._generate_timeout_seconds = generate_timeout_seconds
 
     def get_status(self) -> OllamaStatus:
         """Return the local Ollama availability and installed model names."""
@@ -66,7 +70,11 @@ class OllamaClient:
         )
 
     def generate(self, model: str, prompt: str) -> str:
-        """Generate a non-streaming completion with a local Ollama model."""
+        """Generate a non-streaming completion with a local Ollama model.
+
+        Generation can take minutes on local hardware, so it uses a
+        much longer timeout than the quick status probes.
+        """
         body = json.dumps({"model": model, "prompt": prompt, "stream": False}).encode(
             "utf-8"
         )
@@ -77,7 +85,7 @@ class OllamaClient:
             headers={"Content-Type": "application/json"},
         )
 
-        with urlopen(request, timeout=self._timeout_seconds) as response:
+        with urlopen(request, timeout=self._generate_timeout_seconds) as response:
             payload = json.loads(response.read().decode("utf-8"))
 
         text = payload.get("response") if isinstance(payload, dict) else None

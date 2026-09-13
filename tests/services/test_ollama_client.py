@@ -3,7 +3,11 @@ from urllib.error import URLError
 
 import pytest
 
-from app.services.ollama_client import RECOMMENDED_MODEL, OllamaClient
+from app.services.ollama_client import (
+    GENERATE_TIMEOUT_SECONDS,
+    RECOMMENDED_MODEL,
+    OllamaClient,
+)
 
 
 class _Response:
@@ -149,3 +153,34 @@ def test_returns_empty_running_models_when_ps_fails() -> None:
 
     # then
     assert running == ()
+
+
+def test_uses_long_timeout_for_generation_instead_of_status_timeout() -> None:
+    # given
+    client = OllamaClient()
+    response = _Response(b'{"response": "# Report"}')
+
+    # when
+    with patch(
+        "app.services.ollama_client.urlopen", return_value=response
+    ) as open_mock:
+        client.generate(RECOMMENDED_MODEL, "Summarize.")
+
+    # then
+    assert open_mock.call_args.kwargs["timeout"] == GENERATE_TIMEOUT_SECONDS
+    assert open_mock.call_args.kwargs["timeout"] > 60
+
+
+def test_honours_custom_generate_timeout() -> None:
+    # given
+    client = OllamaClient(generate_timeout_seconds=45.0)
+    response = _Response(b'{"response": "# Report"}')
+
+    # when
+    with patch(
+        "app.services.ollama_client.urlopen", return_value=response
+    ) as open_mock:
+        client.generate(RECOMMENDED_MODEL, "Summarize.")
+
+    # then
+    assert open_mock.call_args.kwargs["timeout"] == 45.0

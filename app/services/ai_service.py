@@ -56,6 +56,7 @@ class AIService:
 
         model = _resolve_model(self._model, status.installed_models)
         prompt = _build_user_prompt(experiments)
+        logger.info("Generating report count=%s model=%s", len(experiments), model)
         try:
             report = self._ollama_client.generate(model, f"{SYSTEM_PROMPT}\n\n{prompt}")
         except Exception as error:
@@ -66,7 +67,7 @@ class AIService:
             logger.warning("Empty report received count=%s", len(experiments))
             return None
 
-        logger.info("Report generated count=%s", len(experiments))
+        logger.info("Report generated count=%s model=%s", len(experiments), model)
         return report.strip()
 
 
