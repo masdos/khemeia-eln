@@ -13,49 +13,6 @@ from app.config import (
 )
 
 
-def test_validate_config_allows_missing_ai_provider_and_defaults_to_none() -> None:
-    # given
-    config_data = {"user_name": "Ada", "user_email": "ada@example.com"}
-
-    # when
-    config = validate_config(config_data)
-
-    # then
-    assert config.ai_provider is None
-    clear_current_config()
-
-
-def test_write_config_persists_ai_provider_as_null(tmp_path) -> None:
-    # given
-    base_dir = tmp_path
-
-    # when
-    write_config(
-        {"user_name": "Ada", "user_email": "ada@example.com"}, base_dir=base_dir
-    )
-
-    # then
-    config_path = base_dir / "config.json"
-    assert config_path.exists()
-    saved_config = json.loads(config_path.read_text(encoding="utf-8"))
-    assert saved_config["ai_provider"] is None
-    clear_current_config()
-
-
-def test_validate_config_rejects_unsupported_ai_provider() -> None:
-    # given
-    config_data = {
-        "user_name": "Ada",
-        "user_email": "ada@example.com",
-        "ai_provider": "unknown",
-    }
-
-    # when / then
-    with pytest.raises(ConfigValidationError, match="unsupported AI provider"):
-        validate_config(config_data)
-    clear_current_config()
-
-
 def test_load_config_returns_none_when_required_fields_are_missing(tmp_path) -> None:
     # given
     config_path = tmp_path / "config.json"
@@ -78,7 +35,6 @@ def test_load_config_uses_environment_overrides(tmp_path) -> None:
         env={
             "USER_NAME": "Grace",
             "USER_EMAIL": "grace@example.com",
-            "AI_PROVIDER": "ollama",
         },
         load_env_file=False,
         pre_loaded_config={},
@@ -88,7 +44,6 @@ def test_load_config_uses_environment_overrides(tmp_path) -> None:
     assert config is not None
     assert config.user_name == "Grace"
     assert config.user_email == "grace@example.com"
-    assert config.ai_provider == "ollama"
     clear_current_config()
 
 
@@ -109,3 +64,131 @@ def test_current_config_state_can_be_set_and_cleared() -> None:
     # then
     with pytest.raises(ConfigValidationError, match="not been loaded"):
         get_current_config()
+
+
+def test_validate_config_defaults_last_used_model_to_none_when_missing() -> None:
+    # given
+    config_data = {"user_name": "Ada", "user_email": "ada@example.com"}
+
+    # when
+    config = validate_config(config_data)
+
+    # then
+    assert config.last_used_model is None
+    clear_current_config()
+
+
+def test_validate_config_keeps_provided_last_used_model_verbatim() -> None:
+    # given
+    config_data = {
+        "user_name": "Ada",
+        "user_email": "ada@example.com",
+        "last_used_model": "  qwen3:4b  ",
+    }
+
+    # when
+    config = validate_config(config_data)
+
+    # then
+    assert config.last_used_model == "qwen3:4b"
+    clear_current_config()
+
+
+def test_load_config_reads_existing_profile_file(tmp_path) -> None:
+    # given
+    clear_current_config()
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "user_name": "Ada",
+                "user_email": "ada@example.com",
+                "last_used_model": "gemma3:4b",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    # when
+    config = load_config(base_dir=tmp_path, load_env_file=False)
+
+    # then
+    assert config is not None
+    assert config.user_name == "Ada"
+    assert config.user_email == "ada@example.com"
+    assert config.last_used_model == "gemma3:4b"
+    clear_current_config()
+
+
+def test_load_config_returns_none_when_config_file_is_missing(tmp_path) -> None:
+    # given
+    clear_current_config()
+
+    # when
+    config = load_config(base_dir=tmp_path, load_env_file=False)
+
+    # then
+    assert config is None
+
+
+def test_load_config_does_not_require_last_used_model_for_welcome(
+    tmp_path,
+) -> None:
+    # given
+    clear_current_config()
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"user_name": "Ada", "user_email": "ada@example.com"}),
+        encoding="utf-8",
+    )
+
+    # when
+    config = load_config(base_dir=tmp_path, load_env_file=False)
+
+    # then
+    assert config is not None
+    assert config.last_used_model is None
+    clear_current_config()
+
+
+def test_write_then_load_roundtrips_last_used_model(tmp_path) -> None:
+    # given
+    clear_current_config()
+    write_config(
+        {
+            "user_name": "Ada",
+            "user_email": "ada@example.com",
+            "last_used_model": "qwen3:4b",
+        },
+        base_dir=tmp_path,
+    )
+
+    # when
+    config = load_config(base_dir=tmp_path, load_env_file=False)
+
+    # then
+    assert config is not None
+    assert config.last_used_model == "qwen3:4b"
+    clear_current_config()
+
+
+def test_load_config_applies_last_used_model_env_override(tmp_path) -> None:
+    # given
+    clear_current_config()
+
+    # when
+    config = load_config(
+        base_dir=tmp_path,
+        env={
+            "USER_NAME": "Grace",
+            "USER_EMAIL": "grace@example.com",
+            "LAST_USED_MODEL": "gemma3:4b",
+        },
+        load_env_file=False,
+        pre_loaded_config={},
+    )
+
+    # then
+    assert config is not None
+    assert config.last_used_model == "gemma3:4b"
+    clear_current_config()

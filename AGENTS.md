@@ -105,11 +105,11 @@ Location: `BASE_DIR/config.json`.
 {
   "user_name": "Ada Lovelace",
   "user_email": "ada@lab.edu",
-  "ai_provider": "lmstudio"
+  "last_used_model": "qwen3:4b"
 }
 ```
 
-- `ai_provider` selects the active AI backend: `lmstudio`, `ollama`, or `remote`.
+- `last_used_model` optionally remembers the last Ollama model used in AI Assistant. Ollama is always the AI backend; there is no provider selection.
 - `user_name` and `user_email` are available globally for auditing without being passed as parameters.
 - If `config.json` is missing or has missing required fields, the UI shows a blocking welcome form before loading the rest of the app.
 

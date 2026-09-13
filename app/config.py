@@ -7,11 +7,10 @@ from typing import Mapping
 from dotenv import load_dotenv
 
 REQUIRED_FIELDS = ("user_name", "user_email")
-AI_PROVIDERS = ("lmstudio", "ollama", "remote")
 ENV_KEYS = {
     "user_name": ("USER_NAME", "KHEMEIA_USER_NAME"),
     "user_email": ("USER_EMAIL", "KHEMEIA_USER_EMAIL"),
-    "ai_provider": ("AI_PROVIDER", "KHEMEIA_AI_PROVIDER"),
+    "last_used_model": ("LAST_USED_MODEL", "KHEMEIA_LAST_USED_MODEL"),
 }
 
 _current_config: "AppConfig | None" = None
@@ -25,13 +24,13 @@ class ConfigValidationError(ValueError):
 class AppConfig:
     user_name: str
     user_email: str
-    ai_provider: str | None
+    last_used_model: str | None = None
 
     def to_json_data(self) -> dict[str, str | None]:
         return {
             "user_name": self.user_name,
             "user_email": self.user_email,
-            "ai_provider": self.ai_provider,
+            "last_used_model": self.last_used_model,
         }
 
 
@@ -89,7 +88,8 @@ def write_config(
     """Validate and persist the user profile to BASE_DIR/config.json.
 
     Args:
-        config_data: Configuration dict with user_name, user_email, ai_provider
+        config_data: Configuration dict with user_name, user_email
+            and last_used_model
         base_dir: Application data directory (typically from BootstrapResult.base_dir)
 
     Returns:
@@ -114,15 +114,13 @@ def validate_config(config_data: Mapping[str, object]) -> AppConfig:
     if missing_fields:
         raise ConfigValidationError("Profile is missing required fields")
 
-    ai_provider_value = _clean_value(config_data.get("ai_provider"))
-    ai_provider = None if not ai_provider_value else ai_provider_value.lower()
-    if ai_provider is not None and ai_provider not in AI_PROVIDERS:
-        raise ConfigValidationError("Profile has an unsupported AI provider")
+    last_used_model_value = _clean_value(config_data.get("last_used_model"))
+    last_used_model = last_used_model_value if last_used_model_value else None
 
     return AppConfig(
         user_name=values["user_name"],
         user_email=values["user_email"],
-        ai_provider=ai_provider,
+        last_used_model=last_used_model,
     )
 
 

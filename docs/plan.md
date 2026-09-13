@@ -58,18 +58,16 @@ ExperimentService
 ```
 
 
-### **C. Integración de IA — Interfaz AIProvider**
+### **C. Integración de IA — Ollama local**
 
-Se define una interfaz `AIProvider` que desacopla el backend de IA del resto del código:
+Ollama es el único backend de IA, sin selección ni abstracción de proveedores:
 
 ```
-AIProvider (interfaz)
-    ├── LMStudioProvider   → http://localhost:1234/v1
-    ├── OllamaProvider     → http://localhost:11434/v1
-    └── RemoteAPIProvider  → endpoint configurable
+AIService
+    └── OllamaClient   → http://localhost:11434
 ```
 
-El proveedor activo se configura en `config.json`. `AIService` solo conoce la interfaz, no la implementación concreta. El sistema funciona al 100% como cuaderno si ningún proveedor está disponible.
+`AIService` recibe el modelo como parámetro explícito (elegido por el usuario entre los modelos instalados); nunca resuelve ni asume un modelo por su cuenta. No existe ningún campo `ai_provider` en `config.json`. El sistema funciona al 100% como cuaderno si Ollama no está disponible: `generate_report()` devuelve `None` sin propagar la excepción.
 
 ### **D. Gestión de Adjuntos**
 

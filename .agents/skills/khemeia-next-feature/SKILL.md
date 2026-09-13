@@ -58,7 +58,7 @@ Before generating code, extract the following from the selected feature:
 Cross-reference the `acceptance` items with `plan.md` to identify:
 - Which layer it implements (Repository / Service / UI)
 - Which other modules it depends on
-- Which patterns apply (Repository Pattern, `AIProvider` interface, `FileService`, etc.)
+- Which patterns apply (Repository Pattern, Ollama-only AI, `FileService`, etc.)
 
 ## 5. Implement the feature
 
@@ -115,8 +115,8 @@ UI (NiceGUI)
 ```
 
 **Key patterns:**
-- `AIProvider` is an abstract interface; never instantiate a concrete provider
-  outside `AIService`.
+- Ollama is the only AI backend; `AIService` uses `OllamaClient` directly
+  with an explicit `model` parameter and never resolves a model by itself.
 - `FileService` resolves paths by combining `BASE_DIR` (from config.json)
   with relative paths.
 - User configuration lives in `config.json`, not in the database.

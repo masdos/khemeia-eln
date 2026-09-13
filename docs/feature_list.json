@@ -80,14 +80,14 @@
       "description": "Gestionar el perfil monousuario mediante config.json. Si el fichero no existe o está incompleto, mostrar un formulario de bienvenida bloqueante en NiceGUI antes de cargar la app. Se añade el campo opcional last_used_model para recordar la última selección de modelo de IA del usuario.",
       "acceptance": [
         "Existe app/config.py que lee/escribe config.json con los campos obligatorios: user_name, user_email",
-        "config.py acepta un campo opcional ai_provider aunque no lo exige ni lo usa en esta fase (se activará en ai_reports)",
+        "config.py no contiene ningún campo ai_provider: Ollama es siempre el backend de IA y no existe selección de proveedores",
         "config.py acepta un campo opcional last_used_model (str | None) que no es obligatorio para pasar el formulario de bienvenida",
         "Si config.json no existe o le faltan user_name o user_email, la UI muestra un formulario bloqueante que impide acceder al resto de la app",
         "Al guardar el formulario, se crea config.json en BASE_DIR/config.json y se carga la aplicación normalmente",
         "user_name y user_email quedan accesibles globalmente sin pasarlos como parámetro en cada operación",
         "tests/services/test_config.py cubre: lectura con fichero existente, lectura sin fichero, escritura, validación de campos obligatorios y lectura/escritura de last_used_model"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": 5,
