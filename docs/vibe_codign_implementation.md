@@ -121,6 +121,34 @@ compartidos.
 - Las pantallas de detalle reutilizan un patrón de navegación de consulta y
   edición que centraliza acciones, metadatos y retorno a la lista.
 
+## Centro de IA
+
+La navegación de IA se unificó en una única entrada lateral para evitar
+duplicidades confusas para el público no técnico.
+
+- La barra lateral muestra solo **AI Assistant** con el icono robot; la
+  entrada **AI Reports** desapareció y su ruta se eliminó.
+- La vista `ai_assistant` es un centro en dos columnas: a la izquierda
+  explica qué es Ollama, por qué los modelos locales (los datos nunca salen
+  del equipo, sin cuentas ni APIs de terceros, funciona sin conexión) y los
+  requisitos en 3 pasos estáticos con sus recursos (url oficial, web y
+  comando de descarga de modelo, comando y web de arranque del servidor);
+  debajo, el indicador de estado (que parte de "Not checked") y un botón
+  para comprobar los requisitos a demanda, con spinner mientras trabaja y
+  sin comprobación automática al cargar. Los mensajes de estado son cortos
+  y no repiten comandos ni webs.
+- La tarjeta del menú se llama Report generator, como la página a la que
+  navega.
+- La vista secundaria `ai_report_generator`
+  (sin entrada propia en el menú, con botón de volver): el formulario
+  anterior con selector de experimentos, desplegable de modelo, borrador
+  editable y exportación a Markdown o PDF. Los botones de exportar nacen
+  deshabilitados hasta que el borrador tiene contenido, se eliminó el icono
+  informativo de modelos recomendados y la generación es asíncrona (botón
+  deshabilitado y spinner, sin congelar la interfaz). La lógica de readiness se
+  conservó en `app/ui/pages/ai_reports.py` como módulo importado por el
+  centro, sin constructor de página propio.
+
 ## Relación con el backlog
 
 Las mejoras anteriores enriquecen funcionalidades MVP ya marcadas como

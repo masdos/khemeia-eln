@@ -1,295 +1,133 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, Sequence
-from pathlib import Path
-from typing import Any
 
 from nicegui import ui
 
-from app.config import ConfigValidationError, get_current_config, write_config
-from app.database.connection import get_connection
-from app.services.ai_service import AIService
-from app.services.experiment_service import (
-    ExperimentService,
-    SqliteExperimentRepository,
-)
-from app.services.export_service import ExportService, SqliteReportRepository
-from app.services.export_service import (
-    SqliteAttachmentRepository as ExportSqliteAttachmentRepository,
-)
-from app.services.export_service import (
-    SqliteEquipmentRepository as ExportSqliteEquipmentRepository,
-)
-from app.services.export_service import (
-    SqliteExperimentRepository as ExportSqliteExperimentRepository,
-)
-from app.services.export_service import (
-    SqliteProjectRepository as ExportSqliteProjectRepository,
-)
-from app.services.export_service import (
-    SqliteProtocolRepository as ExportSqliteProtocolRepository,
-)
-from app.services.export_service import (
-    SqliteReagentRepository as ExportSqliteReagentRepository,
-)
 from app.services.ollama_client import OllamaClient
-from app.services.project_service import SqliteProjectRepository
-from app.services.protocol_service import SqliteProtocolRepository
 from app.ui import router
+from app.ui.pages.ai_reports import (
+    OLLAMA_DOWNLOAD_URL,
+    QWEN_PULL_COMMAND,
+    SERVE_COMMAND,
+    refresh_status_display,
+)
 
 logger = logging.getLogger(__name__)
 
-NO_AI_WARNING = (
-    "Ollama is not ready. Open AI Reports to install Ollama and download a local model."
+HUB_INTRO = (
+    "AI Assistant drafts scientific reports from your experiments using "
+    "Ollama, a free program that runs AI models directly on your lab computer."
 )
-SELECTION_REQUIRED = "Select at least one experiment."
-MODEL_REQUIRED = "Select a model."
-DRAFT_REQUIRED = "Generate a draft before exporting."
-RECOMMENDED_MODELS_TOOLTIP = (
-    "Recommended lightweight models: qwen3:4b, gemma. You can use any installed model."
+HUB_TRUST = (
+    "Because everything runs locally, your unpublished research data never "
+    "leaves this machine: no accounts, no fees, no data sent to third-party "
+    "APIs, and it works offline."
+)
+MODEL_DOWNLOAD_URL = "https://docs.ollama.com/cli#download-a-model"
+START_SERVER_URL = "https://docs.ollama.com/cli#start-ollama"
+COMPATIBILITY_URL = "https://www.canirun.ai/tier"
+OLLAMA_SEARCH_URL = "https://ollama.com/search"
+NOT_CHECKED_HINT = "Press Check requirements to verify the setup."
+REPORTS_SUMMARY = (
+    "Generate editable scientific report drafts from one or several "
+    "experiments and export them to Markdown or PDF."
 )
 
 
-def get_experiment_choices(experiment_service: ExperimentService) -> dict[int, str]:
-    """Return experiment id to display label mapping for the selector."""
-    choices: dict[int, str] = {}
-    for experiment in experiment_service.list_experiments({}):
-        experiment_id = experiment.get("id")
-        title = experiment.get("title") or f"Experiment {experiment_id}"
-        if experiment_id is not None:
-            choices[experiment_id] = f"#{experiment_id} {title}"
-    return choices
+def _step_header(prefix: str, link_text: str, url: str) -> None:
+    """Render a step title with the docs link in parentheses before colon."""
+    with ui.row().classes("items-baseline gap-1 flex-nowrap"):
+        ui.label(prefix)
+        ui.label("(")
+        ui.link(link_text, url, new_tab=True)
+        ui.label("):")
 
 
-def collect_experiments_data(
-    experiment_service: ExperimentService,
-    experiment_ids: Sequence[int],
-) -> list[dict[str, Any]]:
-    """Return full experiment records for the selected ids, skipping missing."""
-    collected: list[dict[str, Any]] = []
-    for experiment_id in experiment_ids:
-        experiment = experiment_service.get_experiment(experiment_id)
-        if experiment is not None:
-            collected.append(experiment)
-    return collected
-
-
-def generate_draft(
-    ai_service: AIService,
-    experiments_data: Sequence[Mapping[str, Any]],
-    model: str,
-) -> str | None:
-    """Generate a report draft with the chosen model, or None when not ready."""
-    draft = ai_service.generate_report(experiments_data, model)
-    if draft is None:
-        logger.warning("AI draft generation returned no content")
-        return None
-    logger.info("AI draft generated count=%s", len(experiments_data))
-    return draft
-
-
-def export_draft(
-    export_service: ExportService,
-    markdown_content: str,
-    experiment_ids: Sequence[int],
-    file_format: str,
-) -> Path:
-    """Export the edited draft as Markdown or PDF and return its path."""
-    if file_format == "pdf":
-        return export_service.export_ai_report_pdf(markdown_content, experiment_ids)
-    return export_service.export_ai_report_markdown(markdown_content, experiment_ids)
-
-
-def _get_services(base_dir: Path) -> dict[str, Any]:
-    conn = get_connection()
-    experiment_service = ExperimentService(
-        experiment_repo=SqliteExperimentRepository(conn),
-        project_repo=SqliteProjectRepository(conn),
-        protocol_repo=SqliteProtocolRepository(conn),
-    )
-    config = get_current_config()
-    export_service = ExportService(
-        base_dir=base_dir,
-        experiment_repo=ExportSqliteExperimentRepository(conn),
-        reagent_repo=ExportSqliteReagentRepository(conn),
-        equipment_repo=ExportSqliteEquipmentRepository(conn),
-        project_repo=ExportSqliteProjectRepository(conn),
-        protocol_repo=ExportSqliteProtocolRepository(conn),
-        attachment_repo=ExportSqliteAttachmentRepository(conn),
-        user_name=config.user_name,
-        user_email=config.user_email,
-        report_repo=SqliteReportRepository(conn),
-    )
-    ollama_client = OllamaClient()
-    return {
-        "experiment_service": experiment_service,
-        "ai_service": AIService(ollama_client),
-        "export_service": export_service,
-        "ollama_client": ollama_client,
-    }
-
-
-def _load_saved_model() -> str | None:
-    """Return the remembered model, or None when there is no profile."""
-    try:
-        return get_current_config().last_used_model
-    except ConfigValidationError:
-        return None
-
-
-def _persist_last_used_model(base_dir: Path | None, model: str) -> None:
-    """Remember the used model in config.json for the next session."""
-    if base_dir is None:
-        return
-    try:
-        current = get_current_config()
-    except ConfigValidationError as error:
-        logger.warning("Last used model not saved error=%s", str(error))
-        return
-    write_config(
-        {
-            "user_name": current.user_name,
-            "user_email": current.user_email,
-            "last_used_model": model,
-        },
-        base_dir=base_dir,
-    )
-    logger.info("Last used model saved model=%s", model)
-
-
-def build_ai_assistant_page(
-    base_dir: Path | None = None,
-    *,
-    experiment_service: ExperimentService | None = None,
-    ai_service: AIService | None = None,
-    export_service: ExportService | None = None,
-    ollama_client: OllamaClient | None = None,
-) -> None:
-    """Build the AI Assistant page for drafting reports from experiments."""
-    if (
-        experiment_service is None
-        or ai_service is None
-        or export_service is None
-        or ollama_client is None
-    ):
-        if base_dir is None:
-            from app.bootstrap import run_bootstrap
-
-            base_dir = run_bootstrap().base_dir
-        services = _get_services(base_dir)
-        experiment_service = experiment_service or services["experiment_service"]
-        ai_service = ai_service or services["ai_service"]
-        export_service = export_service or services["export_service"]
-        ollama_client = ollama_client or services["ollama_client"]
-
-    try:
-        installed_models = list(ollama_client.get_installed_models())
-    except Exception as error:
-        logger.warning("Installed models check failed error=%s", str(error))
-        installed_models = []
-
-    saved_model = _load_saved_model()
-    initial_model = saved_model if saved_model in installed_models else None
+def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
+    """Build the AI Assistant hub with guidance, status and feature menu."""
+    client = ollama_client or OllamaClient()
 
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
         ui.label("AI Assistant").classes("text-2xl font-semibold")
-        ui.label(
-            "Select experiments, choose a model, generate a draft with Ollama, "
-            "edit it and export to Markdown or PDF."
-        ).classes("text-slate-600 mt-2")
+        ui.label(HUB_INTRO).classes("text-slate-600 mt-2")
+        ui.label(HUB_TRUST).classes("text-slate-600 mt-2")
 
-        choices = get_experiment_choices(experiment_service)
-        experiment_select = (
-            ui.select(options=choices, multiple=True, label="Experiments")
-            .props("outlined")
-            .classes("w-full")
-        )
+        with ui.row().classes("w-full gap-12 mt-4 items-start"):
+            with ui.column().classes("flex-1"):
+                ui.label("Requirements").classes("text-xl font-semibold")
+                with ui.column().classes("w-full gap-5 mt-2"):
+                    with ui.column().classes("w-full gap-1"):
+                        ui.label("1. Install Ollama from the official page:")
+                        ui.link(
+                            OLLAMA_DOWNLOAD_URL,
+                            OLLAMA_DOWNLOAD_URL,
+                            new_tab=True,
+                        )
+                    with ui.column().classes("w-full gap-1"):
+                        ui.label(
+                            "2. Check which local model is compatible with "
+                            "your machine (a light one like Qwen or Gemma "
+                            "is recommended):"
+                        )
+                        ui.link(
+                            COMPATIBILITY_URL,
+                            COMPATIBILITY_URL,
+                            new_tab=True,
+                        )
+                    with ui.column().classes("w-full gap-1"):
+                        ui.label("3. Find the model on Ollama:")
+                        ui.link(
+                            OLLAMA_SEARCH_URL,
+                            OLLAMA_SEARCH_URL,
+                            new_tab=True,
+                        )
+                    with ui.column().classes("w-full gap-1"):
+                        _step_header(
+                            "4. Download the chosen model",
+                            "see the docs",
+                            MODEL_DOWNLOAD_URL,
+                        )
+                        ui.code(QWEN_PULL_COMMAND).classes("w-auto").style(
+                            "min-width: 260px; padding-right: 2.5rem;"
+                        )
+                    with ui.column().classes("w-full gap-1"):
+                        _step_header(
+                            "5. Start the local Ollama server",
+                            "see the docs",
+                            START_SERVER_URL,
+                        )
+                        ui.code(SERVE_COMMAND).classes("w-auto").style(
+                            "min-width: 260px; padding-right: 2.5rem;"
+                        )
 
-        with ui.row().classes("w-full items-center gap-2"):
-            model_select = (
-                ui.select(options=installed_models, value=initial_model, label="Model")
-                .props("outlined")
-                .classes("flex-1")
-            )
-            ui.icon("info").tooltip(RECOMMENDED_MODELS_TOOLTIP).classes(
-                "text-slate-500"
-            )
+                status_container = ui.column().classes("w-full mt-4")
+                with status_container:
+                    ui.badge("Not checked", color="grey")
+                    ui.label(NOT_CHECKED_HINT)
 
-        message = ui.label().classes("text-negative")
+                async def refresh() -> None:
+                    check_button.disable()
+                    busy.visible = True
+                    try:
+                        await refresh_status_display(client, status_container)
+                    finally:
+                        busy.visible = False
+                        check_button.enable()
 
-        warning_container = ui.column().classes("w-full mt-4")
-        warning_container.visible = False
-        with warning_container:
-            ui.label(NO_AI_WARNING).classes("text-negative")
-            ui.button(
-                "Go to AI Reports",
-                on_click=lambda: router.navigate("ai_reports"),
-            ).props("outline")
+                with ui.row().classes("w-full items-center gap-2 mt-4"):
+                    check_button = ui.button(
+                        "Check requirements", on_click=refresh
+                    ).props("color=primary")
+                    busy = ui.spinner()
+                    busy.visible = False
 
-        draft_area = ui.textarea("Draft").props("outlined").classes("w-full")
-
-        def selected_ids() -> list[int]:
-            return list(experiment_select.value or [])
-
-        def on_generate() -> None:
-            ids = selected_ids()
-            if not ids:
-                message.text = SELECTION_REQUIRED
-                return
-            model = model_select.value
-            if not model:
-                message.text = MODEL_REQUIRED
-                return
-            experiments_data = collect_experiments_data(experiment_service, ids)
-            if not experiments_data:
-                message.text = SELECTION_REQUIRED
-                return
-            draft = generate_draft(ai_service, experiments_data, model)
-            if draft is None:
-                warning_container.visible = True
-                ui.notify(NO_AI_WARNING, type="warning")
-                return
-            warning_container.visible = False
-            message.text = ""
-            draft_area.value = draft
-            _persist_last_used_model(base_dir, model)
-            ui.notify("Draft generated", type="positive")
-
-        def on_export(file_format: str) -> None:
-            markdown = draft_area.value or ""
-            if not markdown.strip():
-                message.text = DRAFT_REQUIRED
-                return
-            ids = selected_ids()
-            if not ids:
-                message.text = SELECTION_REQUIRED
-                return
-            try:
-                file_path = export_draft(export_service, markdown, ids, file_format)
-            except (ValueError, RuntimeError) as error:
-                message.text = str(error)
-                return
-            message.text = ""
-            ui.notify(f"Report exported to {file_path.name}", type="positive")
-
-        generate_button = ui.button("Generate draft", on_click=on_generate).props(
-            "color=primary"
-        )
-
-        def refresh_generate_state() -> None:
-            if model_select.value:
-                generate_button.enable()
-            else:
-                generate_button.disable()
-
-        model_select.on_value_change(lambda: refresh_generate_state())
-        refresh_generate_state()
-
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Export Markdown", on_click=lambda: on_export("md")).props(
-                "color=primary"
-            )
-            ui.button("Export PDF", on_click=lambda: on_export("pdf")).props(
-                "color=primary"
-            )
+            with ui.column().classes("flex-1"):
+                ui.label("Features").classes("text-xl font-semibold")
+                with ui.card().classes("w-full mt-2"):
+                    ui.label("Report generator").classes("font-semibold")
+                    ui.label(REPORTS_SUMMARY).classes("text-slate-600 text-sm")
+                    ui.button(
+                        "Open",
+                        on_click=lambda: router.navigate("ai_report_generator"),
+                    ).props("color=primary")

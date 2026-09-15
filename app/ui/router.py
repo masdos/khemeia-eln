@@ -83,7 +83,7 @@ def _refresh_internal() -> None:
 
 def _render_current_view() -> None:
     from app.ui.pages.ai_assistant import build_ai_assistant_page
-    from app.ui.pages.ai_reports import build_ai_reports_page
+    from app.ui.pages.ai_report_generator import build_ai_report_generator_page
     from app.ui.pages.dashboard import build_dashboard_page
     from app.ui.pages.equipment_detail import build_equipment_detail_page
     from app.ui.pages.experiment_detail import build_experiment_detail_page
@@ -121,10 +121,10 @@ def _render_current_view() -> None:
         build_equipment_detail_page(equipment_id=kwargs["equipment_id"])
     elif view == "profile":
         build_profile_page(base_dir=_base_dir)
-    elif view == "ai_reports":
-        build_ai_reports_page()
     elif view == "ai_assistant":
-        build_ai_assistant_page(base_dir=_base_dir)
+        build_ai_assistant_page()
+    elif view == "ai_report_generator":
+        build_ai_report_generator_page(base_dir=_base_dir)
     else:
         from nicegui import ui as _ui
 

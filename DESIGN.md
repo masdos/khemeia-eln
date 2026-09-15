@@ -214,7 +214,7 @@ Only the table content and associated form fields change; the layout never chang
 | Hover | `hover:bg-slate-100` on menu buttons; Quasar defaults on table rows and buttons |
 | Focus | Quasar default input focus ring |
 | Disabled | `disable` prop on the input plus a `text-sm text-slate-500` note explaining why (e.g. CAS/SMILES locked by usage history) |
-| Loading | Not required as the database is local |
+| Loading | Not required as the database is local; AI operations (requirements check, draft generation) show a spinner and disable their button while running |
 | Empty | Fixed messages: `No <entities> in inventory.` / `No <entities> found.` for empty tables, `No <entities> match the search.` after a fruitless search, `No experiments use this reagent.` for empty history |
 | Error | Single `text-negative` label under the form for recoverable errors; `ui.notify(..., type="negative")` when the entity is missing |
 | Success | Notification via `ui.notify("... updated/created/deleted", type="positive")` |

@@ -34,8 +34,7 @@ NAV_ITEMS = [
     ("Projects", "projects", "folder"),
     ("Protocols", "protocols", "article"),
     ("Inventory", "inventory", "shelves"),
-    ("AI Reports", "ai_reports", "smart_toy"),
-    ("AI Assistant", "ai_assistant", "psychology"),
+    ("AI Assistant", "ai_assistant", "smart_toy"),
     ("Profile", "profile", "contact_page"),
 ]
 
@@ -167,6 +166,8 @@ def main() -> None:
             fullscreen=False,
             window_size=(1600, 900),
         )
+    except KeyboardInterrupt:
+        logger.info("Application closed by user")
     except Exception as e:
         logger.critical("Application startup failed error=%s", str(e), exc_info=True)
         raise

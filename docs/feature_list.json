@@ -406,12 +406,12 @@
       "title": "Página AI Reports: preparación de Ollama (UI)",
       "description": "Añade una página AI Reports que guía al usuario para instalar Ollama y descargar al menos un modelo local, y muestra si el entorno local está listo para generar informes. El estado 'listo' depende únicamente de que el servidor responda y haya al menos un modelo instalado, sin requerir que ningún modelo esté cargado en memoria ni que el usuario ejecute comandos de chat en terminal.",
       "acceptance": [
-        "Existe app/ui/pages/ai_reports.py y el ítem AI Reports se añade a la navegación principal",
-        "La página muestra un mensaje único cuando Ollama no responde: guía de descarga de Ollama (https://ollama.com/download) para quien aún no lo tenga, junto con la orden `ollama serve` para quien ya lo tenga instalado; solo muestra la guía de descarga de modelos (librería, qwen y gemma con sus comandos pull) cuando no hay modelos instalados; todos los enlaces abren en el navegador predeterminado con new_tab=True",
+        "La lógica de readiness vive en app/ui/pages/ai_reports.py y se muestra en el hub AI Assistant, única entrada de IA en la navegación principal (icono robot)",
+        "El hub lista los requisitos en 3 pasos estáticos con sus recursos (url oficial de Ollama entre paréntesis, web y comando de descarga de modelo, comando y web de arranque del servidor); todos los enlaces abren en el navegador predeterminado con new_tab=True",
         "La página NO consulta /api/ps ni indica al usuario que ejecute `ollama run <modelo>` en una terminal para dejarlo 'corriendo'",
         "Un indicador verde muestra que Ollama responde y hay al menos un modelo instalado; en caso contrario un indicador explica el estado (falta Ollama o faltan modelos)",
-        "La comprobación de estado se ejecuta en un hilo worker para no bloquear la interfaz, y hay una acción para actualizar manualmente el estado sin reiniciar la aplicación",
-        "tests/ui/test_ai_reports.py cubre instrucciones, enlaces, los dos estados y actualización manual"
+        "La comprobación de estado se ejecuta solo a demanda al pulsar Check requirements, en un hilo worker con spinner mientras tanto y sin comprobación automática al cargar",
+        "tests/ui/test_ai_reports.py cubre mensajes cortos y estados con render solo de badge y mensaje; tests/ui/test_ai_hub.py cubre guía, pasos, check a demanda con spinner y menú"
       ],
       "status": "done"
     },
@@ -436,8 +436,8 @@
       "title": "Página AI Assistant (UI)",
       "description": "Interfaz para generar borradores de informes científicos con Ollama a partir de experimentos seleccionados y exportarlos a Markdown o PDF.",
       "acceptance": [
-        "Existe app/ui/pages/ai_assistant.py con un selector múltiple de experimentos",
-        "El ítem 'AI Assistant' se añade a la navegación principal solo a partir de esta fase",
+        "Existe app/ui/pages/ai_report_generator.py con un selector múltiple de experimentos",
+        "La tarjeta Reports del hub AI Assistant navega a la vista de generación, que no tiene entrada propia en la navegación principal",
         "Al pulsar 'Generar borrador', se llama a AIService y el resultado se muestra en un área de texto editable",
         "Si AIService devuelve None porque Ollama o qwen3:4b no están listos, se muestra un aviso con acceso a AI Reports sin romper la interfaz",
         "Hay un botón 'Exportar Markdown' que llama a ExportService.export_ai_report_markdown",
@@ -453,14 +453,14 @@
       "title": "Selector de modelo Ollama en AI Assistant (UI)",
       "description": "Añade un dropdown en la página AI Assistant para que el usuario elija, de entre sus modelos Ollama instalados, cuál usar para generar el informe. La app solo sugiere un modelo ligero de forma informativa; la elección real siempre la hace el usuario. La última selección se recuerda entre sesiones vía config.json.",
       "acceptance": [
-        "app/ui/pages/ai_assistant.py incluye un dropdown poblado con OllamaClient.get_installed_models(), revalidado en cada carga de la página (sin caché entre cargas)",
+        "app/ui/pages/ai_report_generator.py incluye un dropdown poblado con OllamaClient.get_installed_models(), revalidado en cada carga de la página (sin caché entre cargas)",
         "El dropdown está vacío por defecto en cada carga; no se preselecciona ningún modelo automáticamente",
         "El botón 'Generar borrador' permanece deshabilitado mientras no haya un modelo seleccionado en el dropdown",
         "Junto al dropdown hay un icono informativo ('i') cuyo tooltip indica el/los modelo(s) ligero(s) recomendado(s) (qwen3:4b, gemma), sin afectar la selección ni el estado del dropdown",
         "Al pulsar 'Generar borrador', se llama a AIService.generate_report(experiments_data, model) usando exactamente el modelo elegido en el dropdown",
         "Tras una generación exitosa, el modelo usado se guarda en config.json como last_used_model",
         "Si al cargar la página last_used_model está definido pero ya no aparece en la lista de modelos instalados devuelta por /api/tags, se descarta la preferencia guardada y el dropdown se muestra vacío (no se sustituye automáticamente por otro modelo)",
-        "tests/ui/test_ai_assistant.py (ampliado) cubre: dropdown con 0 modelos instalados, revalidación tras borrar el modelo previamente guardado, persistencia de last_used_model tras generación exitosa, y botón deshabilitado sin selección"
+        "tests/ui/test_ai_report_generator.py (ampliado) cubre: dropdown con 0 modelos instalados, revalidación tras borrar el modelo previamente guardado, persistencia de last_used_model tras generación exitosa, y botón deshabilitado sin selección"
       ],
       "status": "done"
     }
