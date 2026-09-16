@@ -1,15 +1,16 @@
-import json
 import logging
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from urllib.error import URLError
-from urllib.request import Request, urlopen
+
+from ollama import Client as OllamaSdkClient
 
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 RECOMMENDED_MODEL = "qwen3:4b"
 STATUS_TIMEOUT_SECONDS = 2.0
-GENERATE_TIMEOUT_SECONDS = 300.0
+GENERATE_TIMEOUT_SECONDS = 1800.0
+GENERATE_MAX_TOKENS = 2000
 
 
 @dataclass(frozen=True)
@@ -36,59 +37,57 @@ class OllamaStatus:
 
 
 class OllamaClient:
-    """Reads local Ollama state and generates completions without blocking the app."""
+    """Reads local Ollama state and generates completions via the Ollama SDK.
+
+    Uses two SDK clients: a short-timeout one for status probes and a
+    long-timeout one for generation, which can take minutes on local
+    hardware. An SDK client factory can be injected for testing without
+    HTTP.
+    """
 
     def __init__(
         self,
         base_url: str = OLLAMA_BASE_URL,
         timeout_seconds: float = STATUS_TIMEOUT_SECONDS,
         generate_timeout_seconds: float = GENERATE_TIMEOUT_SECONDS,
+        sdk_client_factory: Callable[[str, float], OllamaSdkClient] | None = None,
     ) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._timeout_seconds = timeout_seconds
-        self._generate_timeout_seconds = generate_timeout_seconds
+        factory = sdk_client_factory or (
+            lambda host, timeout: OllamaSdkClient(host=host, timeout=timeout)
+        )
+        host = base_url.rstrip("/")
+        self._status_client = factory(host, timeout_seconds)
+        self._generate_client = factory(host, generate_timeout_seconds)
 
     def get_status(self) -> OllamaStatus:
-        """Return the local Ollama availability and installed model names."""
-        request = Request(f"{self._base_url}/api/tags", method="GET")
+        """Return the local Ollama availability and installed model names.
 
+        Never raises: any failure means Ollama is not available.
+        """
         try:
-            with urlopen(request, timeout=self._timeout_seconds) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-        except (
-            OSError,
-            TimeoutError,
-            URLError,
-            UnicodeDecodeError,
-            json.JSONDecodeError,
-        ):
+            models = self._status_client.list().models
+        except Exception as error:
+            logger.debug("Ollama status probe failed error=%s", str(error))
             return OllamaStatus(is_available=False, installed_models=())
-
         return OllamaStatus(
             is_available=True,
-            installed_models=_model_names(payload),
+            installed_models=_model_names(models),
         )
 
     def generate(self, model: str, prompt: str) -> str:
         """Generate a non-streaming completion with a local Ollama model.
 
-        Generation can take minutes on local hardware, so it uses a
-        much longer timeout than the quick status probes.
+        Generation can take many minutes on CPU-only hardware, so it uses
+        a much longer timeout than the quick status probes. Output length
+        is capped to bound the worst-case generation time.
         """
-        body = json.dumps({"model": model, "prompt": prompt, "stream": False}).encode(
-            "utf-8"
+        response = self._generate_client.generate(
+            model=model,
+            prompt=prompt,
+            stream=False,
+            options={"num_predict": GENERATE_MAX_TOKENS},
         )
-        request = Request(
-            f"{self._base_url}/api/generate",
-            data=body,
-            method="POST",
-            headers={"Content-Type": "application/json"},
-        )
-
-        with urlopen(request, timeout=self._generate_timeout_seconds) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-
-        text = payload.get("response") if isinstance(payload, dict) else None
+        text = getattr(response, "response", None)
         if not isinstance(text, str) or not text.strip():
             raise ValueError("Ollama response did not contain text")
         logger.debug("Ollama completion generated model=%s", model)
@@ -103,16 +102,12 @@ class OllamaClient:
         return self.get_status().installed_models
 
 
-def _model_names(payload: object) -> tuple[str, ...]:
-    if not isinstance(payload, dict):
+def _model_names(models: object) -> tuple[str, ...]:
+    if not isinstance(models, Sequence) or isinstance(models, (str, bytes)):
         return ()
-
-    models = payload.get("models")
-    if not isinstance(models, list):
-        return ()
-
-    return tuple(
-        model["name"]
-        for model in models
-        if isinstance(model, dict) and isinstance(model.get("name"), str)
-    )
+    names = []
+    for model in models:
+        name = getattr(model, "model", None)
+        if isinstance(name, str) and name:
+            names.append(name)
+    return tuple(names)

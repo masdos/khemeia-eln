@@ -232,6 +232,10 @@ def build_ai_report_generator_page(
                 return
             generate_button.disable()
             busy.visible = True
+            ui.notify(
+                "Generating draft, this can take several minutes on CPU-only machines.",
+                type="info",
+            )
             try:
                 draft = await run.io_bound(
                     generate_draft, ai_service, experiments_data, model
