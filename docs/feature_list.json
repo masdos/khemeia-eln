@@ -1,5 +1,5 @@
 {
-  "version": "6.0",
+  "version": "7.0",
   "project": "khemeia-eln",
   "description": "Sistema de gestión de laboratorio local-first para investigadores químicos. Stack: Python, NiceGUI, SQLite, RDKit, LM Studio.",
   "current_phase": "mvp",
@@ -463,6 +463,30 @@
         "tests/ui/test_ai_report_generator.py (ampliado) cubre: dropdown con 0 modelos instalados, revalidación tras borrar el modelo previamente guardado, persistencia de last_used_model tras generación exitosa, y botón deshabilitado sin selección"
       ],
       "status": "done"
+    },
+    {
+      "id": 31,
+      "name": "ai_report_language_and_client_hardening",
+      "phase": "ai_reports",
+      "title": "Selección de idioma del informe y saneamiento del cliente Ollama",
+      "description": "Corrige OllamaClient.generate() para usar el campo system propio de /api/generate en vez de concatenar el prompt a mano, desactiva explícitamente el modo thinking y verifica done_reason antes de aceptar una respuesta como completa. Añade selección de idioma del informe (con valor por defecto detectado a partir de los experimentos seleccionados) en AIService y en la página AI Assistant.",
+      "acceptance": [
+        "app/services/ollama_client.py: generate(model, system_prompt, user_prompt) sustituye a generate(model, prompt); la llamada subyacente usa el parámetro system de /api/generate (no concatenación manual de strings) y think=False explícito",
+        "app/services/ollama_client.py: se define IncompleteGenerationError(RuntimeError); si done_reason de la respuesta no es 'stop', generate() la lanza en vez de devolver texto truncado, registrando logger.warning con model y done_reason",
+        "app/services/ollama_client.py: RECOMMENDED_MODEL se actualiza de 'qwen3:4b' a 'qwen3.5:4b'",
+        "app/services/ai_service.py: SYSTEM_PROMPT (constante fija) se sustituye por _build_system_prompt(language: str) -> str, que instruye explícitamente escribir el informe completo en el idioma indicado y, si los datos fuente están en otro idioma, traducirlos con fidelidad sin alterar cantidades, unidades ni nombres químicos",
+        "app/services/ai_service.py: generate_report() acepta un nuevo parámetro obligatorio language: str, provisto siempre por el llamador; AIService no infiere ni resuelve idioma por su cuenta, mismo patrón que el parámetro model existente",
+        "app/services/ai_service.py: IncompleteGenerationError se captura dentro del mismo except Exception ya existente en generate_report() y se trata como fallo de generación (devuelve None), sin cambiar el contrato de la función para otros errores",
+        "Nueva función pura detect_default_language(experiments) -> str en app/services/ (o módulo dedicado) que estima el idioma dominante de los experimentos mediante una heurística de palabras funcionales frecuentes, sin añadir dependencias de terceros; se usa únicamente para preseleccionar el campo de idioma en la UI, nunca para fijar el idioma final sin confirmación del usuario",
+        "app/ui/pages/ai_report_generator.py: añade un selector de idioma (Spanish/English) junto al selector de modelo existente, preseleccionado con el resultado de detect_default_language() sobre los experimentos marcados y editable por el usuario antes de generar",
+        "El selector de idioma sigue el patrón de formularios de DESIGN.md: label sobre el campo, sin iconografía nueva fuera de la lista de la sección 10",
+        "Al pulsar 'Generar borrador', se llama a AIService.generate_report(experiments_data, model, language) usando exactamente el idioma seleccionado en el formulario",
+        "tests/services/test_ollama_client.py (ampliado) cubre: generate() con done_reason='stop' (éxito), con done_reason='length' (lanza IncompleteGenerationError), y verifica mediante mock que la llamada subyacente recibe system= y think=False",
+        "tests/services/test_ai_service.py (ampliado) cubre: generate_report() con distintos valores de language, propagación de IncompleteGenerationError a None, y que _build_system_prompt incluye el idioma solicitado",
+        "tests/services/test_language_detection.py cubre detección con experimentos en español, en inglés, y con experimentos mixtos, documentando el criterio de desempate elegido",
+        "tests/ui/test_ai_report_generator.py (ampliado) cubre preselección del idioma detectado y que el usuario puede sobrescribirlo antes de generar"
+      ],
+      "status": "pending"
     }
   ]
 }
