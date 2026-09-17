@@ -38,19 +38,39 @@ from app.services.project_service import SqliteProjectRepository
 from app.services.protocol_service import SqliteProtocolRepository
 from app.ui import router
 from app.ui.components.forms import back_button
+from app.ui.components.markdown_editor import markdown_editor
 
 logger = logging.getLogger(__name__)
 
 NO_AI_WARNING = "Ollama is not ready. Check the requirements on the AI Assistant page."
 SELECTION_REQUIRED = "Select at least one experiment."
 MODEL_REQUIRED = "Select a model."
+LANGUAGE_REQUIRED = "Select a language."
+PROJECT_REQUIRED = "Select a project."
+TITLE_REQUIRED = "Enter a report title."
 DRAFT_REQUIRED = "Generate a draft before exporting."
+SAVE_REQUIRED = "Generate a draft before saving."
+LANGUAGE_OPTIONS = ["Spanish", "English"]
 
 
-def get_experiment_choices(experiment_service: ExperimentService) -> dict[int, str]:
-    """Return experiment id to display label mapping for the selector."""
+def get_project_choices(project_repo: Any) -> dict[int, str]:
+    """Return project id to name mapping for the selector."""
     choices: dict[int, str] = {}
-    for experiment in experiment_service.list_experiments({}):
+    for project in project_repo.get_all():
+        project_id = project.get("id")
+        name = project.get("name") or f"Project {project_id}"
+        if project_id is not None:
+            choices[project_id] = str(name)
+    return choices
+
+
+def get_experiment_choices(
+    experiment_service: ExperimentService, project_id: int | None = None
+) -> dict[int, str]:
+    """Return experiment id to label mapping, filtered by project when given."""
+    filters = {"project_id": project_id} if project_id is not None else {}
+    choices: dict[int, str] = {}
+    for experiment in experiment_service.list_experiments(filters):
         experiment_id = experiment.get("id")
         title = experiment.get("title") or f"Experiment {experiment_id}"
         if experiment_id is not None:
@@ -75,26 +95,41 @@ def generate_draft(
     ai_service: AIService,
     experiments_data: Sequence[Mapping[str, Any]],
     model: str,
+    language: str,
 ) -> str | None:
     """Generate a report draft with the chosen model, or None when not ready."""
-    draft = ai_service.generate_report(experiments_data, model)
+    draft = ai_service.generate_report(experiments_data, model, language)
     if draft is None:
         logger.warning("AI draft generation returned no content")
         return None
-    logger.info("AI draft generated count=%s", len(experiments_data))
+    logger.info(
+        "AI draft generated count=%s language=%s", len(experiments_data), language
+    )
     return draft
+
+
+def save_draft(
+    export_service: ExportService,
+    markdown_content: str,
+    experiment_ids: Sequence[int],
+    project_id: int,
+    title: str,
+) -> int:
+    """Store the edited draft in the database and return its report identifier."""
+    return export_service.save_report(
+        markdown_content, experiment_ids, project_id, title
+    )
 
 
 def export_draft(
     export_service: ExportService,
     markdown_content: str,
-    experiment_ids: Sequence[int],
     file_format: str,
 ) -> Path:
     """Export the edited draft as Markdown or PDF and return its path."""
     if file_format == "pdf":
-        return export_service.export_ai_report_pdf(markdown_content, experiment_ids)
-    return export_service.export_ai_report_markdown(markdown_content, experiment_ids)
+        return export_service.export_ai_report_pdf(markdown_content)
+    return export_service.export_ai_report_markdown(markdown_content)
 
 
 def _get_services(base_dir: Path) -> dict[str, Any]:
@@ -123,6 +158,7 @@ def _get_services(base_dir: Path) -> dict[str, Any]:
         "ai_service": AIService(ollama_client),
         "export_service": export_service,
         "ollama_client": ollama_client,
+        "project_repo": SqliteProjectRepository(conn),
     }
 
 
@@ -161,6 +197,7 @@ def build_ai_report_generator_page(
     ai_service: AIService | None = None,
     export_service: ExportService | None = None,
     ollama_client: OllamaClient | None = None,
+    project_repo: Any | None = None,
 ) -> None:
     """Build the report generator form reached from the AI Assistant hub."""
     if (
@@ -168,6 +205,7 @@ def build_ai_report_generator_page(
         or ai_service is None
         or export_service is None
         or ollama_client is None
+        or project_repo is None
     ):
         if base_dir is None:
             from app.bootstrap import run_bootstrap
@@ -178,6 +216,7 @@ def build_ai_report_generator_page(
         ai_service = ai_service or services["ai_service"]
         export_service = export_service or services["export_service"]
         ollama_client = ollama_client or services["ollama_client"]
+        project_repo = project_repo or services["project_repo"]
 
     saved_model = _load_saved_model()
 
@@ -188,9 +227,14 @@ def build_ai_report_generator_page(
             "edit it and export to Markdown or PDF."
         ).classes("text-slate-600 mt-2")
 
-        choices = get_experiment_choices(experiment_service)
+        project_choices = get_project_choices(project_repo)
+        project_select = (
+            ui.select(options=project_choices, value=None, label="Project")
+            .props("outlined")
+            .classes("w-full")
+        )
         experiment_select = (
-            ui.select(options=choices, multiple=True, label="Experiments")
+            ui.select(options={}, multiple=True, label="Experiments")
             .props("outlined")
             .classes("w-full")
         )
@@ -200,6 +244,14 @@ def build_ai_report_generator_page(
             .props("outlined")
             .classes("w-full")
         )
+
+        language_select = (
+            ui.select(options=LANGUAGE_OPTIONS, value=None, label="Language")
+            .props("outlined")
+            .classes("w-full")
+        )
+
+        title_input = ui.input("Title").props("outlined").classes("w-full")
 
         message = ui.label().classes("text-negative")
 
@@ -212,7 +264,7 @@ def build_ai_report_generator_page(
                 on_click=lambda: router.navigate("ai_assistant"),
             ).props("outline")
 
-        draft_area = ui.textarea("Draft").props("outlined").classes("w-full")
+        draft_area = markdown_editor("Draft")
 
         def selected_ids() -> list[int]:
             return list(experiment_select.value or [])
@@ -226,6 +278,10 @@ def build_ai_report_generator_page(
             if not model:
                 message.text = MODEL_REQUIRED
                 return
+            language = language_select.value
+            if not language:
+                message.text = LANGUAGE_REQUIRED
+                return
             experiments_data = collect_experiments_data(experiment_service, ids)
             if not experiments_data:
                 message.text = SELECTION_REQUIRED
@@ -238,7 +294,7 @@ def build_ai_report_generator_page(
             )
             try:
                 draft = await run.io_bound(
-                    generate_draft, ai_service, experiments_data, model
+                    generate_draft, ai_service, experiments_data, model, language
                 )
             finally:
                 busy.visible = False
@@ -250,21 +306,45 @@ def build_ai_report_generator_page(
             warning_container.visible = False
             message.text = ""
             draft_area.value = draft
-            refresh_export_state()
+            refresh_save_state()
             _persist_last_used_model(base_dir, model)
             ui.notify("Draft generated", type="positive")
 
-        def on_export(file_format: str) -> None:
+        def on_save() -> None:
+            project_id = project_select.value
+            if project_id is None:
+                message.text = PROJECT_REQUIRED
+                return
+            title = (title_input.value or "").strip()
+            if not title:
+                message.text = TITLE_REQUIRED
+                return
             markdown = draft_area.value or ""
             if not markdown.strip():
-                message.text = DRAFT_REQUIRED
+                message.text = SAVE_REQUIRED
                 return
             ids = selected_ids()
             if not ids:
                 message.text = SELECTION_REQUIRED
                 return
             try:
-                file_path = export_draft(export_service, markdown, ids, file_format)
+                report_id = save_draft(
+                    export_service, markdown, ids, project_id, title
+                )
+            except (ValueError, RuntimeError) as error:
+                message.text = str(error)
+                return
+            message.text = ""
+            logger.info("AI draft saved report_id=%s", report_id)
+            ui.notify("Report saved", type="positive")
+
+        def on_export(file_format: str) -> None:
+            markdown = draft_area.value or ""
+            if not markdown.strip():
+                message.text = DRAFT_REQUIRED
+                return
+            try:
+                file_path = export_draft(export_service, markdown, file_format)
             except (ValueError, RuntimeError) as error:
                 message.text = str(error)
                 return
@@ -273,6 +353,9 @@ def build_ai_report_generator_page(
 
         with ui.row().classes("w-full items-center gap-2 mt-4"):
             generate_button = ui.button("Generate draft", on_click=on_generate).props(
+                "color=primary"
+            )
+            save_button = ui.button("Save report", on_click=on_save).props(
                 "color=primary"
             )
             busy = ui.spinner()
@@ -286,6 +369,23 @@ def build_ai_report_generator_page(
 
         model_select.on_value_change(lambda: refresh_generate_state())
         refresh_generate_state()
+
+        def refresh_experiments_for_project() -> None:
+            """Populate experiments with those of the selected project."""
+            project_id = project_select.value
+            try:
+                project_choices = get_experiment_choices(
+                    experiment_service, project_id
+                )
+            except Exception as error:
+                logger.warning("Experiment choices failed error=%s", str(error))
+                return
+            experiment_select.set_options(project_choices, value=[])
+            logger.debug(
+                "Experiment choices refreshed project_id=%s", project_id
+            )
+
+        project_select.on_value_change(lambda: refresh_experiments_for_project())
 
         async def load_models() -> None:
             """Fetch installed models off the event loop into the dropdown.
@@ -319,17 +419,20 @@ def build_ai_report_generator_page(
             export_pdf_button = ui.button(
                 "Export PDF", on_click=lambda: on_export("pdf")
             ).props("color=primary")
+        save_button.disable()
         export_md_button.disable()
         export_pdf_button.disable()
 
-        def refresh_export_state() -> None:
+        def refresh_save_state() -> None:
             if (draft_area.value or "").strip():
+                save_button.enable()
                 export_md_button.enable()
                 export_pdf_button.enable()
             else:
+                save_button.disable()
                 export_md_button.disable()
                 export_pdf_button.disable()
 
-        draft_area.on_value_change(lambda: refresh_export_state())
+        draft_area.on_value_change(lambda: refresh_save_state())
 
         back_button("ai_assistant")

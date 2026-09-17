@@ -8,6 +8,7 @@ from app.repositories.report_repository import (
     create,
     get_by_experiment,
     get_by_id,
+    get_by_project,
     link_to_experiments,
 )
 
@@ -45,25 +46,42 @@ def _insert_experiment(connection: sqlite3.Connection, title: str) -> int:
     )
 
 
-def test_creates_report_with_relative_names(connection: sqlite3.Connection) -> None:
+def test_creates_report_with_project_title_and_content(
+    connection: sqlite3.Connection,
+) -> None:
     # given
-    file_name = "report.md"
-    stored_name = "8e0b2d3a.md"
+    project_id = _insert_project(connection, "Lab Project")
 
     # when
-    report_id = create(connection, file_name, stored_name, "md")
+    report_id = create(connection, project_id, "Monthly report", "# Content")
 
     # then
     report = get_by_id(connection, report_id)
     assert report is not None
-    assert report["file_name"] == file_name
-    assert report["stored_name"] == stored_name
-    assert report["extension"] == "md"
+    assert report["project_id"] == project_id
+    assert report["title"] == "Monthly report"
+    assert report["content_markdown"] == "# Content"
+    assert report["created_at"] is not None
+    assert report["modified_at"] is not None
+
+
+def test_defaults_content_to_empty_string(connection: sqlite3.Connection) -> None:
+    # given
+    project_id = _insert_project(connection, "Lab Project")
+
+    # when
+    report_id = create(connection, project_id, "Monthly report")
+
+    # then
+    report = get_by_id(connection, report_id)
+    assert report is not None
+    assert report["content_markdown"] == ""
 
 
 def test_links_report_to_multiple_experiments(connection: sqlite3.Connection) -> None:
     # given
-    report_id = create(connection, "report.pdf", "ab12.pdf", "pdf")
+    project_id = _insert_project(connection, "Lab Project")
+    report_id = create(connection, project_id, "Monthly report")
     experiment_ids = [
         _insert_experiment(connection, "Experiment A"),
         _insert_experiment(connection, "Experiment B"),
@@ -84,10 +102,11 @@ def test_returns_only_reports_linked_to_experiment(
     connection: sqlite3.Connection,
 ) -> None:
     # given
+    project_id = _insert_project(connection, "Lab Project")
     experiment_a = _insert_experiment(connection, "Experiment A")
     experiment_b = _insert_experiment(connection, "Experiment B")
-    report_a = create(connection, "a.md", "a1.md", "md")
-    report_b = create(connection, "b.pdf", "b2.pdf", "pdf")
+    report_a = create(connection, project_id, "Report A")
+    report_b = create(connection, project_id, "Report B")
     link_to_experiments(connection, report_a, [experiment_a])
     link_to_experiments(connection, report_b, [experiment_b])
 
@@ -96,6 +115,23 @@ def test_returns_only_reports_linked_to_experiment(
 
     # then
     assert [report["id"] for report in reports] == [report_a]
+
+
+def test_returns_reports_belonging_to_project(
+    connection: sqlite3.Connection,
+) -> None:
+    # given
+    project_a = _insert_project(connection, "Project A")
+    project_b = _insert_project(connection, "Project B")
+    report_a = create(connection, project_a, "Report A", "# A")
+    create(connection, project_b, "Report B", "# B")
+
+    # when
+    reports = get_by_project(connection, project_a)
+
+    # then
+    assert [report["id"] for report in reports] == [report_a]
+    assert reports[0]["content_markdown"] == "# A"
 
 
 def test_returns_none_for_missing_report(connection: sqlite3.Connection) -> None:

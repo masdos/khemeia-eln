@@ -486,7 +486,7 @@
         "tests/services/test_language_detection.py cubre detección con experimentos en español, en inglés, y con experimentos mixtos, documentando el criterio de desempate elegido",
         "tests/ui/test_ai_report_generator.py (ampliado) cubre preselección del idioma detectado y que el usuario puede sobrescribirlo antes de generar"
       ],
-      "status": "pending"
+      "status": "done"
     }
   ]
 }

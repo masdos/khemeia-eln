@@ -7,10 +7,14 @@ from ollama import Client as OllamaSdkClient
 logger = logging.getLogger(__name__)
 
 OLLAMA_BASE_URL = "http://localhost:11434"
-RECOMMENDED_MODEL = "qwen3:4b"
+RECOMMENDED_MODEL = "qwen3.5:4b"
 STATUS_TIMEOUT_SECONDS = 2.0
 GENERATE_TIMEOUT_SECONDS = 1800.0
 GENERATE_MAX_TOKENS = 2000
+
+
+class IncompleteGenerationError(RuntimeError):
+    """Raised when Ollama stops without completing the response."""
 
 
 @dataclass(frozen=True)
@@ -74,19 +78,32 @@ class OllamaClient:
             installed_models=_model_names(models),
         )
 
-    def generate(self, model: str, prompt: str) -> str:
+    def generate(self, model: str, system_prompt: str, user_prompt: str) -> str:
         """Generate a non-streaming completion with a local Ollama model.
 
         Generation can take many minutes on CPU-only hardware, so it uses
         a much longer timeout than the quick status probes. Output length
-        is capped to bound the worst-case generation time.
+        is capped to bound the worst-case generation time. Thinking output
+        stays disabled so the model returns only the final report.
         """
         response = self._generate_client.generate(
             model=model,
-            prompt=prompt,
+            prompt=user_prompt,
+            system=system_prompt,
             stream=False,
+            think=False,
             options={"num_predict": GENERATE_MAX_TOKENS},
         )
+        done_reason = getattr(response, "done_reason", None)
+        if done_reason != "stop":
+            logger.warning(
+                "Incomplete Ollama generation model=%s done_reason=%s",
+                model,
+                done_reason,
+            )
+            raise IncompleteGenerationError(
+                f"Ollama stopped without completing the response (model={model})"
+            )
         text = getattr(response, "response", None)
         if not isinstance(text, str) or not text.strip():
             raise ValueError("Ollama response did not contain text")

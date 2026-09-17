@@ -97,14 +97,19 @@ class InMemoryReportRepository:
         self._links: dict[int, list[int]] = {}
         self._next_id = 1
 
-    def create(self, file_name: str, stored_name: str, extension: str) -> int:
+    def create(
+        self,
+        project_id: int,
+        title: str,
+        content_markdown: str = "",
+    ) -> int:
         report_id = self._next_id
         self._next_id += 1
         self._reports[report_id] = {
             "id": report_id,
-            "file_name": file_name,
-            "stored_name": stored_name,
-            "extension": extension,
+            "project_id": project_id,
+            "title": title,
+            "content_markdown": content_markdown,
         }
         return report_id
 
@@ -412,13 +417,13 @@ def ai_service_fixture(
 
 class TestExportAiReportMarkdown:
     def test_writes_markdown_file_under_exports_with_content(
-        self, ai_service: ExportService, tmp_path: Path
+        self, service: ExportService, tmp_path: Path
     ) -> None:
-        # given
+        # given — the service fixture has no report repository
         markdown = "# AI Report\n\nDraft content."
 
         # when
-        file_path = ai_service.export_ai_report_markdown(markdown, [1, 2])
+        file_path = service.export_ai_report_markdown(markdown)
 
         # then
         assert file_path.parent == tmp_path / "exports"
@@ -427,7 +432,7 @@ class TestExportAiReportMarkdown:
         assert file_path.exists()
         assert file_path.read_text(encoding="utf-8") == markdown
 
-    def test_registers_report_and_links_it_to_experiments(
+    def test_leaves_database_untouched(
         self,
         ai_service: ExportService,
         report_repository: InMemoryReportRepository,
@@ -436,61 +441,43 @@ class TestExportAiReportMarkdown:
         markdown = "# AI Report\n\nDraft content."
 
         # when
-        file_path = ai_service.export_ai_report_markdown(markdown, [1, 2])
+        ai_service.export_ai_report_markdown(markdown)
 
-        # then
-        assert len(report_repository._reports) == 1
-        report = next(iter(report_repository._reports.values()))
-        assert report["file_name"].endswith(".md")
-        assert report["stored_name"] == file_path.name
-        assert report["extension"] == "md"
-        assert report_repository._links[report["id"]] == [1, 2]
+        # then — file-only export, nothing is registered
+        assert report_repository._reports == {}
+        assert report_repository._links == {}
 
     def test_stores_only_relative_names_without_absolute_paths(
-        self,
-        ai_service: ExportService,
-        report_repository: InMemoryReportRepository,
+        self, service: ExportService
     ) -> None:
         # given
         markdown = "# AI Report\n\nDraft content."
 
         # when
-        ai_service.export_ai_report_markdown(markdown, [1])
+        file_path = service.export_ai_report_markdown(markdown)
 
         # then
-        report = next(iter(report_repository._reports.values()))
-        assert "/" not in report["stored_name"]
-        assert "\\" not in report["stored_name"]
-        assert str(report_repository._links) is not None
+        assert "/" not in file_path.name
+        assert "\\" not in file_path.name
 
-    def test_rejects_empty_markdown_content(self, ai_service: ExportService) -> None:
+    def test_rejects_empty_markdown_content(self, service: ExportService) -> None:
         # given
         empty_markdown = "   "
 
         # when / then
         with pytest.raises(ValueError, match="markdown_content"):
-            ai_service.export_ai_report_markdown(empty_markdown, [1])
-
-    def test_rejects_export_without_linked_experiments(
-        self, ai_service: ExportService
-    ) -> None:
-        # given
-        markdown = "# AI Report"
-
-        # when / then
-        with pytest.raises(ValueError, match="experiment_ids"):
-            ai_service.export_ai_report_markdown(markdown, [])
+            service.export_ai_report_markdown(empty_markdown)
 
 
 class TestExportAiReportPdf:
     def test_writes_pdf_file_under_exports_with_pdf_header(
-        self, ai_service: ExportService, tmp_path: Path
+        self, service: ExportService, tmp_path: Path
     ) -> None:
         # given
         markdown = "# AI Report\n\nDraft content."
 
         # when
-        file_path = ai_service.export_ai_report_pdf(markdown, [1])
+        file_path = service.export_ai_report_pdf(markdown)
 
         # then
         assert file_path.parent == tmp_path / "exports"
@@ -499,7 +486,7 @@ class TestExportAiReportPdf:
         assert file_path.exists()
         assert file_path.read_bytes().startswith(b"%PDF")
 
-    def test_registers_pdf_report_and_links_it_to_experiments(
+    def test_leaves_database_untouched(
         self,
         ai_service: ExportService,
         report_repository: InMemoryReportRepository,
@@ -508,33 +495,132 @@ class TestExportAiReportPdf:
         markdown = "# AI Report\n\nDraft content."
 
         # when
-        file_path = ai_service.export_ai_report_pdf(markdown, [3])
+        ai_service.export_ai_report_pdf(markdown)
 
-        # then
-        assert len(report_repository._reports) == 1
-        report = next(iter(report_repository._reports.values()))
-        assert report["file_name"].endswith(".pdf")
-        assert report["stored_name"] == file_path.name
-        assert report["extension"] == "pdf"
-        assert report_repository._links[report["id"]] == [3]
+        # then — file-only export, nothing is registered
+        assert report_repository._reports == {}
+        assert report_repository._links == {}
 
     def test_generates_unique_filenames_for_consecutive_reports(
-        self, ai_service: ExportService
+        self, service: ExportService
     ) -> None:
         # given
         markdown = "# AI Report"
 
         # when
-        first = ai_service.export_ai_report_pdf(markdown, [1])
-        second = ai_service.export_ai_report_pdf(markdown, [1])
+        first = service.export_ai_report_pdf(markdown)
+        second = service.export_ai_report_pdf(markdown)
 
         # then
         assert first != second
 
-    def test_rejects_empty_markdown_content(self, ai_service: ExportService) -> None:
+    def test_rejects_empty_markdown_content(self, service: ExportService) -> None:
         # given
         empty_markdown = ""
 
         # when / then
         with pytest.raises(ValueError, match="markdown_content"):
-            ai_service.export_ai_report_pdf(empty_markdown, [1])
+            service.export_ai_report_pdf(empty_markdown)
+
+
+class TestSaveReport:
+    def test_registers_report_and_links_it_to_experiments(
+        self,
+        ai_service: ExportService,
+        report_repository: InMemoryReportRepository,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        report_id = ai_service.save_report(markdown, [1, 2], 1, "Monthly report")
+
+        # then
+        assert len(report_repository._reports) == 1
+        report = report_repository._reports[report_id]
+        assert report["project_id"] == 1
+        assert report["title"] == "Monthly report"
+        assert report_repository._links[report_id] == [1, 2]
+
+    def test_stores_report_content_for_later_recovery(
+        self,
+        ai_service: ExportService,
+        report_repository: InMemoryReportRepository,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        markdown = "# AI Report\n\nRecoverable content."
+
+        # when
+        report_id = ai_service.save_report(markdown, [1], 1, "Monthly report")
+
+        # then
+        assert report_repository._reports[report_id]["content_markdown"] == markdown
+
+    def test_writes_no_file_to_exports(
+        self,
+        ai_service: ExportService,
+        tmp_path: Path,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        ai_service.save_report(markdown, [1], 1, "Monthly report")
+
+        # then — database-only save, the filesystem is untouched
+        assert not (tmp_path / "exports").exists()
+
+    def test_rejects_empty_markdown_content(self, ai_service: ExportService) -> None:
+        # given
+        empty_markdown = "   "
+
+        # when / then
+        with pytest.raises(ValueError, match="markdown_content"):
+            ai_service.save_report(empty_markdown, [1], 1, "Monthly report")
+
+    def test_rejects_save_without_linked_experiments(
+        self, ai_service: ExportService
+    ) -> None:
+        # given
+        markdown = "# AI Report"
+
+        # when / then
+        with pytest.raises(ValueError, match="experiment_ids"):
+            ai_service.save_report(markdown, [], 1, "Monthly report")
+
+    def test_rejects_empty_title(
+        self,
+        ai_service: ExportService,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        markdown = "# AI Report"
+
+        # when / then
+        with pytest.raises(ValueError, match="title"):
+            ai_service.save_report(markdown, [1], 1, "   ")
+
+    def test_rejects_unknown_project(self, ai_service: ExportService) -> None:
+        # given
+        markdown = "# AI Report"
+
+        # when / then
+        with pytest.raises(ValueError, match="does not exist"):
+            ai_service.save_report(markdown, [1], 999, "Monthly report")
+
+    def test_requires_configured_report_repository(
+        self, service: ExportService
+    ) -> None:
+        # given — the service fixture has no report repository
+        markdown = "# AI Report"
+
+        # when / then
+        with pytest.raises(RuntimeError, match="not configured"):
+            service.save_report(markdown, [1], 1, "Monthly report")

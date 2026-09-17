@@ -93,12 +93,16 @@ CREATE TABLE IF NOT EXISTS experiment_equipment (
 CREATE INDEX IF NOT EXISTS idx_experiment_equipment_equipment_id ON experiment_equipment (equipment_id);
 
 CREATE TABLE IF NOT EXISTS reports (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    file_name     TEXT NOT NULL,
-    stored_name   TEXT NOT NULL,
-    extension     TEXT NOT NULL,
-    upload_date   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id       INTEGER NOT NULL,
+    title            TEXT NOT NULL,
+    content_markdown TEXT NOT NULL DEFAULT '',
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    modified_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
 );
+
+CREATE INDEX IF NOT EXISTS idx_reports_project_id ON reports (project_id);
 
 CREATE TABLE IF NOT EXISTS experiment_reports (
     experiment_id  INTEGER NOT NULL,

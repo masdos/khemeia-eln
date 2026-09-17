@@ -4,14 +4,15 @@ from collections.abc import Sequence
 
 def create(
     connection: sqlite3.Connection,
-    file_name: str,
-    stored_name: str,
-    extension: str,
+    project_id: int,
+    title: str,
+    content_markdown: str = "",
 ) -> int:
     """Create a report record and return its identifier."""
     cursor = connection.execute(
-        "INSERT INTO reports (file_name, stored_name, extension) VALUES (?, ?, ?)",
-        (file_name, stored_name, extension),
+        "INSERT INTO reports (project_id, title, content_markdown)"
+        " VALUES (?, ?, ?)",
+        (project_id, title, content_markdown),
     )
     connection.commit()
     return cursor.lastrowid
@@ -36,11 +37,25 @@ def get_by_experiment(
 ) -> Sequence[sqlite3.Row]:
     """Return reports linked to an experiment."""
     cursor = connection.execute(
-        "SELECT reports.id, reports.file_name, reports.stored_name, reports.extension "
+        "SELECT reports.id, reports.project_id, reports.title, "
+        "reports.content_markdown, reports.created_at, reports.modified_at "
         "FROM reports "
         "INNER JOIN experiment_reports ON experiment_reports.report_id = reports.id "
         "WHERE experiment_reports.experiment_id = ?",
         (experiment_id,),
+    )
+    return cursor.fetchall()
+
+
+def get_by_project(
+    connection: sqlite3.Connection,
+    project_id: int,
+) -> Sequence[sqlite3.Row]:
+    """Return reports belonging to a project."""
+    cursor = connection.execute(
+        "SELECT id, project_id, title, content_markdown, created_at, modified_at "
+        "FROM reports WHERE project_id = ?",
+        (project_id,),
     )
     return cursor.fetchall()
 
@@ -51,7 +66,8 @@ def get_by_id(
 ) -> sqlite3.Row | None:
     """Return a report by identifier, or None when it does not exist."""
     cursor = connection.execute(
-        "SELECT id, file_name, stored_name, extension FROM reports WHERE id = ?",
+        "SELECT id, project_id, title, content_markdown, created_at, modified_at "
+        "FROM reports WHERE id = ?",
         (report_id,),
     )
     return cursor.fetchone()

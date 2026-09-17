@@ -106,13 +106,14 @@ erDiagram
 | equipment_id  | INTEGER | No       | Foreign key to equipment   |
 
 ### reports
-| Field         | Type    | Nullable | Description                         |
-|---------------|---------|----------|-------------------------------------|
-| id            | INTEGER | No       | Primary key                         |
-| file_name     | TEXT    | No       | Original file name                  |
-| stored_name   | TEXT    | No       | Name used for storage on disk       |
-| extension     | TEXT    | No       | File extension                      |
-| upload_date   | DATETIME | No       | Date and time of upload            |
+| Field            | Type     | Nullable | Description                              |
+|------------------|----------|----------|------------------------------------------|
+| id               | INTEGER  | No       | Primary key                              |
+| project_id       | INTEGER  | No       | Foreign key to projects                  |
+| title            | TEXT     | No       | Report title                             |
+| content_markdown | TEXT     | No       | Report content for later recovery        |
+| created_at       | DATETIME | No       | Creation date                            |
+| modified_at      | DATETIME | No       | Last modification date                   |
 
 ### experiment_reports
 | Field         | Type    | Nullable | Description                         |

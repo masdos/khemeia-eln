@@ -75,7 +75,12 @@ class AttachmentRepository(Protocol):
 class ReportRepository(Protocol):
     """Data access contract for AI report persistence."""
 
-    def create(self, file_name: str, stored_name: str, extension: str) -> int: ...
+    def create(
+        self,
+        project_id: int,
+        title: str,
+        content_markdown: str = "",
+    ) -> int: ...
 
     def link_to_experiments(
         self, report_id: int, experiment_ids: Sequence[int]
@@ -155,9 +160,14 @@ class SqliteReportRepository:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self._connection = connection
 
-    def create(self, file_name: str, stored_name: str, extension: str) -> int:
+    def create(
+        self,
+        project_id: int,
+        title: str,
+        content_markdown: str = "",
+    ) -> int:
         return report_repository.create(
-            self._connection, file_name, stored_name, extension
+            self._connection, project_id, title, content_markdown
         )
 
     def link_to_experiments(
@@ -248,46 +258,57 @@ class ExportService:
         logger.info("Experiment exported to pdf experiment_id=%s", experiment_id)
         return file_path
 
-    def export_ai_report_markdown(
-        self, markdown_content: str, experiment_ids: Sequence[int]
-    ) -> Path:
-        """Export AI generated Markdown and register it as a report."""
-        self._validate_ai_report_input(markdown_content, experiment_ids)
-        report_repo = self._require_report_repo()
-        file_name, stored_name = _build_ai_report_names("md")
+    def save_report(
+        self,
+        markdown_content: str,
+        experiment_ids: Sequence[int],
+        project_id: int,
+        title: str,
+    ) -> int:
+        """Store an AI report draft in the database and return its identifier.
 
+        Only the database is touched: no file is written. The full content
+        is stored so the report can be recovered later.
+        """
+        self._validate_ai_report_input(markdown_content, experiment_ids)
+        if not title or not title.strip():
+            raise ValueError("title must not be empty")
+        if self._project_repo.get_by_id(project_id) is None:
+            raise ValueError(f"Project with id {project_id} does not exist")
+        report_repo = self._require_report_repo()
+
+        report_id = report_repo.create(
+            project_id, title.strip(), markdown_content
+        )
+        report_repo.link_to_experiments(report_id, list(experiment_ids))
+
+        logger.info(
+            "AI report saved report_id=%s project_id=%s", report_id, project_id
+        )
+        return report_id
+
+    def export_ai_report_markdown(self, markdown_content: str) -> Path:
+        """Export AI generated Markdown to a file under BASE_DIR/exports/."""
+        if not markdown_content or not markdown_content.strip():
+            raise ValueError("markdown_content must not be empty")
+
+        _, stored_name = _build_ai_report_names("md")
         file_path = self._exports_dir() / stored_name
         file_path.write_text(markdown_content, encoding="utf-8")
 
-        report_id = report_repo.create(file_name, stored_name, "md")
-        report_repo.link_to_experiments(report_id, list(experiment_ids))
-
-        logger.info(
-            "AI report exported to markdown stored_name=%s report_id=%s",
-            stored_name,
-            report_id,
-        )
+        logger.info("AI report exported to markdown stored_name=%s", stored_name)
         return file_path
 
-    def export_ai_report_pdf(
-        self, markdown_content: str, experiment_ids: Sequence[int]
-    ) -> Path:
-        """Export AI generated Markdown as PDF and register it as a report."""
-        self._validate_ai_report_input(markdown_content, experiment_ids)
-        report_repo = self._require_report_repo()
-        file_name, stored_name = _build_ai_report_names("pdf")
+    def export_ai_report_pdf(self, markdown_content: str) -> Path:
+        """Export AI generated Markdown as a PDF file under BASE_DIR/exports/."""
+        if not markdown_content or not markdown_content.strip():
+            raise ValueError("markdown_content must not be empty")
 
+        _, stored_name = _build_ai_report_names("pdf")
         file_path = self._exports_dir() / stored_name
         _write_markdown_pdf(file_path, markdown_content)
 
-        report_id = report_repo.create(file_name, stored_name, "pdf")
-        report_repo.link_to_experiments(report_id, list(experiment_ids))
-
-        logger.info(
-            "AI report exported to pdf stored_name=%s report_id=%s",
-            stored_name,
-            report_id,
-        )
+        logger.info("AI report exported to pdf stored_name=%s", stored_name)
         return file_path
 
     def _require_report_repo(self) -> ReportRepository:

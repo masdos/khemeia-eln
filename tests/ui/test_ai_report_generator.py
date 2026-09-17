@@ -11,6 +11,8 @@ from app.ui.pages.ai_report_generator import (
     export_draft,
     generate_draft,
     get_experiment_choices,
+    get_project_choices,
+    save_draft,
 )
 
 
@@ -21,10 +23,28 @@ class FakeExperimentService:
         self._experiments = {experiment["id"]: experiment for experiment in experiments}
 
     def list_experiments(self, filters: dict[str, Any]) -> list[dict[str, Any]]:
-        return list(self._experiments.values())
+        project_id = filters.get("project_id")
+        experiments = list(self._experiments.values())
+        if project_id is None:
+            return experiments
+        return [
+            experiment
+            for experiment in experiments
+            if experiment.get("project_id") == project_id
+        ]
 
     def get_experiment(self, experiment_id: int) -> dict[str, Any] | None:
         return self._experiments.get(experiment_id)
+
+
+class FakeProjectRepo:
+    """Test double listing projects without SQLite."""
+
+    def __init__(self, projects: list[dict[str, Any]]) -> None:
+        self._projects = projects
+
+    def get_all(self) -> list[dict[str, Any]]:
+        return list(self._projects)
 
 
 class FakeAIService:
@@ -32,31 +52,45 @@ class FakeAIService:
 
     def __init__(self, draft: str | None) -> None:
         self._draft = draft
-        self.calls: list[tuple[list[Any], str]] = []
+        self.calls: list[tuple[list[Any], str, str]] = []
 
-    def generate_report(self, experiments_data: Any, model: str) -> str | None:
-        self.calls.append((list(experiments_data), model))
+    def generate_report(
+        self, experiments_data: Any, model: str, language: str = "English"
+    ) -> str | None:
+        self.calls.append((list(experiments_data), model, language))
         return self._draft
 
 
 class FakeExportService:
-    """Test double exporting drafts without filesystem or SQLite."""
+    """Test double saving and exporting drafts without filesystem or SQLite."""
 
     def __init__(self, base: Path) -> None:
         self._base = base
-        self.markdown_calls: list[tuple[str, list[int]]] = []
-        self.pdf_calls: list[tuple[str, list[int]]] = []
+        self.save_calls: list[tuple[str, list[int]]] = []
+        self.markdown_calls: list[str] = []
+        self.pdf_calls: list[str] = []
+        self._next_id = 1
 
-    def export_ai_report_markdown(
-        self, markdown_content: str, experiment_ids: list[int]
-    ) -> Path:
-        self.markdown_calls.append((markdown_content, list(experiment_ids)))
+    def save_report(
+        self,
+        markdown_content: str,
+        experiment_ids: list[int],
+        project_id: int,
+        title: str,
+    ) -> int:
+        self.save_calls.append(
+            (markdown_content, list(experiment_ids), project_id, title)
+        )
+        report_id = self._next_id
+        self._next_id += 1
+        return report_id
+
+    def export_ai_report_markdown(self, markdown_content: str) -> Path:
+        self.markdown_calls.append(markdown_content)
         return self._base / "report.md"
 
-    def export_ai_report_pdf(
-        self, markdown_content: str, experiment_ids: list[int]
-    ) -> Path:
-        self.pdf_calls.append((markdown_content, list(experiment_ids)))
+    def export_ai_report_pdf(self, markdown_content: str) -> Path:
+        self.pdf_calls.append(markdown_content)
         return self._base / "report.pdf"
 
 
@@ -78,6 +112,7 @@ def _chainable(value: Any = None) -> MagicMock:
     mock.is_deleted = False
     mock.props.return_value = mock
     mock.classes.return_value = mock
+    mock.style.return_value = mock
     return mock
 
 
@@ -90,11 +125,18 @@ def _container() -> MagicMock:
 
 class _UIContext:
     def __init__(self) -> None:
+        self.project_select = _chainable(None)
+        self.project_handler: Any = None
         self.experiment_select = _chainable([1])
         self.model_select = _chainable(None)
+        self.language_select = _chainable(None)
+        self.title_input = _chainable("")
         self.select_handler: Any = None
         self.draft = _chainable("")
         self.draft_handler: Any = None
+        self.draft_handlers: list[Any] = []
+        self.preview = _chainable("")
+        self.preview.content = ""
         self.message = _chainable()
         self.warning = _container()
         self.busy = _chainable()
@@ -129,18 +171,39 @@ def _setup_ui(mock_ui: MagicMock, context: _UIContext) -> None:
         return MagicMock()
 
     def capture_draft_handler(handler: Any) -> MagicMock:
+        context.draft_handlers.append(handler)
         context.draft_handler = handler
+        return MagicMock()
+
+    def capture_project_handler(handler: Any) -> MagicMock:
+        context.project_handler = handler
         return MagicMock()
 
     mock_ui.column.side_effect = make_column
     mock_ui.row.side_effect = make_row
-    mock_ui.select.side_effect = [context.experiment_select, context.model_select]
+    mock_ui.select.side_effect = [
+        context.project_select,
+        context.experiment_select,
+        context.model_select,
+        context.language_select,
+    ]
+    mock_ui.input.return_value = context.title_input
     mock_ui.textarea.return_value = context.draft
     mock_ui.button.side_effect = context.button_factory
     mock_ui.spinner.return_value = context.busy
     mock_ui.notify.return_value = None
+    context.project_select.on_value_change.side_effect = capture_project_handler
     context.model_select.on_value_change.side_effect = capture_select_handler
     context.draft.on_value_change.side_effect = capture_draft_handler
+
+
+def _setup_component_ui(mock_comp_ui: MagicMock, context: _UIContext) -> None:
+    """Wire the shared markdown editor doubles to the page context."""
+    mock_comp_ui.label.return_value = _chainable()
+    mock_comp_ui.button.side_effect = lambda *args, **kwargs: _chainable()
+    mock_comp_ui.row.side_effect = lambda *args, **kwargs: _container()
+    mock_comp_ui.textarea.return_value = context.draft
+    mock_comp_ui.markdown.return_value = context.preview
 
 
 async def _inline_io_bound(function, *args):
@@ -176,52 +239,90 @@ def _build_page(
     draft: str | None = "# Draft",
     installed: tuple[str, ...] = ("qwen3:4b", "gemma3:4b"),
     chosen_model: str | None = "qwen3:4b",
+    chosen_language: str | None = "English",
+    chosen_project: int | None = 10,
+    chosen_title: str | None = "Monthly report",
+    projects: list[dict[str, Any]] | None = None,
     base_dir: Path | None = None,
 ) -> tuple[FakeExperimentService, FakeAIService, FakeExportService]:
     experiments = (
         experiments
         if experiments is not None
-        else [{"id": 1, "title": "Exp A"}, {"id": 2, "title": "Exp B"}]
+        else [
+            {"id": 1, "title": "Exp A", "project_id": 10},
+            {"id": 2, "title": "Exp B", "project_id": 10},
+        ]
+    )
+    projects = (
+        projects
+        if projects is not None
+        else [{"id": 10, "name": "Project X"}, {"id": 20, "name": "Project Y"}]
     )
     experiment_service = FakeExperimentService(experiments)
     ai_service = FakeAIService(draft)
     export_service = FakeExportService(Path("/tmp"))
     ollama_client = FakeOllamaClient(installed)
+    project_repo = FakeProjectRepo(projects)
     _setup_ui(mock_ui, context)
     # Drive the background model load inline with a local run double so
     # outer run mocks used by generation tests stay untouched.
-    with patch("app.ui.pages.ai_report_generator.run") as loader_run:
-        loader_run.io_bound.side_effect = _inline_io_bound
-        build_ai_report_generator_page(
-            base_dir,
-            experiment_service=experiment_service,  # type: ignore[arg-type]
-            ai_service=ai_service,  # type: ignore[arg-type]
-            export_service=export_service,  # type: ignore[arg-type]
-            ollama_client=ollama_client,  # type: ignore[arg-type]
-        )
-        _run_model_loader(mock_ui, context)
+    with patch("app.ui.components.markdown_editor.ui") as mock_comp_ui:
+        _setup_component_ui(mock_comp_ui, context)
+        with patch("app.ui.pages.ai_report_generator.run") as loader_run:
+            loader_run.io_bound.side_effect = _inline_io_bound
+            build_ai_report_generator_page(
+                base_dir,
+                experiment_service=experiment_service,  # type: ignore[arg-type]
+                ai_service=ai_service,  # type: ignore[arg-type]
+                export_service=export_service,  # type: ignore[arg-type]
+                ollama_client=ollama_client,  # type: ignore[arg-type]
+                project_repo=project_repo,  # type: ignore[arg-type]
+            )
+            _run_model_loader(mock_ui, context)
+    if chosen_project is not None:
+        context.project_select.value = chosen_project
+    if chosen_title is not None:
+        context.title_input.value = chosen_title
     if chosen_model is not None:
         context.model_select.value = chosen_model
+    if chosen_language is not None:
+        context.language_select.value = chosen_language
     if context.select_handler is not None:
         context.select_handler()
     return experiment_service, ai_service, export_service
 
 
-def test_lists_all_experiments_in_multiple_selector() -> None:
+def test_lists_experiments_of_selected_project_in_selector() -> None:
     # given
     experiment_service = FakeExperimentService(
-        [{"id": 1, "title": "Exp A"}, {"id": 2, "title": "Exp B"}]
+        [
+            {"id": 1, "title": "Exp A", "project_id": 10},
+            {"id": 2, "title": "Exp B", "project_id": 20},
+        ]
     )
 
     # when
-    choices = get_experiment_choices(experiment_service)  # type: ignore[arg-type]
+    choices = get_experiment_choices(experiment_service, 10)  # type: ignore[arg-type]
 
     # then
-    assert set(choices) == {1, 2}
+    assert set(choices) == {1}
     assert "Exp A" in choices[1]
 
 
-def test_builds_page_with_multiple_experiment_selector() -> None:
+def test_lists_project_names_in_project_selector() -> None:
+    # given
+    project_repo = FakeProjectRepo(
+        [{"id": 10, "name": "Project X"}, {"id": 20, "name": "Project Y"}]
+    )
+
+    # when
+    choices = get_project_choices(project_repo)  # type: ignore[arg-type]
+
+    # then
+    assert choices == {10: "Project X", 20: "Project Y"}
+
+
+def test_builds_project_selector_before_experiment_selector() -> None:
     # given
     context = _UIContext()
 
@@ -229,11 +330,38 @@ def test_builds_page_with_multiple_experiment_selector() -> None:
     with patch.object(ai_report_generator, "ui") as mock_ui:
         _build_page(mock_ui, context)
 
-        # then
-        assert mock_ui.select.call_count == 2
-        experiment_call = mock_ui.select.call_args_list[0]
+        # then — project first, experiments start empty until chosen
+        assert mock_ui.select.call_count == 4
+        project_call = mock_ui.select.call_args_list[0]
+        assert project_call.kwargs["label"] == "Project"
+        assert set(project_call.kwargs["options"]) == {10, 20}
+        experiment_call = mock_ui.select.call_args_list[1]
         assert experiment_call.kwargs["multiple"] is True
-        assert set(experiment_call.kwargs["options"]) == {1, 2}
+        assert dict(experiment_call.kwargs["options"]) == {}
+
+
+def test_populates_experiments_when_project_is_chosen() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(
+            mock_ui,
+            context,
+            experiments=[
+                {"id": 1, "title": "Exp A", "project_id": 10},
+                {"id": 2, "title": "Exp B", "project_id": 20},
+            ],
+            chosen_project=None,
+        )
+        context.project_select.value = 20
+        context.project_handler()
+
+        # then — only the chosen project experiments, selection cleared
+        set_call = context.experiment_select.set_options.call_args
+        assert set(set_call.args[0]) == {2}
+        assert set_call.kwargs.get("value") == []
 
 
 def test_populates_model_dropdown_with_installed_models() -> None:
@@ -245,7 +373,7 @@ def test_populates_model_dropdown_with_installed_models() -> None:
         _build_page(mock_ui, context, installed=("qwen3:4b", "gemma3:4b"))
 
         # then — empty at build, filled when the background load finishes
-        model_call = mock_ui.select.call_args_list[1]
+        model_call = mock_ui.select.call_args_list[2]
         assert list(model_call.kwargs["options"]) == []
         set_call = context.model_select.set_options.call_args
         assert list(set_call.args[0]) == ["qwen3:4b", "gemma3:4b"]
@@ -317,15 +445,25 @@ def test_generates_draft_into_editable_textarea_with_chosen_model() -> None:
         patch("app.ui.pages.ai_report_generator.run") as mock_run,
     ):
         _, ai_service, _ = _build_page(
-            mock_ui, context, draft="# Report", chosen_model="gemma3:4b"
+            mock_ui,
+            context,
+            draft="# Report",
+            chosen_model="gemma3:4b",
+            chosen_language="English",
         )
         _click_generate(mock_run, context)
 
         # then
-        assert ai_service.calls == [([{"id": 1, "title": "Exp A"}], "gemma3:4b")]
+        assert ai_service.calls == [
+            (
+                [{"id": 1, "title": "Exp A", "project_id": 10}],
+                "gemma3:4b",
+                "English",
+            )
+        ]
         assert context.draft.value == "# Report"
         assert context.warning.visible is False
-        assert context.buttons["Export Markdown"].enable.called
+        assert context.buttons["Save report"].enable.called
         assert context.buttons["Export PDF"].enable.called
 
 
@@ -375,7 +513,7 @@ def test_disables_export_buttons_until_draft_exists() -> None:
         _build_page(mock_ui, context)
 
         # then — draft starts empty, so nothing can be exported yet
-        assert context.buttons["Export Markdown"].disable.called
+        assert context.buttons["Save report"].disable.called
         assert context.buttons["Export PDF"].disable.called
 
 
@@ -390,7 +528,7 @@ def test_enables_export_buttons_once_draft_has_content() -> None:
         context.draft_handler()
 
         # then
-        assert context.buttons["Export Markdown"].enable.called
+        assert context.buttons["Save report"].enable.called
         assert context.buttons["Export PDF"].enable.called
 
 
@@ -403,12 +541,12 @@ def test_disables_export_buttons_when_draft_is_cleared() -> None:
         _build_page(mock_ui, context)
         context.draft.value = "# Edited draft"
         context.draft_handler()
-        context.buttons["Export Markdown"].disable.reset_mock()
+        context.buttons["Save report"].disable.reset_mock()
         context.draft.value = "   "
         context.draft_handler()
 
         # then
-        assert context.buttons["Export Markdown"].disable.called
+        assert context.buttons["Save report"].disable.called
 
 
 def test_shows_spinner_while_generating() -> None:
@@ -438,6 +576,24 @@ def test_shows_spinner_while_generating() -> None:
         assert generate_button.enable.called
 
 
+def test_saves_edited_draft_to_database() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, _, export_service = _build_page(mock_ui, context)
+        context.draft.value = "# Edited draft"
+        context.buttons["Save report"].click()
+
+        # then — database-only save, no file is exported
+        assert export_service.save_calls == [
+            ("# Edited draft", [1], 10, "Monthly report")
+        ]
+        assert export_service.markdown_calls == []
+        assert export_service.pdf_calls == []
+
+
 def test_exports_edited_draft_to_markdown() -> None:
     # given
     context = _UIContext()
@@ -448,8 +604,9 @@ def test_exports_edited_draft_to_markdown() -> None:
         context.draft.value = "# Edited draft"
         context.buttons["Export Markdown"].click()
 
-        # then
-        assert export_service.markdown_calls == [("# Edited draft", [1])]
+        # then — file-only export, nothing is saved
+        assert export_service.markdown_calls == ["# Edited draft"]
+        assert export_service.save_calls == []
         assert export_service.pdf_calls == []
 
 
@@ -464,7 +621,8 @@ def test_exports_edited_draft_to_pdf() -> None:
         context.buttons["Export PDF"].click()
 
         # then
-        assert export_service.pdf_calls == [("# Edited draft", [1])]
+        assert export_service.pdf_calls == ["# Edited draft"]
+        assert export_service.save_calls == []
         assert export_service.markdown_calls == []
 
 
@@ -551,7 +709,7 @@ def test_returns_none_when_ai_reports_nothing() -> None:
     ai_service = FakeAIService(None)
 
     # when
-    draft = generate_draft(ai_service, [{"id": 1}], "qwen3:4b")  # type: ignore[arg-type]
+    draft = generate_draft(ai_service, [{"id": 1}], "qwen3:4b", "English")  # type: ignore[arg-type]
 
     # then
     assert draft is None
@@ -562,12 +720,26 @@ def test_dispatches_export_by_selected_format(tmp_path: Path) -> None:
     export_service = FakeExportService(tmp_path)
 
     # when
-    markdown_path = export_draft(export_service, "# Draft", [1], "md")  # type: ignore[arg-type]
-    pdf_path = export_draft(export_service, "# Draft", [1], "pdf")  # type: ignore[arg-type]
+    markdown_path = export_draft(export_service, "# Draft", "md")  # type: ignore[arg-type]
+    pdf_path = export_draft(export_service, "# Draft", "pdf")  # type: ignore[arg-type]
 
     # then
     assert markdown_path.name == "report.md"
     assert pdf_path.name == "report.pdf"
+
+
+def test_saves_draft_to_database_without_exporting(tmp_path: Path) -> None:
+    # given
+    export_service = FakeExportService(tmp_path)
+
+    # when
+    report_id = save_draft(export_service, "# Draft", [1], 10, "Monthly report")  # type: ignore[arg-type]
+
+    # then
+    assert report_id == 1
+    assert export_service.save_calls == [("# Draft", [1], 10, "Monthly report")]
+    assert export_service.markdown_calls == []
+    assert export_service.pdf_calls == []
 
 
 def test_restores_saved_model_when_still_installed(tmp_path: Path) -> None:
@@ -620,3 +792,178 @@ def test_back_button_returns_to_hub() -> None:
 
             # then
             mock_navigate.assert_called_once_with("ai_assistant")
+
+
+def test_builds_language_selector_with_spanish_and_english_options() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context)
+
+        # then
+        language_call = mock_ui.select.call_args_list[3]
+        assert language_call.kwargs["label"] == "Language"
+        assert list(language_call.kwargs["options"]) == ["Spanish", "English"]
+
+
+def test_sends_chosen_language_when_generating() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with (
+        patch.object(ai_report_generator, "ui") as mock_ui,
+        patch("app.ui.pages.ai_report_generator.run") as mock_run,
+    ):
+        _, ai_service, _ = _build_page(
+            mock_ui,
+            context,
+            draft="# Report",
+            chosen_model="gemma3:4b",
+            chosen_language="Spanish",
+        )
+        _click_generate(mock_run, context)
+
+        # then
+        assert ai_service.calls[0][2] == "Spanish"
+        assert context.draft.value == "# Report"
+
+
+def test_leaves_language_empty_for_user_to_decide() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_language=None)
+
+        # then — no automatic detection, the user must choose
+        language_call = mock_ui.select.call_args_list[3]
+        assert language_call.kwargs["value"] is None
+
+
+def test_requires_language_before_generating() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with (
+        patch.object(ai_report_generator, "ui") as mock_ui,
+        patch("app.ui.pages.ai_report_generator.run") as mock_run,
+    ):
+        _, ai_service, _ = _build_page(
+            mock_ui, context, chosen_model="gemma3:4b", chosen_language=None
+        )
+        _click_generate(mock_run, context)
+
+        # then
+        assert ai_service.calls == []
+        assert mock_run.io_bound.call_count == 0
+
+
+def test_uses_shared_markdown_editor_for_draft() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context)
+
+        # then — the draft comes from the shared editor, not a plain textarea
+        mock_ui.textarea.assert_not_called()
+        assert len(context.draft_handlers) == 2
+
+
+def test_updates_preview_when_draft_changes() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with (
+        patch.object(ai_report_generator, "ui") as mock_ui,
+        patch("app.ui.pages.ai_report_generator.run") as mock_run,
+    ):
+        _build_page(mock_ui, context, draft="# Report")
+        _click_generate(mock_run, context)
+        for handler in context.draft_handlers:
+            handler()
+
+        # then — the live preview follows the editable draft
+        assert context.preview.content == "# Report"
+
+
+def test_requires_saved_draft_before_saving() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, _, export_service = _build_page(mock_ui, context)
+        context.draft.value = "   "
+        context.buttons["Save report"].click()
+
+        # then
+        assert export_service.save_calls == []
+        assert export_service.markdown_calls == []
+        assert export_service.pdf_calls == []
+
+
+def test_requires_experiments_before_saving() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, _, export_service = _build_page(mock_ui, context)
+        context.draft.value = "# Edited draft"
+        context.experiment_select.value = []
+        context.buttons["Save report"].click()
+
+        # then — saving links the report, so experiments are required
+        assert export_service.save_calls == []
+
+
+def test_requires_project_before_saving() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, _, export_service = _build_page(mock_ui, context, chosen_project=None)
+        context.draft.value = "# Edited draft"
+        context.buttons["Save report"].click()
+
+        # then
+        assert export_service.save_calls == []
+
+
+def test_requires_title_before_saving() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, _, export_service = _build_page(mock_ui, context, chosen_title=None)
+        context.draft.value = "# Edited draft"
+        context.buttons["Save report"].click()
+
+        # then
+        assert export_service.save_calls == []
+
+
+def test_places_save_button_right_of_generate_button() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context)
+
+        # then
+        texts = [
+            call.args[0] if call.args else call.kwargs.get("text", "")
+            for call in mock_ui.button.call_args_list
+        ]
+        assert texts.index("Save report") == texts.index("Generate draft") + 1

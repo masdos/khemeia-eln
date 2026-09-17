@@ -8,15 +8,21 @@ from app.services.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = (
-    "You are a chemistry laboratory assistant. "
-    "Write a structured technical scientific report in Markdown based only "
-    "on the supplied experiments. "
-    "Use exactly these sections: # Title, ## Summary, ## Objective, "
-    "## Methods, ## Results, ## Discussion, ## Conclusions. "
-    "Be concise, factual and neutral. "
-    "Do not invent data that is not present in the experiments."
-)
+
+def _build_system_prompt(language: str) -> str:
+    """Return the system prompt requesting a full report in one language."""
+    return (
+        "You are a chemistry laboratory assistant. "
+        f"Write the complete report in {language}. "
+        "Write a structured technical scientific report in Markdown based only "
+        "on the supplied experiments. "
+        "Use exactly these sections: # Title, ## Summary, ## Objective, "
+        "## Methods, ## Results, ## Discussion, ## Conclusions. "
+        "Be concise, factual and neutral. "
+        "Do not invent data that is not present in the experiments. "
+        "When the source data uses another language, translate it faithfully "
+        "without altering quantities, units or chemical names."
+    )
 
 
 class AIService:
@@ -29,11 +35,12 @@ class AIService:
         self,
         experiments_data: Mapping[str, Any] | Sequence[Mapping[str, Any]],
         model: str,
+        language: str,
     ) -> str | None:
         """Return a Markdown report draft, or None when AI is not ready.
 
-        The model is always chosen by the caller; it must be installed
-        at call time or no report is generated.
+        The model and the language are always chosen by the caller; the
+        model must be installed at call time or no report is generated.
         """
         experiments = _normalize_experiments(experiments_data)
         if not experiments:
@@ -41,6 +48,9 @@ class AIService:
             return None
         if not model or not model.strip():
             logger.warning("Report generation skipped without model")
+            return None
+        if not language or not language.strip():
+            logger.warning("Report generation skipped without language")
             return None
 
         try:
@@ -61,9 +71,15 @@ class AIService:
             return None
 
         prompt = _build_user_prompt(experiments)
-        logger.info("Generating report count=%s model=%s", len(experiments), model)
+        system_prompt = _build_system_prompt(language.strip())
+        logger.info(
+            "Generating report count=%s model=%s language=%s",
+            len(experiments),
+            model,
+            language.strip(),
+        )
         try:
-            report = self._ollama_client.generate(model, f"{SYSTEM_PROMPT}\n\n{prompt}")
+            report = self._ollama_client.generate(model, system_prompt, prompt)
         except Exception as error:
             logger.warning("Report generation failed error=%s", str(error))
             return None
@@ -72,7 +88,12 @@ class AIService:
             logger.warning("Empty report received count=%s", len(experiments))
             return None
 
-        logger.info("Report generated count=%s model=%s", len(experiments), model)
+        logger.info(
+            "Report generated count=%s model=%s language=%s",
+            len(experiments),
+            model,
+            language.strip(),
+        )
         return report.strip()
 
 

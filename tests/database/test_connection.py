@@ -43,8 +43,7 @@ def test_applies_schema_to_memory_database() -> None:
     close_connection(connection)
 
 
-def test_applies_schema_when_database_file_does_not_exist(tmp_path) -> None:
-    # given
+def test_applies_schema_when_database_file_does_not_exist(tmp_path) -> None:    # given
     database_path = tmp_path / "database.db"
 
     # when

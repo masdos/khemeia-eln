@@ -9,6 +9,7 @@ from app.services.ollama_client import (
     OLLAMA_BASE_URL,
     RECOMMENDED_MODEL,
     STATUS_TIMEOUT_SECONDS,
+    IncompleteGenerationError,
     OllamaClient,
 )
 
@@ -23,10 +24,16 @@ class FakeSdkModel:
 class FakeSdkClient:
     """Test double for ollama.Client without HTTP."""
 
-    def __init__(self, models: Any = None, response: Any = "") -> None:
+    def __init__(
+        self,
+        models: Any = None,
+        response: Any = "",
+        done_reason: Any = "stop",
+    ) -> None:
         self._models = models
         self._response = response
-        self.generate_calls: list[tuple[str, Any]] = []
+        self._done_reason = done_reason
+        self.generate_calls: list[tuple[str, Any, Any]] = []
         self.generate_kwargs: list[dict[str, Any]] = []
 
     def list(self) -> Any:
@@ -34,12 +41,20 @@ class FakeSdkClient:
             raise self._models
         return SimpleNamespace(models=self._models)
 
-    def generate(self, model: str = "", prompt: Any = None, **kwargs: Any) -> Any:
-        self.generate_calls.append((model, prompt))
+    def generate(
+        self,
+        model: str = "",
+        prompt: Any = None,
+        system: Any = None,
+        **kwargs: Any,
+    ) -> Any:
+        self.generate_calls.append((model, system, prompt))
         self.generate_kwargs.append(kwargs)
         if isinstance(self._response, Exception):
             raise self._response
-        return SimpleNamespace(response=self._response)
+        return SimpleNamespace(
+            response=self._response, done_reason=self._done_reason
+        )
 
 
 class FakeSdkFactory:
@@ -57,10 +72,13 @@ class FakeSdkFactory:
 
 
 def _make_client(
-    models: Any = None, response: Any = "", **kwargs: Any
+    models: Any = None,
+    response: Any = "",
+    done_reason: Any = "stop",
+    **kwargs: Any,
 ) -> tuple[OllamaClient, FakeSdkFactory, FakeSdkClient, FakeSdkClient]:
     status_client = FakeSdkClient(models=models)
-    generate_client = FakeSdkClient(response=response)
+    generate_client = FakeSdkClient(response=response, done_reason=done_reason)
     factory = FakeSdkFactory(status_client, generate_client)
     return (
         OllamaClient(sdk_client_factory=factory, **kwargs),
@@ -99,7 +117,7 @@ def test_reports_missing_recommended_model_when_ollama_has_other_models() -> Non
 def test_reports_ready_when_recommended_model_is_installed() -> None:
     # given
     client, _, _, _ = _make_client(
-        models=[FakeSdkModel("llama3.2:3b"), FakeSdkModel("qwen3:4b")]
+        models=[FakeSdkModel("llama3.2:3b"), FakeSdkModel("qwen3.5:4b")]
     )
 
     # when
@@ -116,11 +134,13 @@ def test_returns_completion_text_when_generate_succeeds() -> None:
     client, _, _, generate_client = _make_client(response="# Report")
 
     # when
-    text = client.generate(RECOMMENDED_MODEL, "Summarize.")
+    text = client.generate(RECOMMENDED_MODEL, "Write a report.", "Summarize.")
 
     # then
     assert text == "# Report"
-    assert generate_client.generate_calls == [(RECOMMENDED_MODEL, "Summarize.")]
+    assert generate_client.generate_calls == [
+        (RECOMMENDED_MODEL, "Write a report.", "Summarize.")
+    ]
 
 
 def test_raises_when_generate_response_has_no_text() -> None:
@@ -129,7 +149,7 @@ def test_raises_when_generate_response_has_no_text() -> None:
 
     # when / then
     with pytest.raises(ValueError, match="did not contain text"):
-        client.generate(RECOMMENDED_MODEL, "Summarize.")
+        client.generate(RECOMMENDED_MODEL, "Write a report.", "Summarize.")
 
 
 def test_reports_ready_with_any_installed_model() -> None:
@@ -217,7 +237,7 @@ def test_caps_generation_length_to_bound_slow_hardware_time() -> None:
     client, _, _, generate_client = _make_client(response="# Report")
 
     # when
-    client.generate(RECOMMENDED_MODEL, "Summarize.")
+    client.generate(RECOMMENDED_MODEL, "Write a report.", "Summarize.")
 
     # then
     assert generate_client.generate_kwargs[0]["options"] == {
@@ -259,3 +279,43 @@ def test_reports_no_models_when_sdk_payload_has_no_model_list() -> None:
     # then
     assert status.is_available is True
     assert status.installed_models == ()
+
+
+def test_returns_text_when_generation_completes_with_stop_reason() -> None:
+    # given
+    client, _, _, _ = _make_client(response="# Full report", done_reason="stop")
+
+    # when
+    text = client.generate(RECOMMENDED_MODEL, "Write in English.", "Experiments.")
+
+    # then
+    assert text == "# Full report"
+
+
+def test_raises_incomplete_error_when_generation_stops_early() -> None:
+    # given
+    client, _, _, _ = _make_client(response="# Partial", done_reason="length")
+
+    # when / then
+    with pytest.raises(IncompleteGenerationError):
+        client.generate(RECOMMENDED_MODEL, "Write in English.", "Experiments.")
+
+
+def test_sends_system_prompt_without_manual_concatenation() -> None:
+    # given
+    client, _, _, generate_client = _make_client(response="# Report")
+
+    # when
+    client.generate(RECOMMENDED_MODEL, "System instructions.", "User data.")
+
+    # then
+    assert generate_client.generate_calls == [
+        (RECOMMENDED_MODEL, "System instructions.", "User data.")
+    ]
+    assert generate_client.generate_kwargs[0]["think"] is False
+    assert generate_client.generate_kwargs[0]["stream"] is False
+
+
+def test_uses_updated_recommended_model() -> None:
+    # given / when / then
+    assert RECOMMENDED_MODEL == "qwen3.5:4b"
