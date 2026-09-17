@@ -32,7 +32,8 @@ def _initialize_app() -> object:
 NAV_ITEMS = [
     ("Experiments", "dashboard", "science"),
     ("Projects", "projects", "folder"),
-    ("Protocols", "protocols", "article"),
+    ("Reports", "reports", "description"),
+    ("Protocols", "protocols", "menu_book"),
     ("Inventory", "inventory", "shelves"),
     ("AI Assistant", "ai_assistant", "smart_toy"),
     ("Profile", "profile", "contact_page"),

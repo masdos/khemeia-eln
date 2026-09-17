@@ -94,6 +94,8 @@ def _render_current_view() -> None:
     from app.ui.pages.protocol_detail import build_protocol_detail_page
     from app.ui.pages.protocols import build_protocols_page
     from app.ui.pages.reagent_detail import build_reagent_detail_page
+    from app.ui.pages.report_detail import build_report_detail_page
+    from app.ui.pages.reports import build_reports_page
 
     view = _current_view
     kwargs = _current_kwargs
@@ -117,6 +119,10 @@ def _render_current_view() -> None:
         build_protocol_detail_page(protocol_id=kwargs["protocol_id"])
     elif view == "reagent_detail":
         build_reagent_detail_page(reagent_id=kwargs["reagent_id"])
+    elif view == "reports":
+        build_reports_page()
+    elif view == "report_detail":
+        build_report_detail_page(report_id=kwargs["report_id"], base_dir=_base_dir)
     elif view == "equipment_detail":
         build_equipment_detail_page(equipment_id=kwargs["equipment_id"])
     elif view == "profile":

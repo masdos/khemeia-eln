@@ -464,7 +464,6 @@ def test_generates_draft_into_editable_textarea_with_chosen_model() -> None:
         assert context.draft.value == "# Report"
         assert context.warning.visible is False
         assert context.buttons["Save report"].enable.called
-        assert context.buttons["Export PDF"].enable.called
 
 
 def test_shows_warning_with_hub_access_when_ai_not_ready() -> None:
@@ -504,7 +503,7 @@ def test_requires_model_before_generating() -> None:
         assert mock_run.io_bound.call_count == 0
 
 
-def test_disables_export_buttons_until_draft_exists() -> None:
+def test_disables_save_button_until_draft_exists() -> None:
     # given
     context = _UIContext()
 
@@ -512,12 +511,11 @@ def test_disables_export_buttons_until_draft_exists() -> None:
     with patch.object(ai_report_generator, "ui") as mock_ui:
         _build_page(mock_ui, context)
 
-        # then — draft starts empty, so nothing can be exported yet
+        # then — draft starts empty, so nothing can be saved yet
         assert context.buttons["Save report"].disable.called
-        assert context.buttons["Export PDF"].disable.called
 
 
-def test_enables_export_buttons_once_draft_has_content() -> None:
+def test_enables_save_button_once_draft_has_content() -> None:
     # given
     context = _UIContext()
 
@@ -529,10 +527,9 @@ def test_enables_export_buttons_once_draft_has_content() -> None:
 
         # then
         assert context.buttons["Save report"].enable.called
-        assert context.buttons["Export PDF"].enable.called
 
 
-def test_disables_export_buttons_when_draft_is_cleared() -> None:
+def test_disables_save_button_when_draft_is_cleared() -> None:
     # given
     context = _UIContext()
 
@@ -624,6 +621,41 @@ def test_exports_edited_draft_to_pdf() -> None:
         assert export_service.pdf_calls == ["# Edited draft"]
         assert export_service.save_calls == []
         assert export_service.markdown_calls == []
+
+
+def test_shows_exports_location_hint() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context)
+
+        # then
+        hint_calls = [
+            call
+            for call in mock_ui.label.call_args_list
+            if call.args and "Exports are stored in" in call.args[0]
+        ]
+        assert len(hint_calls) == 1
+
+
+def test_warns_when_exporting_without_draft() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, _, export_service = _build_page(mock_ui, context)
+        context.draft.value = "   "
+        context.buttons["Export Markdown"].click()
+
+        # then
+        assert export_service.markdown_calls == []
+        assert export_service.pdf_calls == []
+        mock_ui.notify.assert_called_with(
+            "Generate a draft before exporting.", type="negative"
+        )
 
 
 def test_shows_empty_dropdown_when_no_model_installed() -> None:

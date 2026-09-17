@@ -66,8 +66,64 @@ def get_by_id(
 ) -> sqlite3.Row | None:
     """Return a report by identifier, or None when it does not exist."""
     cursor = connection.execute(
-        "SELECT id, project_id, title, content_markdown, created_at, modified_at "
-        "FROM reports WHERE id = ?",
+        "SELECT r.*, p.name AS project_name "
+        "FROM reports r LEFT JOIN projects p ON p.id = r.project_id "
+        "WHERE r.id = ?",
         (report_id,),
     )
     return cursor.fetchone()
+
+
+def get_all(
+    connection: sqlite3.Connection,
+    project_id: int | None = None,
+    search_text: str | None = None,
+) -> Sequence[sqlite3.Row]:
+    """Return reports with project names, optionally filtered."""
+    query = (
+        "SELECT r.*, p.name AS project_name "
+        "FROM reports r LEFT JOIN projects p ON p.id = r.project_id "
+        "WHERE 1=1"
+    )
+    params: list = []
+
+    if project_id is not None:
+        query += " AND r.project_id = ?"
+        params.append(project_id)
+
+    if search_text is not None and search_text.strip():
+        query += " AND r.title LIKE ?"
+        params.append(f"%{search_text.strip()}%")
+
+    query += " ORDER BY r.id DESC"
+    cursor = connection.execute(query, params)
+    return cursor.fetchall()
+
+
+def update(
+    connection: sqlite3.Connection,
+    report_id: int,
+    **fields: object,
+) -> sqlite3.Row | None:
+    """Update report fields and return the updated row, or None when missing."""
+    allowed = {"title", "content_markdown"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return get_by_id(connection, report_id)
+
+    set_clause = ", ".join(f"{column} = ?" for column in updates)
+    params = list(updates.values())
+    params.append(report_id)
+    connection.execute(
+        f"UPDATE reports SET {set_clause}, modified_at = CURRENT_TIMESTAMP"
+        " WHERE id = ?",
+        params,
+    )
+    connection.commit()
+    return get_by_id(connection, report_id)
+
+
+def delete(connection: sqlite3.Connection, report_id: int) -> None:
+    """Delete a report; experiment links cascade via foreign keys."""
+    connection.execute("DELETE FROM reports WHERE id = ?", (report_id,))
+    connection.commit()

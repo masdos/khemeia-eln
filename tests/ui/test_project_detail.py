@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from app.services.experiment_service import ExperimentService
 from app.services.project_service import ProjectService
+from app.services.report_service import ReportService
 
 
 class FakeProjectRepository:
@@ -87,7 +88,11 @@ def test_detail_page_prefills_current_values() -> None:
                         )
 
                         # when
-                        build_project_detail_page(project["id"])
+                        with patch(
+                            "app.ui.pages.project_detail._get_report_service",
+                            return_value=_mock_report_service(),
+                        ):
+                            build_project_detail_page(project["id"])
 
                     # then
                     assert mock_ui.input.call_args.kwargs["value"] == "Alpha"
@@ -131,7 +136,11 @@ def test_saving_from_detail_updates_project() -> None:
                             build_project_detail_page,
                         )
 
-                        build_project_detail_page(project["id"])
+                        with patch(
+                            "app.ui.pages.project_detail._get_report_service",
+                            return_value=_mock_report_service(),
+                        ):
+                            build_project_detail_page(project["id"])
 
                         # when - the Save button is clicked
                         save_button = None
@@ -185,7 +194,11 @@ def test_back_button_returns_to_projects_list() -> None:
                                 build_project_detail_page,
                             )
 
-                            build_project_detail_page(project["id"])
+                            with patch(
+                                "app.ui.pages.project_detail._get_report_service",
+                                return_value=_mock_report_service(),
+                            ):
+                                build_project_detail_page(project["id"])
 
                             # when - the back button is clicked
                             back_button = None
@@ -261,6 +274,51 @@ def _mock_experiment_service() -> ExperimentService:
     return _make_experiment_service(FakeExperimentRepository())
 
 
+class FakeReportRepository:
+    def __init__(self) -> None:
+        self._reports: dict[int, dict[str, Any]] = {}
+        self._next_id = 1
+
+    def seed(self, project_id: int, title: str) -> int:
+        report_id = self._next_id
+        self._next_id += 1
+        self._reports[report_id] = {
+            "id": report_id,
+            "project_id": project_id,
+            "title": title,
+            "content_markdown": "",
+            "created_at": "2026-01-01",
+        }
+        return report_id
+
+    def get_all(
+        self,
+        project_id: int | None = None,
+        search_text: str | None = None,
+    ) -> Sequence[dict[str, Any]]:
+        results = list(self._reports.values())
+        if project_id is not None:
+            results = [r for r in results if r["project_id"] == project_id]
+        return results
+
+    def get_by_id(self, report_id: int) -> dict[str, Any] | None:
+        return self._reports.get(report_id)
+
+    def update(self, report_id: int, **fields: object) -> dict[str, Any] | None:
+        report = self._reports.get(report_id)
+        if report is None:
+            return None
+        report.update(fields)
+        return report
+
+    def delete(self, report_id: int) -> None:
+        del self._reports[report_id]
+
+
+def _mock_report_service() -> ReportService:
+    return ReportService(FakeReportRepository())
+
+
 def test_experiments_table_lists_project_experiments() -> None:
     """Experiments section must list only this project experiments."""
     # given
@@ -305,7 +363,11 @@ def test_experiments_table_lists_project_experiments() -> None:
                             )
 
                             # when
-                            build_project_detail_page(project["id"])
+                            with patch(
+                                "app.ui.pages.project_detail._get_report_service",
+                                return_value=_mock_report_service(),
+                            ):
+                                build_project_detail_page(project["id"])
 
                             # then
                             rows = mock_tables_ui.table.call_args.kwargs["rows"]
@@ -358,7 +420,11 @@ def test_experiment_view_action_navigates_to_detail() -> None:
                                 project = service.create_project(
                                     "Alpha", "First project"
                                 )
-                                build_project_detail_page(project["id"])
+                                with patch(
+                                    "app.ui.pages.project_detail._get_report_service",
+                                    return_value=_mock_report_service(),
+                                ):
+                                    build_project_detail_page(project["id"])
 
                                 # when - the view action is triggered
                                 table = (
@@ -398,3 +464,130 @@ def test_detail_notifies_when_project_missing() -> None:
             mock_ui.notify.assert_called_once_with(
                 "Project not found", type="negative"
             )
+
+
+def test_reports_table_lists_project_reports() -> None:
+    """Reports section must list only this project reports."""
+    # given
+    service = _make_service()
+    report_repo = FakeReportRepository()
+    report_repo.seed(1, "Report A")
+    report_repo.seed(2, "Other project report")
+    report_service = ReportService(report_repo)
+
+    with patch("app.ui.pages.project_detail._get_service", return_value=service):
+        with patch(
+            "app.ui.pages.project_detail._get_experiment_service",
+            return_value=_mock_experiment_service(),
+        ):
+            with patch(
+                "app.ui.pages.project_detail._get_report_service",
+                return_value=report_service,
+            ):
+                with patch("app.ui.pages.project_detail.ui") as mock_ui:
+                    with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                        with patch(
+                            "app.ui.components.tables.ui"
+                        ) as mock_tables_ui:
+                            with patch(
+                                "app.ui.components.meta.ui"
+                            ) as mock_meta_ui:
+                                _mock_page_chrome(mock_ui)
+                                mock_forms_ui.label.return_value = MagicMock()
+                                mock_forms_ui.button.return_value = MagicMock()
+                                mock_meta_ui.label.return_value = MagicMock()
+                                mock_ui.input = MagicMock(
+                                    return_value=_make_chainable("Alpha")
+                                )
+                                mock_ui.textarea = MagicMock(
+                                    return_value=_make_chainable("First project")
+                                )
+
+                                from app.ui.pages.project_detail import (
+                                    build_project_detail_page,
+                                )
+
+                                project = service.create_project(
+                                    "Alpha", "First project"
+                                )
+
+                                # when
+                                build_project_detail_page(project["id"])
+
+                                # then — last table rendered is the reports one
+                                rows = mock_tables_ui.table.call_args.kwargs["rows"]
+                                assert [r["title"] for r in rows] == ["Report A"]
+
+
+def test_report_view_action_navigates_to_detail() -> None:
+    """Report view action must navigate to the report detail."""
+    # given
+    service = _make_service()
+    report_repo = FakeReportRepository()
+    report_id = report_repo.seed(1, "Report A")
+    report_service = ReportService(report_repo)
+
+    with patch("app.ui.pages.project_detail._get_service", return_value=service):
+        with patch(
+            "app.ui.pages.project_detail._get_experiment_service",
+            return_value=_mock_experiment_service(),
+        ):
+            with patch(
+                "app.ui.pages.project_detail._get_report_service",
+                return_value=report_service,
+            ):
+                with patch("app.ui.pages.project_detail.ui") as mock_ui:
+                    with patch(
+                        "app.ui.pages.project_detail.router"
+                    ) as mock_router:
+                        with patch(
+                            "app.ui.components.forms.ui"
+                        ) as mock_forms_ui:
+                            with patch(
+                                "app.ui.components.tables.ui"
+                            ) as mock_tables_ui:
+                                with patch(
+                                    "app.ui.components.meta.ui"
+                                ) as mock_meta_ui:
+                                    _mock_page_chrome(mock_ui)
+                                    mock_forms_ui.label.return_value = MagicMock()
+                                    mock_forms_ui.button.return_value = MagicMock()
+                                    mock_meta_ui.label.return_value = MagicMock()
+                                    mock_ui.input = MagicMock(
+                                        return_value=_make_chainable("Alpha")
+                                    )
+                                    mock_ui.textarea = MagicMock(
+                                        return_value=_make_chainable("First project")
+                                    )
+
+                                    from app.ui.pages.project_detail import (
+                                        build_project_detail_page,
+                                    )
+
+                                    project = service.create_project(
+                                        "Alpha", "First project"
+                                    )
+                                    build_project_detail_page(project["id"])
+
+                                    # when - the reports view action is triggered
+                                    table = (
+                                        mock_tables_ui.table.return_value
+                                        .classes.return_value
+                                    )
+                                    view_handlers = [
+                                        call.args[1]
+                                        for call in table.on.call_args_list
+                                        if call.args and call.args[0] == "view"
+                                    ]
+
+                                    # then — only the reports table registers
+                                    # a view action (no experiments seeded)
+                                    assert len(view_handlers) == 1
+                                    event = MagicMock()
+                                    event.args = {"id": report_id}
+                                    view_handlers[-1](event)
+
+                                    # then
+                                    mock_router.navigate.assert_called_with(
+                                        "report_detail", report_id=report_id
+                                    )

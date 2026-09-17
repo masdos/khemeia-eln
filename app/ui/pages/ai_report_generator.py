@@ -200,6 +200,10 @@ def build_ai_report_generator_page(
     project_repo: Any | None = None,
 ) -> None:
     """Build the report generator form reached from the AI Assistant hub."""
+    if base_dir is None:
+        from app.bootstrap import run_bootstrap
+
+        base_dir = run_bootstrap().base_dir
     if (
         experiment_service is None
         or ai_service is None
@@ -207,10 +211,6 @@ def build_ai_report_generator_page(
         or ollama_client is None
         or project_repo is None
     ):
-        if base_dir is None:
-            from app.bootstrap import run_bootstrap
-
-            base_dir = run_bootstrap().base_dir
         services = _get_services(base_dir)
         experiment_service = experiment_service or services["experiment_service"]
         ai_service = ai_service or services["ai_service"]
@@ -328,9 +328,7 @@ def build_ai_report_generator_page(
                 message.text = SELECTION_REQUIRED
                 return
             try:
-                report_id = save_draft(
-                    export_service, markdown, ids, project_id, title
-                )
+                report_id = save_draft(export_service, markdown, ids, project_id, title)
             except (ValueError, RuntimeError) as error:
                 message.text = str(error)
                 return
@@ -341,15 +339,14 @@ def build_ai_report_generator_page(
         def on_export(file_format: str) -> None:
             markdown = draft_area.value or ""
             if not markdown.strip():
-                message.text = DRAFT_REQUIRED
+                ui.notify(DRAFT_REQUIRED, type="negative")
                 return
             try:
                 file_path = export_draft(export_service, markdown, file_format)
             except (ValueError, RuntimeError) as error:
-                message.text = str(error)
+                ui.notify(str(error), type="negative")
                 return
-            message.text = ""
-            ui.notify(f"Report exported to {file_path.name}", type="positive")
+            ui.notify(f"Exported to {file_path.name}", type="positive")
 
         with ui.row().classes("w-full items-center gap-2 mt-4"):
             generate_button = ui.button("Generate draft", on_click=on_generate).props(
@@ -374,16 +371,12 @@ def build_ai_report_generator_page(
             """Populate experiments with those of the selected project."""
             project_id = project_select.value
             try:
-                project_choices = get_experiment_choices(
-                    experiment_service, project_id
-                )
+                project_choices = get_experiment_choices(experiment_service, project_id)
             except Exception as error:
                 logger.warning("Experiment choices failed error=%s", str(error))
                 return
             experiment_select.set_options(project_choices, value=[])
-            logger.debug(
-                "Experiment choices refreshed project_id=%s", project_id
-            )
+            logger.debug("Experiment choices refreshed project_id=%s", project_id)
 
         project_select.on_value_change(lambda: refresh_experiments_for_project())
 
@@ -412,26 +405,26 @@ def build_ai_report_generator_page(
 
         ui.timer(0.5, load_models, once=True)
 
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            export_md_button = ui.button(
-                "Export Markdown", on_click=lambda: on_export("md")
-            ).props("color=primary")
-            export_pdf_button = ui.button(
-                "Export PDF", on_click=lambda: on_export("pdf")
-            ).props("color=primary")
+        ui.separator().classes("mt-6")
+        ui.label("Export").classes("text-xl font-semibold mt-4")
+
+        with ui.row().classes("gap-2"):
+            ui.button("Export Markdown", on_click=lambda: on_export("md")).props(
+                "color=primary"
+            )
+            ui.button("Export PDF", on_click=lambda: on_export("pdf")).props(
+                "color=primary"
+            )
+        ui.label(f"Exports are stored in ({base_dir / 'exports'})").classes(
+            "text-xs text-slate-400"
+        )
         save_button.disable()
-        export_md_button.disable()
-        export_pdf_button.disable()
 
         def refresh_save_state() -> None:
             if (draft_area.value or "").strip():
                 save_button.enable()
-                export_md_button.enable()
-                export_pdf_button.enable()
             else:
                 save_button.disable()
-                export_md_button.disable()
-                export_pdf_button.disable()
 
         draft_area.on_value_change(lambda: refresh_save_state())
 

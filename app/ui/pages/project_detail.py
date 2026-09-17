@@ -16,6 +16,10 @@ from app.services.project_service import (
 from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
+from app.services.report_service import (
+    ReportService,
+    SqliteReportRepository,
+)
 from app.ui import router
 from app.ui.components.forms import (
     back_button,
@@ -38,6 +42,11 @@ def _get_experiment_service() -> ExperimentService:
         project_repo=SqliteProjectRepository(conn),
         protocol_repo=SqliteProtocolRepository(conn),
     )
+
+
+def _get_report_service() -> ReportService:
+    repo = SqliteReportRepository(get_connection())
+    return ReportService(repo)
 
 
 def build_project_detail_page(project_id: int) -> None:
@@ -84,6 +93,8 @@ def build_project_detail_page(project_id: int) -> None:
 
         _build_experiments_section(project_id)
 
+        _build_reports_section(project_id)
+
         back_button("projects")
 
 
@@ -127,5 +138,47 @@ def _build_experiments_section(project_id: int) -> None:
 
     def on_view(e) -> None:
         router.navigate("experiment_detail", experiment_id=e.args["id"])
+
+    add_view_actions(table, on_view)
+
+
+def _build_reports_section(project_id: int) -> None:
+    ui.separator().classes("mt-6")
+    ui.label("Reports").classes("text-xl font-semibold mt-4")
+
+    service = _get_report_service()
+    reports = service.list_reports({"project_id": project_id})
+
+    if not reports:
+        ui.label("No reports in this project.").classes("text-slate-500 mt-2")
+        return
+
+    columns = [
+        {"name": "title", "label": "Title", "field": "title", "align": "left"},
+        {
+            "name": "created_at",
+            "label": "Created",
+            "field": "created_at",
+            "align": "left",
+        },
+        {
+            "name": "actions",
+            "label": "Actions",
+            "field": "actions",
+            "align": "center",
+        },
+    ]
+    rows = [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "created_at": (r.get("created_at") or "")[:10],
+        }
+        for r in reports
+    ]
+    table = entity_table(columns, rows)
+
+    def on_view(e) -> None:
+        router.navigate("report_detail", report_id=e.args["id"])
 
     add_view_actions(table, on_view)

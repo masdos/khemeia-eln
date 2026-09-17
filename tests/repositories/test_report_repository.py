@@ -6,10 +6,13 @@ from app.database.connection import close_connection, get_connection
 from app.repositories.experiment_repository import create as create_experiment
 from app.repositories.report_repository import (
     create,
+    delete,
+    get_all,
     get_by_experiment,
     get_by_id,
     get_by_project,
     link_to_experiments,
+    update,
 )
 
 
@@ -143,3 +146,90 @@ def test_returns_none_for_missing_report(connection: sqlite3.Connection) -> None
 
     # then
     assert report is None
+
+
+def test_lists_reports_with_project_names(connection: sqlite3.Connection) -> None:
+    # given
+    project_id = _insert_project(connection, "Lab Project")
+    create(connection, project_id, "Report A", "# A")
+
+    # when
+    reports = get_all(connection)
+
+    # then
+    assert [report["title"] for report in reports] == ["Report A"]
+    assert reports[0]["project_name"] == "Lab Project"
+
+
+def test_filters_reports_by_project(connection: sqlite3.Connection) -> None:
+    # given
+    project_a = _insert_project(connection, "Project A")
+    project_b = _insert_project(connection, "Project B")
+    create(connection, project_a, "Report A")
+    create(connection, project_b, "Report B")
+
+    # when
+    reports = get_all(connection, project_id=project_a)
+
+    # then
+    assert [report["title"] for report in reports] == ["Report A"]
+
+
+def test_searches_reports_by_title(connection: sqlite3.Connection) -> None:
+    # given
+    project_id = _insert_project(connection, "Lab Project")
+    create(connection, project_id, "Monthly synthesis")
+    create(connection, project_id, "Weekly cleanup")
+
+    # when
+    reports = get_all(connection, search_text="synthesis")
+
+    # then
+    assert [report["title"] for report in reports] == ["Monthly synthesis"]
+
+
+def test_updates_title_and_content(connection: sqlite3.Connection) -> None:
+    # given
+    project_id = _insert_project(connection, "Lab Project")
+    report_id = create(connection, project_id, "Old title", "# Old")
+
+    # when
+    updated = update(
+        connection, report_id, title="New title", content_markdown="# New"
+    )
+
+    # then
+    assert updated is not None
+    assert updated["title"] == "New title"
+    assert updated["content_markdown"] == "# New"
+
+
+def test_returns_none_when_updating_missing_report(
+    connection: sqlite3.Connection,
+) -> None:
+    # given / when
+    updated = update(connection, 999, title="Ghost")
+
+    # then
+    assert updated is None
+
+
+def test_deletes_report_and_its_experiment_links(
+    connection: sqlite3.Connection,
+) -> None:
+    # given
+    project_id = _insert_project(connection, "Lab Project")
+    experiment_id = _insert_experiment(connection, "Experiment A")
+    report_id = create(connection, project_id, "Report A")
+    link_to_experiments(connection, report_id, [experiment_id])
+
+    # when
+    delete(connection, report_id)
+
+    # then
+    assert get_by_id(connection, report_id) is None
+    links = connection.execute(
+        "SELECT * FROM experiment_reports WHERE report_id = ?",
+        (report_id,),
+    ).fetchall()
+    assert links == []
