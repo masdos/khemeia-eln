@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 from app.services.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
+
+_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
+_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
 
 
 def _build_system_prompt(language: str) -> str:
@@ -17,12 +21,34 @@ def _build_system_prompt(language: str) -> str:
         "Write a structured technical scientific report in Markdown based only "
         "on the supplied experiments. "
         "Use exactly these sections: # Title, ## Summary, ## Objective, "
-        "## Methods, ## Results, ## Discussion, ## Conclusions. "
+        "## Methods, ## Results, ## Conclusions. "
+        "Use only standard Markdown (headings, bold, italic, lists, tables). "
+        "Do not use LaTeX, math delimiters like $...$, backslash commands, "
+        "HTML tags such as <sub> or <sup>, or Unicode sub/superscripts. "
+        "Write chemical formulas in plain text with inline numbers, "
+        "for example H2SO4, CO2 or H2O. "
         "Be concise, factual and neutral. "
         "Do not invent data that is not present in the experiments. "
         "When the source data uses another language, translate it faithfully "
         "without altering quantities, units or chemical names."
     )
+
+
+def _sanitize_report(text: str) -> str:
+    """Convert formulas to plain text with inline numbers.
+
+    The Markdown preview and the PDF export only support standard
+    Markdown, so LaTeX ($...$, \\text{...}), HTML (<sub>) and Unicode
+    sub/superscripts are flattened, e.g. H2SO4 stays H2SO4.
+    """
+    cleaned = re.sub(r"</?(?:sub|sup|super)[^>]*>", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\\(?:text|mathrm|ce|ch)\{([^}]*)\}", r"\1", cleaned)
+    cleaned = re.sub(r"[_^]\{([^}]*)\}", r"\1", cleaned)
+    cleaned = re.sub(r"_([0-9]+)", r"\1", cleaned)
+    cleaned = re.sub(r"\^([0-9+\-]+)", r"\1", cleaned)
+    cleaned = cleaned.translate(_SUBSCRIPTS).translate(_SUPERSCRIPTS)
+    cleaned = cleaned.replace("$", "")
+    return cleaned
 
 
 class AIService:
@@ -88,13 +114,18 @@ class AIService:
             logger.warning("Empty report received count=%s", len(experiments))
             return None
 
+        cleaned = _sanitize_report(report.strip())
+        if not cleaned.strip():
+            logger.warning("Empty report received count=%s", len(experiments))
+            return None
+
         logger.info(
             "Report generated count=%s model=%s language=%s",
             len(experiments),
             model,
             language.strip(),
         )
-        return report.strip()
+        return cleaned.strip()
 
 
 def _normalize_experiments(

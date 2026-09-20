@@ -111,7 +111,7 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
             with ui.tab_panel(features_tab):
                 ui.label(HUB_INTRO).classes("text-slate-600 mt-2")
                 ui.label(HUB_TRUST).classes("text-slate-600 mt-2")
-                ui.label("Grid of Features").classes("text-xl font-semibold mt-4")
+                ui.label("Features").classes("text-xl font-semibold mt-4")
                 with ui.grid(columns=3).classes("w-full gap-4 mt-2"):
                     for feature in FEATURES:
                         _feature_card(feature)

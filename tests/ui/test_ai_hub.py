@@ -129,7 +129,7 @@ def test_renders_guidance_steps_and_menu_without_blocking() -> None:
         assert any("Ollama" in label for label in labels)
         assert any("never leaves this machine" in label for label in labels)
         assert any("Setup status:" in label for label in labels)
-        assert any("Grid of Features" in label for label in labels)
+        assert "Features" in labels
         assert "Report generator" in labels
         mock_ui.tabs.assert_called_once()
         context.tabs_container.classes.assert_called_once_with(

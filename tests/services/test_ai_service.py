@@ -1,7 +1,11 @@
 from typing import Any
 from urllib.error import URLError
 
-from app.services.ai_service import AIService, _build_system_prompt
+from app.services.ai_service import (
+    AIService,
+    _build_system_prompt,
+    _sanitize_report,
+)
 from app.services.ollama_client import (
     IncompleteGenerationError,
     OllamaClient,
@@ -32,9 +36,7 @@ class FakeOllamaClient:
             raise self._status_error
         return self._status
 
-    def generate(
-        self, model: str, system_prompt: str, user_prompt: str
-    ) -> str:
+    def generate(self, model: str, system_prompt: str, user_prompt: str) -> str:
         self.seen_models.append(model)
         self.seen_system.append(system_prompt)
         self.seen_prompts.append(user_prompt)
@@ -236,3 +238,87 @@ def test_builds_system_prompt_with_requested_language() -> None:
     assert language in prompt
     assert "translate" in prompt.lower()
     assert "quantities" in prompt.lower()
+
+
+def test_requires_standard_markdown_with_plain_formulas() -> None:
+    # given
+    language = "English"
+
+    # when
+    prompt = _build_system_prompt(language)
+
+    # then
+    assert "standard Markdown" in prompt
+    assert "H2SO4" in prompt
+    assert "LaTeX" in prompt
+    assert "<sub>" in prompt
+
+
+def test_flattens_latex_formula_to_plain_text() -> None:
+    # given
+    raw = r"$\text{H}_2\text{SO}_4$"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "H2SO4"
+
+
+def test_flattens_html_subscript_to_plain_text() -> None:
+    # given
+    raw = "H<sub>2</sub>SO<sub>4</sub>"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "H2SO4"
+
+
+def test_flattens_unicode_subscripts_to_plain_text() -> None:
+    # given
+    raw = "H₂SO₄"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "H2SO4"
+
+
+def test_flattens_braced_subscripts_to_plain_text() -> None:
+    # given
+    raw = "CO_{2} and H_{2}O"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "CO2 and H2O"
+
+
+def test_sanitizes_generated_draft_before_returning() -> None:
+    # given
+    client = FakeOllamaClient(
+        status=_ready_status("qwen3:4b"),
+        response=r"# Report with $\text{H}_2\text{SO}_4$",
+    )
+    service = AIService(client)  # type: ignore[arg-type]
+
+    # when
+    report = service.generate_report(_experiment(), "qwen3:4b", "English")
+
+    # then
+    assert report == "# Report with H2SO4"
+
+
+def test_preserves_italic_markup_when_sanitizing() -> None:
+    # given
+    raw = "_No result recorded._ with H2SO4"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == raw
