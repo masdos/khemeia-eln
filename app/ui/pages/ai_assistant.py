@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from nicegui import ui
+from nicegui import run, ui
 
 from app.services.ollama_client import OllamaClient
 from app.ui import router
@@ -10,13 +10,14 @@ from app.ui.pages.ai_reports import (
     OLLAMA_DOWNLOAD_URL,
     QWEN_PULL_COMMAND,
     SERVE_COMMAND,
-    refresh_status_display,
+    describe_status,
+    get_readiness,
 )
 
 logger = logging.getLogger(__name__)
 
 HUB_INTRO = (
-    "AI Assistant drafts scientific reports from your experiments using "
+    "AI Assistant helps with your experiments using "
     "Ollama, a free program that runs AI models directly on your lab computer."
 )
 HUB_TRUST = (
@@ -34,6 +35,15 @@ REPORTS_SUMMARY = (
     "experiments and export them to Markdown or PDF."
 )
 
+FEATURES = [
+    {
+        "title": "Report generator",
+        "icon": "description",
+        "summary": REPORTS_SUMMARY,
+        "route": "ai_report_generator",
+    },
+]
+
 
 def _step_header(prefix: str, link_text: str, url: str) -> None:
     """Render a step title with the docs link in parentheses before colon."""
@@ -44,18 +54,70 @@ def _step_header(prefix: str, link_text: str, url: str) -> None:
         ui.label("):")
 
 
+def _render_badge(container: ui.column, state: str) -> None:
+    """Render the header badge for a readiness state."""
+    container.clear()
+    with container:
+        if state == "ready":
+            ui.badge("Ready", color="green")
+        elif state == "not_checked":
+            ui.badge("Not checked", color="grey")
+        else:
+            ui.badge("Not ready", color="red")
+
+
+def _render_status_detail(container: ui.column, state: str, message: str) -> None:
+    """Render the detailed status badge and message in the setup tab."""
+    container.clear()
+    with container:
+        if state == "ready":
+            ui.badge("Ready", color="green")
+        else:
+            ui.badge("Not ready", color="red")
+        ui.label(message)
+
+
+def _feature_card(feature: dict[str, str]) -> None:
+    """Render a single feature card inside the features grid."""
+    with ui.card().classes("w-full"):
+        with ui.row().classes("items-center gap-2"):
+            ui.icon(feature["icon"]).classes("text-2xl text-slate-600")
+            ui.label(feature["title"]).classes("font-semibold")
+        ui.label(feature["summary"]).classes("text-slate-600 text-sm")
+        ui.button(
+            "Open",
+            on_click=lambda route=feature["route"]: router.navigate(route),
+        ).props("color=primary")
+
+
 def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
-    """Build the AI Assistant hub with guidance, status and feature menu."""
+    """Build the AI Assistant hub with tabs, grid and status indicator."""
     client = ollama_client or OllamaClient()
 
     with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
-        ui.label("AI Assistant").classes("text-2xl font-semibold")
-        ui.label(HUB_INTRO).classes("text-slate-600 mt-2")
-        ui.label(HUB_TRUST).classes("text-slate-600 mt-2")
+        with ui.row().classes("w-full items-center justify-between"):
+            ui.label("AI Assistant").classes("text-2xl font-semibold")
+            with ui.row().classes("items-center gap-2"):
+                ui.label("Setup status:").classes("text-slate-600 text-sm")
+                header_status = ui.column().classes("gap-0")
+                with header_status:
+                    ui.badge("Not checked", color="grey")
 
-        with ui.row().classes("w-full gap-12 mt-4 items-start"):
-            with ui.column().classes("flex-1"):
-                ui.label("Requirements").classes("text-xl font-semibold")
+        with ui.tabs().classes("w-full mt-2 justify-start").props("align=left") as tabs:
+            features_tab = ui.tab("Assistant Features")
+            setup_tab = ui.tab("Setup & Configuration")
+
+        with ui.tab_panels(tabs, value=features_tab).classes("w-full"):
+            with ui.tab_panel(features_tab):
+                ui.label(HUB_INTRO).classes("text-slate-600 mt-2")
+                ui.label(HUB_TRUST).classes("text-slate-600 mt-2")
+                ui.label("Grid of Features").classes("text-xl font-semibold mt-4")
+                with ui.grid(columns=3).classes("w-full gap-4 mt-2"):
+                    for feature in FEATURES:
+                        _feature_card(feature)
+
+            with ui.tab_panel(setup_tab):
+                ui.label("Setup & Configuration").classes("text-xl font-semibold mt-2")
                 with ui.column().classes("w-full gap-5 mt-2"):
                     with ui.column().classes("w-full gap-1"):
                         ui.label("1. Install Ollama from the official page:")
@@ -110,7 +172,25 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
                     check_button.disable()
                     busy.visible = True
                     try:
-                        await refresh_status_display(client, status_container)
+                        readiness = await run.io_bound(get_readiness, client)
+                        if readiness is None:
+                            logger.debug("AI readiness check cancelled")
+                            return
+                        if status_container.is_deleted:
+                            logger.debug(
+                                "AI readiness render skipped reason=%s", "page left"
+                            )
+                            return
+                        state, message = describe_status(readiness)
+                        try:
+                            _render_status_detail(status_container, state, message)
+                            _render_badge(header_status, state)
+                        except RuntimeError as error:
+                            logger.debug(
+                                "AI readiness render skipped error=%s", str(error)
+                            )
+                            return
+                        logger.info("AI readiness refreshed state=%s", state)
                     finally:
                         busy.visible = False
                         check_button.enable()
@@ -121,13 +201,3 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
                     ).props("color=primary")
                     busy = ui.spinner()
                     busy.visible = False
-
-            with ui.column().classes("flex-1"):
-                ui.label("Features").classes("text-xl font-semibold")
-                with ui.card().classes("w-full mt-2"):
-                    ui.label("Report generator").classes("font-semibold")
-                    ui.label(REPORTS_SUMMARY).classes("text-slate-600 text-sm")
-                    ui.button(
-                        "Open",
-                        on_click=lambda: router.navigate("ai_report_generator"),
-                    ).props("color=primary")

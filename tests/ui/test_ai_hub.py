@@ -60,6 +60,7 @@ class _UIContext:
         self.busy = MagicMock()
         self.busy.visible = False
         self.buttons: dict[str, MagicMock] = {}
+        self.tabs_container = _container()
 
     def button_factory(self, *args: Any, **kwargs: Any) -> MagicMock:
         text = args[0] if args else kwargs.get("text", "")
@@ -72,16 +73,15 @@ class _UIContext:
 
 
 def _setup_ui(mock_ui: MagicMock, context: _UIContext) -> None:
-    pending = [_container() for _ in range(5)]
-
-    def make_column(*args: Any, **kwargs: Any) -> MagicMock:
-        if pending:
-            return pending.pop(0)
-        return _container()
-
-    mock_ui.column.side_effect = make_column
+    mock_ui.column.side_effect = lambda *a, **k: _container()
     mock_ui.row.side_effect = lambda *a, **k: _container()
     mock_ui.card.side_effect = lambda *a, **k: _container()
+    mock_ui.tabs.side_effect = lambda *a, **k: context.tabs_container
+    mock_ui.tab.side_effect = lambda *a, **k: _container()
+    mock_ui.tab_panels.side_effect = lambda *a, **k: _container()
+    mock_ui.tab_panel.side_effect = lambda *a, **k: _container()
+    mock_ui.grid.side_effect = lambda *a, **k: _container()
+    mock_ui.icon.return_value = MagicMock()
     mock_ui.label.return_value = MagicMock()
     mock_ui.badge.return_value = MagicMock()
     mock_ui.link.return_value = MagicMock()
@@ -117,6 +117,7 @@ def test_renders_guidance_steps_and_menu_without_blocking() -> None:
     # when
     with (
         patch.object(hub, "ui") as mock_ui,
+        patch.object(hub, "run"),
         patch("app.ui.pages.ai_reports.ui", mock_ui),
         patch("app.ui.pages.ai_reports.run"),
     ):
@@ -127,8 +128,21 @@ def test_renders_guidance_steps_and_menu_without_blocking() -> None:
         labels = [call.args[0] for call in mock_ui.label.call_args_list]
         assert any("Ollama" in label for label in labels)
         assert any("never leaves this machine" in label for label in labels)
-        assert any("Requirements" in label for label in labels)
+        assert any("Setup status:" in label for label in labels)
+        assert any("Grid of Features" in label for label in labels)
         assert "Report generator" in labels
+        mock_ui.tabs.assert_called_once()
+        context.tabs_container.classes.assert_called_once_with(
+            "w-full mt-2 justify-start"
+        )
+        context.tabs_container.props.assert_called_once_with("align=left")
+        assert mock_ui.tab.call_count == 2
+        tab_names = [call.args[0] for call in mock_ui.tab.call_args_list]
+        assert "Assistant Features" in tab_names
+        assert "Setup & Configuration" in tab_names
+        mock_ui.tab_panels.assert_called_once()
+        assert mock_ui.tab_panel.call_count == 2
+        mock_ui.grid.assert_called_once()
         mock_ui.link.assert_any_call(
             OLLAMA_DOWNLOAD_URL, OLLAMA_DOWNLOAD_URL, new_tab=True
         )
@@ -139,7 +153,8 @@ def test_renders_guidance_steps_and_menu_without_blocking() -> None:
         mock_ui.code.assert_any_call(QWEN_PULL_COMMAND)
         mock_ui.code.assert_any_call(SERVE_COMMAND)
         mock_ui.code.return_value.classes.assert_called_with("w-auto")
-        mock_ui.badge.assert_called_with("Not checked", color="grey")
+        mock_ui.badge.assert_any_call("Not checked", color="grey")
+        assert mock_ui.badge.call_count >= 2
         mock_ui.timer.assert_not_called()
 
 
@@ -156,8 +171,9 @@ def test_check_button_shows_spinner_and_refreshes_to_ready() -> None:
     # when
     with (
         patch.object(hub, "ui") as mock_ui,
+        patch.object(hub, "run") as mock_run,
         patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run") as mock_run,
+        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
         mock_ui.badge.reset_mock()
@@ -179,6 +195,7 @@ def test_open_report_generator_navigates_to_form() -> None:
     # when
     with (
         patch.object(hub, "ui") as mock_ui,
+        patch.object(hub, "run"),
         patch("app.ui.pages.ai_reports.ui", mock_ui),
         patch("app.ui.pages.ai_reports.run"),
         patch.object(hub.router, "navigate") as mock_navigate,
@@ -190,6 +207,27 @@ def test_open_report_generator_navigates_to_form() -> None:
         mock_navigate.assert_called_once_with("ai_report_generator")
 
 
+def test_renders_single_feature_card_in_grid() -> None:
+    # given
+    context = _UIContext()
+    client = FakeOllamaClient(status=OllamaStatus(True, ("qwen3:4b",)))
+
+    # when
+    with (
+        patch.object(hub, "ui") as mock_ui,
+        patch.object(hub, "run"),
+        patch("app.ui.pages.ai_reports.ui", mock_ui),
+        patch("app.ui.pages.ai_reports.run"),
+    ):
+        _build_hub(mock_ui, context, client)
+
+        # then — grid with the only real feature
+        assert len(hub.FEATURES) == 1
+        assert hub.FEATURES[0]["route"] == "ai_report_generator"
+        mock_ui.grid.assert_called_once()
+        assert "Open" in context.buttons
+
+
 def test_shows_short_status_without_repeating_resources() -> None:
     # given
     context = _UIContext()
@@ -198,8 +236,9 @@ def test_shows_short_status_without_repeating_resources() -> None:
     # when
     with (
         patch.object(hub, "ui") as mock_ui,
+        patch.object(hub, "run") as mock_run,
         patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run") as mock_run,
+        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
         links_before = mock_ui.link.call_count
