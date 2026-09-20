@@ -154,8 +154,37 @@ def test_renders_guidance_steps_and_menu_without_blocking() -> None:
         mock_ui.code.assert_any_call(SERVE_COMMAND)
         mock_ui.code.return_value.classes.assert_called_with("w-auto")
         mock_ui.badge.assert_any_call("Not checked", color="grey")
-        assert mock_ui.badge.call_count >= 2
-        mock_ui.timer.assert_not_called()
+        assert mock_ui.badge.call_count == 1
+        mock_ui.timer.assert_called_once()
+        timer_args, timer_kwargs = mock_ui.timer.call_args
+        assert timer_args[0] == 0.5
+        assert timer_kwargs.get("once") is True
+
+
+def test_auto_check_updates_header_silently_without_button_feedback() -> None:
+    # given
+    context = _UIContext()
+    client = FakeOllamaClient(status=OllamaStatus(True, ("qwen3:4b",)))
+
+    # when
+    with (
+        patch.object(hub, "ui") as mock_ui,
+        patch.object(hub, "run") as mock_run,
+        patch("app.ui.pages.ai_reports.ui", mock_ui),
+        patch("app.ui.pages.ai_reports.run"),
+    ):
+        _build_hub(mock_ui, context, client)
+        mock_ui.badge.reset_mock()
+        mock_run.io_bound.side_effect = _inline_io_bound
+        auto_refresh = mock_ui.timer.call_args.args[1]
+        asyncio.run(auto_refresh())
+
+        # then — header badge updated, detail area keeps message only
+        assert mock_run.io_bound.call_count == 1
+        mock_ui.badge.assert_called_once_with("Ready", color="green")
+        assert context.busy.visible is False
+        context.buttons["Check requirements"].disable.assert_not_called()
+        context.buttons["Check requirements"].enable.assert_not_called()
 
 
 def test_check_button_shows_spinner_and_refreshes_to_ready() -> None:
@@ -180,11 +209,11 @@ def test_check_button_shows_spinner_and_refreshes_to_ready() -> None:
         mock_run.io_bound.side_effect = observing
         asyncio.run(context.buttons["Check requirements"].click())
 
-        # then — feedback during work, green indicator after
+        # then — feedback during work, green header badge after
         assert seen["busy"] is True
         assert context.busy.visible is False
         mock_run.io_bound.assert_called_once()
-        mock_ui.badge.assert_called_with("Ready", color="green")
+        mock_ui.badge.assert_called_once_with("Ready", color="green")
 
 
 def test_open_report_generator_navigates_to_form() -> None:
@@ -248,7 +277,7 @@ def test_shows_short_status_without_repeating_resources() -> None:
         refresh = context.buttons["Check requirements"].click
         asyncio.run(refresh())
 
-        # then — badge plus short message only, resources live in the steps
-        mock_ui.badge.assert_called_with("Not ready", color="red")
+        # then — header badge plus short message only, no detail badge
+        mock_ui.badge.assert_called_once_with("Not ready", color="red")
         assert mock_ui.link.call_count == links_before
         assert mock_ui.code.call_count == codes_before

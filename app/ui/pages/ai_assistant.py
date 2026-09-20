@@ -66,14 +66,10 @@ def _render_badge(container: ui.column, state: str) -> None:
             ui.badge("Not ready", color="red")
 
 
-def _render_status_detail(container: ui.column, state: str, message: str) -> None:
-    """Render the detailed status badge and message in the setup tab."""
+def _render_status_message(container: ui.column, message: str) -> None:
+    """Render the help message in the setup tab without a status badge."""
     container.clear()
     with container:
-        if state == "ready":
-            ui.badge("Ready", color="green")
-        else:
-            ui.badge("Not ready", color="red")
         ui.label(message)
 
 
@@ -165,12 +161,12 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
 
                 status_container = ui.column().classes("w-full mt-4")
                 with status_container:
-                    ui.badge("Not checked", color="grey")
                     ui.label(NOT_CHECKED_HINT)
 
-                async def refresh() -> None:
-                    check_button.disable()
-                    busy.visible = True
+                async def _check_status(show_feedback: bool) -> None:
+                    if show_feedback:
+                        check_button.disable()
+                        busy.visible = True
                     try:
                         readiness = await run.io_bound(get_readiness, client)
                         if readiness is None:
@@ -183,7 +179,7 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
                             return
                         state, message = describe_status(readiness)
                         try:
-                            _render_status_detail(status_container, state, message)
+                            _render_status_message(status_container, message)
                             _render_badge(header_status, state)
                         except RuntimeError as error:
                             logger.debug(
@@ -192,8 +188,15 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
                             return
                         logger.info("AI readiness refreshed state=%s", state)
                     finally:
-                        busy.visible = False
-                        check_button.enable()
+                        if show_feedback:
+                            busy.visible = False
+                            check_button.enable()
+
+                async def refresh() -> None:
+                    await _check_status(show_feedback=True)
+
+                async def auto_refresh() -> None:
+                    await _check_status(show_feedback=False)
 
                 with ui.row().classes("w-full items-center gap-2 mt-4"):
                     check_button = ui.button(
@@ -201,3 +204,5 @@ def build_ai_assistant_page(ollama_client: OllamaClient | None = None) -> None:
                     ).props("color=primary")
                     busy = ui.spinner()
                     busy.visible = False
+
+                ui.timer(0.5, auto_refresh, once=True)
