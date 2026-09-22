@@ -3,6 +3,7 @@ from pathlib import Path
 from nicegui import ui
 
 from app.config import get_current_config, write_config
+from app.ui.components.export_location import open_folder_in_explorer
 from app.ui.components.forms import dialog_actions, form_message
 
 
@@ -31,7 +32,23 @@ def build_profile_page(base_dir: Path) -> None:
                 on_click=lambda: _open_edit_dialog(base_dir, refresh),
             ).props("color=primary")
 
+            ui.separator().classes("mt-6")
+            ui.label("Application data").classes("text-xl font-semibold mt-4")
+            ui.label("Root folder with the database and app files.").classes(
+                "text-sm text-slate-500"
+            )
+            path_label = ui.label(f"Application data stored in ({base_dir})").classes(
+                "text-xs text-slate-400 cursor-pointer hover:underline"
+            )
+            path_label.on("click", lambda: _open_data_folder(base_dir))
+
     refresh()
+
+
+def _open_data_folder(base_dir: Path) -> None:
+    """Open the application data folder in the file explorer."""
+    if not open_folder_in_explorer(base_dir):
+        ui.notify(f"Could not open {base_dir}", type="negative")
 
 
 def _open_edit_dialog(base_dir: Path, refresh) -> None:

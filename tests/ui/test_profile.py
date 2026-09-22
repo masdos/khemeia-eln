@@ -55,6 +55,108 @@ def test_profile_page_displays_current_config_values(tmp_path: Path) -> None:
     clear_current_config()
 
 
+def test_profile_page_shows_application_data_folder(tmp_path: Path) -> None:
+    """Profile page must show the application data folder below the form."""
+    # given
+    _setup_config()
+
+    with (
+        patch("app.ui.pages.profile.ui") as mock_ui,
+        patch("app.ui.pages.profile.get_current_config") as mock_get,
+    ):
+        mock_get.return_value = get_current_config()
+        mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+        label_mock = MagicMock()
+        label_mock.classes.return_value = label_mock
+        mock_ui.label.return_value = label_mock
+        mock_ui.button.return_value = MagicMock()
+
+        from app.ui.pages.profile import build_profile_page
+
+        # when
+        build_profile_page(base_dir=tmp_path)
+
+        # then — clickable hint with the data folder path
+        label_calls = [call.args[0] for call in mock_ui.label.call_args_list]
+        assert f"Application data stored in ({tmp_path})" in label_calls
+        click_registrations = [
+            call for call in label_mock.on.call_args_list if call.args[0] == "click"
+        ]
+        assert len(click_registrations) == 1
+
+    clear_current_config()
+
+
+def test_clicking_data_folder_hint_opens_the_folder(tmp_path: Path) -> None:
+    """Clicking the data folder hint must open the folder in the explorer."""
+    # given
+    _setup_config()
+
+    with (
+        patch("app.ui.pages.profile.ui") as mock_ui,
+        patch("app.ui.pages.profile.get_current_config") as mock_get,
+        patch("app.ui.pages.profile.open_folder_in_explorer") as mock_open,
+    ):
+        mock_get.return_value = get_current_config()
+        mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+        label_mock = MagicMock()
+        label_mock.classes.return_value = label_mock
+        mock_ui.label.return_value = label_mock
+        mock_ui.button.return_value = MagicMock()
+
+        from app.ui.pages.profile import build_profile_page
+
+        build_profile_page(base_dir=tmp_path)
+
+        # when — the click handler registered on the hint is invoked
+        click_handler = label_mock.on.call_args.args[1]
+        click_handler()
+
+        # then
+        mock_open.assert_called_once_with(tmp_path)
+
+    clear_current_config()
+
+
+def test_notifies_when_data_folder_cannot_be_opened(tmp_path: Path) -> None:
+    """A failed folder open must notify instead of failing silently."""
+    # given
+    _setup_config()
+
+    with (
+        patch("app.ui.pages.profile.ui") as mock_ui,
+        patch("app.ui.pages.profile.get_current_config") as mock_get,
+        patch(
+            "app.ui.pages.profile.open_folder_in_explorer", return_value=False
+        ) as mock_open,
+    ):
+        mock_get.return_value = get_current_config()
+        mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
+        mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+        label_mock = MagicMock()
+        label_mock.classes.return_value = label_mock
+        mock_ui.label.return_value = label_mock
+        mock_ui.button.return_value = MagicMock()
+
+        from app.ui.pages.profile import build_profile_page
+
+        build_profile_page(base_dir=tmp_path)
+
+        # when
+        click_handler = label_mock.on.call_args.args[1]
+        click_handler()
+
+        # then
+        mock_open.assert_called_once_with(tmp_path)
+        mock_ui.notify.assert_called_once_with(
+            f"Could not open {tmp_path}", type="negative"
+        )
+
+    clear_current_config()
+
+
 def test_profile_edit_dialog_has_input_fields(tmp_path: Path) -> None:
     """Edit dialog inputs must be pre-filled with current config values."""
     # given
@@ -124,9 +226,7 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
         mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
         mock_ui.input = MagicMock(side_effect=[name_mock, email_mock])
         mock_forms_ui.label.return_value = MagicMock()
-        mock_forms_ui.row.return_value.__enter__ = MagicMock(
-            return_value=MagicMock()
-        )
+        mock_forms_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
 
         # Capture buttons: page has "Edit profile", dialog row lives in forms
