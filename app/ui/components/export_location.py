@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 def open_folder_in_explorer(folder: Path | str) -> bool:
-    """Open folder in the OS file explorer, foreground, return True."""
+    """Open folder in the OS file explorer, return True on success."""
     target = Path(folder).expanduser()
     try:
         target.mkdir(parents=True, exist_ok=True)
@@ -22,8 +22,7 @@ def open_folder_in_explorer(folder: Path | str) -> bool:
         return False
     try:
         if os.name == "nt":
-            # New explorer process foregrounds above the app window.
-            subprocess.Popen(["explorer", str(target)])
+            os.startfile(str(target))  # type: ignore[attr-defined]
         elif sys_platform() == "darwin":
             subprocess.Popen(["open", str(target)])
         else:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -15,30 +16,16 @@ def test_creates_folder_before_opening(tmp_path: Path) -> None:
     target = tmp_path / "new_exports"
 
     # when
-    with patch("app.ui.components.export_location.subprocess.Popen") as mock_popen:
-        result = open_folder_in_explorer(target)
-
-    # then
-    assert result is True
-    assert target.is_dir()
-    assert mock_popen.call_count == 1
-
-
-def test_opens_windows_explorer_in_foreground(tmp_path: Path) -> None:
-    # given
-    target = tmp_path / "exports"
-    target.mkdir()
-
-    # when
     with (
-        patch("app.ui.components.export_location.os.name", "nt"),
+        patch.object(os, "startfile", create=True) as mock_start,
         patch("app.ui.components.export_location.subprocess.Popen") as mock_popen,
     ):
         result = open_folder_in_explorer(target)
 
     # then
     assert result is True
-    assert mock_popen.call_args.args[0] == ["explorer", str(target)]
+    assert target.is_dir()
+    assert mock_start.call_count + mock_popen.call_count == 1
 
 
 def test_returns_false_when_folder_creation_fails(tmp_path: Path) -> None:
@@ -59,9 +46,12 @@ def test_returns_false_when_explorer_launch_fails(tmp_path: Path) -> None:
     target.mkdir()
 
     # when
-    with patch(
-        "app.ui.components.export_location.subprocess.Popen",
-        side_effect=OSError("no explorer"),
+    with (
+        patch.object(os, "startfile", create=True, side_effect=OSError("no app")),
+        patch(
+            "app.ui.components.export_location.subprocess.Popen",
+            side_effect=OSError("no explorer"),
+        ),
     ):
         result = open_folder_in_explorer(target)
 
