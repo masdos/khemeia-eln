@@ -41,14 +41,18 @@ class FakeEquipmentRepository:
     def get_by_id(self, equipment_id: int) -> dict[str, Any] | None:
         return self._equipment.get(equipment_id)
 
-    def update(
-        self, equipment_id: int, **fields: object
-    ) -> dict[str, Any] | None:
+    def update(self, equipment_id: int, **fields: object) -> dict[str, Any] | None:
         equipment = self._equipment.get(equipment_id)
         if equipment is None:
             return None
         equipment.update(fields)
         return equipment
+
+    def get_experiment_history(self, equipment_id: int) -> Sequence[dict[str, Any]]:
+        return []
+
+    def delete(self, equipment_id: int) -> None:
+        self._equipment.pop(equipment_id, None)
 
 
 def _make_chainable(value: str = "") -> MagicMock:
@@ -88,9 +92,7 @@ def test_detail_page_prefills_current_values() -> None:
                     _mock_page_chrome(mock_ui)
                     mock_forms_ui.label.return_value = MagicMock()
                     mock_meta_ui.label.return_value = MagicMock()
-                    mock_ui.input = MagicMock(
-                        return_value=_make_chainable("HPLC")
-                    )
+                    mock_ui.input = MagicMock(return_value=_make_chainable("HPLC"))
                     mock_ui.textarea = MagicMock(
                         return_value=_make_chainable("Chromatograph")
                     )
@@ -129,9 +131,7 @@ def test_saving_from_detail_updates_equipment() -> None:
                     )
                     mock_forms_ui.button.return_value = MagicMock()
                     mock_meta_ui.label.return_value = MagicMock()
-                    mock_ui.input = MagicMock(
-                        return_value=_make_chainable("Renamed")
-                    )
+                    mock_ui.input = MagicMock(return_value=_make_chainable("Renamed"))
                     mock_ui.textarea = MagicMock(
                         return_value=_make_chainable("New desc")
                     )
@@ -170,20 +170,14 @@ def test_back_button_returns_to_inventory() -> None:
     with patch("app.ui.pages.equipment_detail._get_service", return_value=service):
         with patch("app.ui.pages.equipment_detail.ui") as mock_ui:
             with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                with patch(
-                    "app.ui.components.forms.router"
-                ) as mock_router:
+                with patch("app.ui.components.forms.router") as mock_router:
                     with patch("app.ui.components.meta.ui") as mock_meta_ui:
                         _mock_page_chrome(mock_ui)
                         mock_forms_ui.label.return_value = MagicMock()
                         mock_forms_ui.button.return_value = MagicMock()
                         mock_meta_ui.label.return_value = MagicMock()
-                        mock_ui.input = MagicMock(
-                            return_value=_make_chainable("HPLC")
-                        )
-                        mock_ui.textarea = MagicMock(
-                            return_value=_make_chainable("")
-                        )
+                        mock_ui.input = MagicMock(return_value=_make_chainable("HPLC"))
+                        mock_ui.textarea = MagicMock(return_value=_make_chainable(""))
 
                         from app.ui.pages.equipment_detail import (
                             build_equipment_detail_page,

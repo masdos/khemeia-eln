@@ -4,19 +4,23 @@ from nicegui import ui
 
 from app.database.connection import get_connection
 from app.services.inventory_service import (
+    EquipmentDeletionError,
+    EquipmentNotFoundError,
     InventoryNameError,
     InventoryService,
+    ReagentDeletionError,
     ReagentNotFoundError,
     SqliteEquipmentRepository,
     SqliteReagentRepository,
 )
 from app.ui import router
+from app.ui.components.dialogs import ConfirmBlocked, confirm_delete_dialog
 from app.ui.components.forms import dialog_actions, form_message
 from app.ui.components.ghs import ghs_checkboxes
 from app.ui.components.lists import search_toolbar
 from app.ui.components.tables import (
-    add_view_actions,
-    add_view_history_actions,
+    add_view_delete_actions,
+    add_view_history_delete_actions,
     entity_table,
 )
 
@@ -147,6 +151,7 @@ def _render_reagent_list(
                 "lot_number": r.get("lot_number", ""),
                 "in_stock": "Yes" if r.get("in_stock") else "No",
                 "ghs": ", ".join(ghs_flags) if ghs_flags else "-",
+                "in_use": bool(service.get_reagent_history(r["id"])),
             }
         )
 
@@ -158,7 +163,10 @@ def _render_reagent_list(
     def on_history(e) -> None:
         _open_history_dialog(service, e.args["id"], e.args["name"])
 
-    add_view_history_actions(table, on_view, on_history)
+    def on_delete(e) -> None:
+        _open_reagent_delete_dialog(service, e.args["id"], e.args["name"], refresh)
+
+    add_view_history_delete_actions(table, on_view, on_history, on_delete)
 
 
 def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
@@ -302,13 +310,15 @@ def _build_equipment_section(service: InventoryService) -> None:
     def refresh_equipment() -> None:
         equip_container.clear()
         with equip_container:
-            _render_equipment_list(service, search.value or "")
+            _render_equipment_list(service, search.value or "", refresh_equipment)
 
     search.on_value_change(lambda: refresh_equipment())
     refresh_equipment()
 
 
-def _render_equipment_list(service: InventoryService, search_text: str) -> None:
+def _render_equipment_list(
+    service: InventoryService, search_text: str, refresh: callable
+) -> None:
     equipment = service._equipment_repo.get_all()
     query = (search_text or "").strip().lower()
     if query:
@@ -347,6 +357,7 @@ def _render_equipment_list(service: InventoryService, search_text: str) -> None:
             "id": e["id"],
             "name": e["name"],
             "description": e.get("description", ""),
+            "in_use": bool(service.get_equipment_history(e["id"])),
         }
         for e in equipment
     ]
@@ -356,7 +367,10 @@ def _render_equipment_list(service: InventoryService, search_text: str) -> None:
     def on_view(e) -> None:
         router.navigate("equipment_detail", equipment_id=e.args["id"])
 
-    add_view_actions(table, on_view)
+    def on_delete(e) -> None:
+        _open_equipment_delete_dialog(service, e.args["id"], e.args["name"], refresh)
+
+    add_view_delete_actions(table, on_view, on_delete)
 
 
 def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None:
@@ -384,3 +398,53 @@ def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None
         dialog_actions("Create", save, dialog.close)
 
     dialog.open()
+
+
+def _open_reagent_delete_dialog(
+    service: InventoryService,
+    reagent_id: int,
+    reagent_name: str,
+    refresh: callable,
+) -> None:
+    def do_delete() -> None:
+        try:
+            service.delete_reagent(reagent_id)
+        except ReagentDeletionError:
+            raise ConfirmBlocked(
+                "Cannot delete this reagent because it is used in experiments."
+            ) from None
+        except ReagentNotFoundError:
+            raise ConfirmBlocked("Reagent not found.") from None
+
+    confirm_delete_dialog(
+        title="Delete Reagent",
+        question=f'Are you sure you want to delete "{reagent_name}"?',
+        success_message="Reagent deleted",
+        on_confirm=do_delete,
+        on_success=refresh,
+    )
+
+
+def _open_equipment_delete_dialog(
+    service: InventoryService,
+    equipment_id: int,
+    equipment_name: str,
+    refresh: callable,
+) -> None:
+    def do_delete() -> None:
+        try:
+            service.delete_equipment(equipment_id)
+        except EquipmentDeletionError:
+            raise ConfirmBlocked(
+                "Cannot delete this equipment because it is used in experiments."
+            ) from None
+        except EquipmentNotFoundError:
+            raise ConfirmBlocked("Equipment not found.") from None
+
+    confirm_delete_dialog(
+        title="Delete Equipment",
+        question=f'Are you sure you want to delete "{equipment_name}"?',
+        success_message="Equipment deleted",
+        on_confirm=do_delete,
+        on_success=refresh,
+    )

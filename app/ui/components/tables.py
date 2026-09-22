@@ -8,17 +8,36 @@ VIEW_DELETE_SLOT = """
 <q-td :props="props">
     <q-btn flat dense icon="visibility"
             @click="() => $parent.$emit('view', props.row)" />
-    <q-btn flat dense icon="delete" color="negative"
-            @click="() => $parent.$emit('delete', props.row)" />
+    <q-btn flat dense icon="delete"
+            :color="props.row.in_use ? 'grey-5' : 'negative'"
+            :disable="!!props.row.in_use"
+            @click="() => $parent.$emit('delete', props.row)">
+        <q-tooltip v-if="props.row.in_use">In use in experiments</q-tooltip>
+    </q-btn>
+</q-td>
+"""
+
+VIEW_HISTORY_DELETE_SLOT = """
+<q-td :props="props">
+    <q-btn flat dense icon="visibility"
+            @click="() => $parent.$emit('view', props.row)" />
+    <q-btn flat dense icon="history"
+            @click="() => $parent.$emit('history', props.row)" />
+    <q-btn flat dense icon="delete"
+            :color="props.row.in_use ? 'grey-5' : 'negative'"
+            :disable="!!props.row.in_use"
+            @click="() => $parent.$emit('delete', props.row)">
+        <q-tooltip v-if="props.row.in_use">In use in experiments</q-tooltip>
+    </q-btn>
 </q-td>
 """
 
 
 def entity_table(columns: list, rows: list) -> ui.table:
     """Create the standard records table."""
-    return ui.table(
-        columns=columns, rows=rows, row_key="id", pagination=10
-    ).classes("w-full")
+    return ui.table(columns=columns, rows=rows, row_key="id", pagination=10).classes(
+        "w-full"
+    )
 
 
 VIEW_SLOT = """
@@ -84,6 +103,19 @@ def add_view_history_actions(
     table.add_slot("body-cell-actions", VIEW_HISTORY_SLOT)
     table.on("view", on_view)
     table.on("history", on_history)
+
+
+def add_view_history_delete_actions(
+    table: ui.table,
+    on_view: Callable[[object], None],
+    on_history: Callable[[object], None],
+    on_delete: Callable[[object], None],
+) -> None:
+    """Add view/history/delete actions with delete disabled when in use."""
+    table.add_slot("body-cell-actions", VIEW_HISTORY_DELETE_SLOT)
+    table.on("view", on_view)
+    table.on("history", on_history)
+    table.on("delete", on_delete)
 
 
 def add_state_badge(table: ui.table) -> None:

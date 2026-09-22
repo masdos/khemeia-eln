@@ -34,6 +34,9 @@ class FakeReagentRepository:
     def get_experiment_history(self, reagent_id: int) -> Sequence[dict[str, Any]]:
         return []
 
+    def delete(self, reagent_id: int) -> None:
+        self._reagents.pop(reagent_id, None)
+
 
 class FakeEquipmentRepository:
     def __init__(self) -> None:
@@ -62,6 +65,12 @@ class FakeEquipmentRepository:
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
         return []
 
+    def get_experiment_history(self, equipment_id: int) -> Sequence[dict[str, Any]]:
+        return []
+
+    def delete(self, equipment_id: int) -> None:
+        self._equipment.pop(equipment_id, None)
+
 
 def _make_chainable(value: str = "") -> MagicMock:
     mock = MagicMock()
@@ -89,9 +98,7 @@ def test_inventory_page_renders_tabs() -> None:
                     mock_ui.column.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.column.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.tabs.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
@@ -138,15 +145,11 @@ def test_add_reagent_via_dialog() -> None:
                     mock_ui.dialog.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.dialog.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.card.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.card.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
                     # Return different chainables per input call
                     input_values = iter(["Ethanol", "", "", "", "", "", "", ""])
@@ -221,9 +224,7 @@ def test_add_equipment_via_dialog() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
 
                 from app.ui.pages.inventory import (
@@ -259,15 +260,11 @@ def test_rejects_blank_reagent_name() -> None:
                     mock_ui.dialog.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.dialog.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.card.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.card.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
 
                     input_values = iter(["", "", "", "", "", "", "", ""])
                     mock_ui.input.side_effect = lambda *a, **kw: _make_chainable(
@@ -314,9 +311,7 @@ def test_rejects_blank_reagent_name() -> None:
             assert len(reagents) == 0
 
 
-def _mock_section_chrome(
-    mock_ui: MagicMock, mock_lists_ui: MagicMock
-) -> None:
+def _mock_section_chrome(mock_ui: MagicMock, mock_lists_ui: MagicMock) -> None:
     mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
     mock_lists_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
@@ -344,9 +339,7 @@ def test_reagent_view_action_navigates_to_detail() -> None:
                         _build_reagents_section(service)
 
                         # when - the view action of the table row is triggered
-                        table = (
-                            mock_tables_ui.table.return_value.classes.return_value
-                        )
+                        table = mock_tables_ui.table.return_value.classes.return_value
                         view_handler = None
                         for call in table.on.call_args_list:
                             if call.args and call.args[0] == "view":
@@ -382,9 +375,7 @@ def test_equipment_view_action_navigates_to_detail() -> None:
                         _build_equipment_section(service)
 
                         # when - the view action of the table row is triggered
-                        table = (
-                            mock_tables_ui.table.return_value.classes.return_value
-                        )
+                        table = mock_tables_ui.table.return_value.classes.return_value
                         view_handler = None
                         for call in table.on.call_args_list:
                             if call.args and call.args[0] == "view":
