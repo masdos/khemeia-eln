@@ -8,7 +8,6 @@ from app.ui.pages import ai_report_generator
 from app.ui.pages.ai_report_generator import (
     build_ai_report_generator_page,
     collect_experiments_data,
-    export_draft,
     generate_draft,
     get_experiment_choices,
     get_project_choices,
@@ -270,18 +269,14 @@ def _build_page(
         _setup_component_ui(mock_comp_ui, context)
         with patch("app.ui.pages.ai_report_generator.run") as loader_run:
             loader_run.io_bound.side_effect = _inline_io_bound
-            with patch(
-                "app.ui.pages.ai_report_generator.export_location_label",
-            ) as mock_display:
-                build_ai_report_generator_page(
-                    base_dir,
-                    experiment_service=experiment_service,  # type: ignore[arg-type]
-                    ai_service=ai_service,  # type: ignore[arg-type]
-                    export_service=export_service,  # type: ignore[arg-type]
-                    ollama_client=ollama_client,  # type: ignore[arg-type]
-                    project_repo=project_repo,  # type: ignore[arg-type]
-                )
-                context.display_mock = mock_display
+            build_ai_report_generator_page(
+                base_dir,
+                experiment_service=experiment_service,  # type: ignore[arg-type]
+                ai_service=ai_service,  # type: ignore[arg-type]
+                export_service=export_service,  # type: ignore[arg-type]
+                ollama_client=ollama_client,  # type: ignore[arg-type]
+                project_repo=project_repo,  # type: ignore[arg-type]
+            )
             _run_model_loader(mock_ui, context)
     if chosen_project is not None:
         context.project_select.value = chosen_project
@@ -595,69 +590,6 @@ def test_saves_edited_draft_to_database() -> None:
         assert export_service.pdf_calls == []
 
 
-def test_exports_edited_draft_to_markdown() -> None:
-    # given
-    context = _UIContext()
-
-    # when
-    with patch.object(ai_report_generator, "ui") as mock_ui:
-        _, _, export_service = _build_page(mock_ui, context)
-        context.draft.value = "# Edited draft"
-        context.buttons["Export Markdown"].click()
-
-        # then — file-only export, nothing is saved
-        assert export_service.markdown_calls == ["# Edited draft"]
-        assert export_service.save_calls == []
-        assert export_service.pdf_calls == []
-
-
-def test_exports_edited_draft_to_pdf() -> None:
-    # given
-    context = _UIContext()
-
-    # when
-    with patch.object(ai_report_generator, "ui") as mock_ui:
-        _, _, export_service = _build_page(mock_ui, context)
-        context.draft.value = "# Edited draft"
-        context.buttons["Export PDF"].click()
-
-        # then
-        assert export_service.pdf_calls == ["# Edited draft"]
-        assert export_service.save_calls == []
-        assert export_service.markdown_calls == []
-
-
-def test_shows_exports_location_hint() -> None:
-    # given
-    context = _UIContext()
-
-    # when
-    with patch.object(ai_report_generator, "ui") as mock_ui:
-        _build_page(mock_ui, context)
-
-        # then - clickable path hint below the export buttons
-        assert hasattr(context, "display_mock")
-        assert context.display_mock.call_count == 1
-
-
-def test_warns_when_exporting_without_draft() -> None:
-    # given
-    context = _UIContext()
-
-    # when
-    with patch.object(ai_report_generator, "ui") as mock_ui:
-        _, _, export_service = _build_page(mock_ui, context)
-        context.draft.value = "   "
-        context.buttons["Export Markdown"].click()
-
-        # then
-        assert export_service.markdown_calls == []
-        assert export_service.pdf_calls == []
-        mock_ui.notify.assert_called_with(
-            "Generate a draft before exporting.", type="negative"
-        )
-
-
 def test_shows_empty_dropdown_when_no_model_installed() -> None:
     # given
     context = _UIContext()
@@ -745,19 +677,6 @@ def test_returns_none_when_ai_reports_nothing() -> None:
 
     # then
     assert draft is None
-
-
-def test_dispatches_export_by_selected_format(tmp_path: Path) -> None:
-    # given
-    export_service = FakeExportService(tmp_path)
-
-    # when
-    markdown_path = export_draft(export_service, "# Draft", "md")  # type: ignore[arg-type]
-    pdf_path = export_draft(export_service, "# Draft", "pdf")  # type: ignore[arg-type]
-
-    # then
-    assert markdown_path.name == "report.md"
-    assert pdf_path.name == "report.pdf"
 
 
 def test_saves_draft_to_database_without_exporting(tmp_path: Path) -> None:

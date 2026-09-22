@@ -37,7 +37,6 @@ from app.services.ollama_client import OllamaClient
 from app.services.project_service import SqliteProjectRepository
 from app.services.protocol_service import SqliteProtocolRepository
 from app.ui import router
-from app.ui.components.export_location import export_location_label
 from app.ui.components.forms import back_button
 from app.ui.components.markdown_editor import markdown_editor
 
@@ -49,7 +48,6 @@ MODEL_REQUIRED = "Select a model."
 LANGUAGE_REQUIRED = "Select a language."
 PROJECT_REQUIRED = "Select a project."
 TITLE_REQUIRED = "Enter a report title."
-DRAFT_REQUIRED = "Generate a draft before exporting."
 SAVE_REQUIRED = "Generate a draft before saving."
 LANGUAGE_OPTIONS = ["Spanish", "English"]
 
@@ -122,17 +120,6 @@ def save_draft(
     )
 
 
-def export_draft(
-    export_service: ExportService,
-    markdown_content: str,
-    file_format: str,
-) -> Path:
-    """Export the edited draft as Markdown or PDF and return its path."""
-    if file_format == "pdf":
-        return export_service.export_ai_report_pdf(markdown_content)
-    return export_service.export_ai_report_markdown(markdown_content)
-
-
 def _get_services(base_dir: Path) -> dict[str, Any]:
     conn = get_connection()
     experiment_service = ExperimentService(
@@ -151,6 +138,7 @@ def _get_services(base_dir: Path) -> dict[str, Any]:
         attachment_repo=ExportSqliteAttachmentRepository(conn),
         user_name=config.user_name,
         user_email=config.user_email,
+        user_institution=config.institution or "",
         report_repo=SqliteReportRepository(conn),
     )
     ollama_client = OllamaClient()
@@ -184,6 +172,7 @@ def _persist_last_used_model(base_dir: Path | None, model: str) -> None:
         {
             "user_name": current.user_name,
             "user_email": current.user_email,
+            "institution": current.institution or "",
             "last_used_model": model,
         },
         base_dir=base_dir,
@@ -225,7 +214,7 @@ def build_ai_report_generator_page(
         ui.label("Report generator").classes("text-2xl font-semibold")
         ui.label(
             "Select experiments, choose a model, generate a draft with Ollama, "
-            "edit it and export to Markdown or PDF."
+            "edit it and save it as a report."
         ).classes("text-slate-600 mt-2")
 
         project_choices = get_project_choices(project_repo)
@@ -337,18 +326,6 @@ def build_ai_report_generator_page(
             logger.info("AI draft saved report_id=%s", report_id)
             ui.notify("Report saved", type="positive")
 
-        def on_export(file_format: str) -> None:
-            markdown = draft_area.value or ""
-            if not markdown.strip():
-                ui.notify(DRAFT_REQUIRED, type="negative")
-                return
-            try:
-                file_path = export_draft(export_service, markdown, file_format)
-            except (ValueError, RuntimeError) as error:
-                ui.notify(str(error), type="negative")
-                return
-            ui.notify(f"Exported to {file_path.name}", type="positive")
-
         with ui.row().classes("w-full items-center gap-2 mt-4"):
             generate_button = ui.button("Generate draft", on_click=on_generate).props(
                 "color=primary"
@@ -405,19 +382,6 @@ def build_ai_report_generator_page(
             logger.info("Installed models loaded count=%s", len(installed_models))
 
         ui.timer(0.5, load_models, once=True)
-
-        ui.separator().classes("mt-6")
-        ui.label("Export").classes("text-xl font-semibold mt-4")
-
-        with ui.row().classes("gap-2"):
-            ui.button("Export Markdown", on_click=lambda: on_export("md")).props(
-                "color=primary"
-            )
-            ui.button("Export PDF", on_click=lambda: on_export("pdf")).props(
-                "color=primary"
-            )
-
-        export_location_label(base_dir / "exports")
 
         save_button.disable()
 
