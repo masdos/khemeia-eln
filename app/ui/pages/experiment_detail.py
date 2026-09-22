@@ -88,6 +88,7 @@ def _get_services(base_dir: Path) -> dict:
         attachment_repo=ExportSqliteAttachmentRepository(conn),
         user_name=config.user_name,
         user_email=config.user_email,
+        user_institution=config.institution or "",
     )
     chemistry_service = ChemistryService()
     return {

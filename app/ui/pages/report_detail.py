@@ -64,6 +64,7 @@ def _get_export_service(base_dir: Path) -> ExportService:
         attachment_repo=ExportSqliteAttachmentRepository(conn),
         user_name=config.user_name,
         user_email=config.user_email,
+        user_institution=config.institution or "",
         report_repo=SqliteReportRepository(conn),
     )
 
@@ -125,16 +126,12 @@ def build_report_detail_page(
         ui.label("Export").classes("text-xl font-semibold mt-4")
 
         def on_export(file_format: str) -> None:
-            content = content_input.value or ""
-            if not content.strip():
-                ui.notify("Enter content before exporting.", type="negative")
-                return
             svc = export_service or _get_export_service(base_dir)
             try:
                 if file_format == "pdf":
-                    file_path = svc.export_ai_report_pdf(content)
+                    file_path = svc.export_report_pdf(report_id)
                 else:
-                    file_path = svc.export_ai_report_markdown(content)
+                    file_path = svc.export_report_markdown(report_id)
             except (ValueError, RuntimeError) as error:
                 ui.notify(str(error), type="negative")
                 return

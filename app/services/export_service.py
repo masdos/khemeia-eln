@@ -36,6 +36,10 @@ class ExperimentNotFoundError(ValueError):
     """Raised when exporting an experiment that does not exist."""
 
 
+class ReportNotFoundError(ValueError):
+    """Raised when exporting a report that does not exist."""
+
+
 class ExperimentRepository(Protocol):
     """Data access contract for experiment reads required by ExportService."""
 
@@ -85,6 +89,8 @@ class ReportRepository(Protocol):
     def link_to_experiments(
         self, report_id: int, experiment_ids: Sequence[int]
     ) -> None: ...
+
+    def get_by_id(self, report_id: int) -> dict[str, Any] | None: ...
 
 
 class SqliteExperimentRepository:
@@ -177,6 +183,9 @@ class SqliteReportRepository:
             self._connection, report_id, experiment_ids
         )
 
+    def get_by_id(self, report_id: int) -> dict[str, Any] | None:
+        return _row_to_dict(report_repository.get_by_id(self._connection, report_id))
+
 
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     if row is None:
@@ -199,6 +208,7 @@ class ExportService:
         attachment_repo: AttachmentRepository,
         user_name: str = "",
         user_email: str = "",
+        user_institution: str = "",
         report_repo: ReportRepository | None = None,
     ) -> None:
         self._base_dir = base_dir
@@ -210,6 +220,7 @@ class ExportService:
         self._attachment_repo = attachment_repo
         self._user_name = user_name
         self._user_email = user_email
+        self._user_institution = user_institution
         self._report_repo = report_repo
 
     def export_experiment_markdown(self, experiment_id: int) -> Path:
@@ -277,14 +288,10 @@ class ExportService:
             raise ValueError(f"Project with id {project_id} does not exist")
         report_repo = self._require_report_repo()
 
-        report_id = report_repo.create(
-            project_id, title.strip(), markdown_content
-        )
+        report_id = report_repo.create(project_id, title.strip(), markdown_content)
         report_repo.link_to_experiments(report_id, list(experiment_ids))
 
-        logger.info(
-            "AI report saved report_id=%s project_id=%s", report_id, project_id
-        )
+        logger.info("AI report saved report_id=%s project_id=%s", report_id, project_id)
         return report_id
 
     def export_ai_report_markdown(self, markdown_content: str) -> Path:
@@ -294,7 +301,8 @@ class ExportService:
 
         _, stored_name = _build_ai_report_names("md")
         file_path = self._exports_dir() / stored_name
-        file_path.write_text(markdown_content, encoding="utf-8")
+        content = self._with_user_header(markdown_content)
+        file_path.write_text(content, encoding="utf-8")
 
         logger.info("AI report exported to markdown stored_name=%s", stored_name)
         return file_path
@@ -306,10 +314,55 @@ class ExportService:
 
         _, stored_name = _build_ai_report_names("pdf")
         file_path = self._exports_dir() / stored_name
-        _write_markdown_pdf(file_path, markdown_content)
+        _write_markdown_pdf(file_path, self._with_user_header(markdown_content))
 
         logger.info("AI report exported to pdf stored_name=%s", stored_name)
         return file_path
+
+    def export_report_markdown(self, report_id: int) -> Path:
+        """Export a saved report to Markdown under BASE_DIR/exports/."""
+        report = self._require_report(report_id)
+        content = self._with_user_header(report.get("content_markdown") or "")
+
+        file_path = self._exports_dir() / f"report_{report_id}.md"
+        file_path.write_text(content, encoding="utf-8")
+
+        logger.info("Report exported to markdown report_id=%s", report_id)
+        return file_path
+
+    def export_report_pdf(self, report_id: int) -> Path:
+        """Export a saved report to PDF under BASE_DIR/exports/."""
+        report = self._require_report(report_id)
+        content = self._with_user_header(report.get("content_markdown") or "")
+
+        file_path = self._exports_dir() / f"report_{report_id}.pdf"
+        _write_markdown_pdf(file_path, content)
+
+        logger.info("Report exported to pdf report_id=%s", report_id)
+        return file_path
+
+    def _require_report(self, report_id: int) -> dict[str, Any]:
+        report_repo = self._require_report_repo()
+        report = report_repo.get_by_id(report_id)
+        if report is None:
+            raise ReportNotFoundError(f"Report with id {report_id} does not exist")
+
+        return report
+
+    def _user_header_lines(self) -> list[str]:
+        from datetime import date
+
+        header = [
+            date.today().strftime("%Y-%m-%d"),
+            self._user_name,
+            self._user_email,
+        ]
+        if self._user_institution.strip():
+            header.append(self._user_institution.strip())
+        return header
+
+    def _with_user_header(self, markdown_content: str) -> str:
+        return "\n".join([*self._user_header_lines(), "", markdown_content]) + "\n"
 
     def _require_report_repo(self) -> ReportRepository:
         if self._report_repo is None:
@@ -334,16 +387,11 @@ class ExportService:
         protocol: dict[str, Any] | None,
         attachments: Sequence[dict[str, Any]],
     ) -> str:
-        from datetime import date
-
-        today = date.today().strftime("%Y-%m-%d")
         project_name = project["name"] if project else "_None_"
         protocol_name = protocol["name"] if protocol else "_None_"
 
         lines = [
-            today,
-            self._user_name,
-            self._user_email,
+            *self._user_header_lines(),
             "",
             f"# {experiment['title']}",
             "",

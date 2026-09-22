@@ -8,19 +8,19 @@ from app.services.report_service import ReportService
 
 
 class FakeExportService:
-    """Test double exporting content without filesystem."""
+    """Test double exporting saved reports without filesystem."""
 
     def __init__(self) -> None:
-        self.markdown_calls: list[str] = []
-        self.pdf_calls: list[str] = []
+        self.markdown_calls: list[int] = []
+        self.pdf_calls: list[int] = []
 
-    def export_ai_report_markdown(self, markdown_content: str) -> Path:
-        self.markdown_calls.append(markdown_content)
-        return Path("report.md")
+    def export_report_markdown(self, report_id: int) -> Path:
+        self.markdown_calls.append(report_id)
+        return Path(f"report_{report_id}.md")
 
-    def export_ai_report_pdf(self, markdown_content: str) -> Path:
-        self.pdf_calls.append(markdown_content)
-        return Path("report.pdf")
+    def export_report_pdf(self, report_id: int) -> Path:
+        self.pdf_calls.append(report_id)
+        return Path(f"report_{report_id}.pdf")
 
 
 class FakeReportRepository:
@@ -294,32 +294,8 @@ def test_shows_exports_location_hint() -> None:
             assert buttons["__display_mock__"].call_count == 1
 
 
-def test_warns_when_exporting_without_content() -> None:
-    """Exporting empty content must notify instead of writing files."""
-    # given
-    repo = FakeReportRepository()
-    service = ReportService(repo)
-    report_id = repo.seed(1, "Report A", "")
-
-    with patch("app.ui.pages.report_detail._get_service", return_value=service):
-        with patch("app.ui.pages.report_detail.ui") as mock_ui:
-            # when
-            export_service, draft, buttons, _ = _build_for_export(
-                mock_ui, service, report_id
-            )
-            draft.value = "   "
-            buttons["Export Markdown"].click()
-
-            # then
-            assert export_service.markdown_calls == []
-            assert export_service.pdf_calls == []
-            mock_ui.notify.assert_called_with(
-                "Enter content before exporting.", type="negative"
-            )
-
-
-def test_exports_content_to_markdown() -> None:
-    """Export Markdown must write the current content to a file."""
+def test_exports_saved_report_to_markdown_by_id() -> None:
+    """Export Markdown must export the saved report by identifier."""
     # given
     repo = FakeReportRepository()
     service = ReportService(repo)
@@ -335,13 +311,15 @@ def test_exports_content_to_markdown() -> None:
             buttons["Export Markdown"].click()
 
             # then
-            assert export_service.markdown_calls == ["# Edited"]
+            assert export_service.markdown_calls == [report_id]
             assert export_service.pdf_calls == []
-            mock_ui.notify.assert_called_with("Exported to report.md", type="positive")
+            mock_ui.notify.assert_called_with(
+                f"Exported to report_{report_id}.md", type="positive"
+            )
 
 
-def test_exports_content_to_pdf() -> None:
-    """Export PDF must render the current content to a file."""
+def test_exports_saved_report_to_pdf_by_id() -> None:
+    """Export PDF must export the saved report by identifier."""
     # given
     repo = FakeReportRepository()
     service = ReportService(repo)
@@ -357,5 +335,5 @@ def test_exports_content_to_pdf() -> None:
             buttons["Export PDF"].click()
 
             # then
-            assert export_service.pdf_calls == ["# Edited"]
+            assert export_service.pdf_calls == [report_id]
             assert export_service.markdown_calls == []

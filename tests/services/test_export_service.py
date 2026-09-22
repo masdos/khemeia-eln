@@ -7,6 +7,7 @@ import pytest
 from app.services.export_service import (
     ExperimentNotFoundError,
     ExportService,
+    ReportNotFoundError,
     _convert_inline_markdown,
 )
 
@@ -117,6 +118,9 @@ class InMemoryReportRepository:
         self, report_id: int, experiment_ids: Sequence[int]
     ) -> None:
         self._links[report_id] = list(experiment_ids)
+
+    def get_by_id(self, report_id: int) -> dict[str, Any] | None:
+        return self._reports.get(report_id)
 
 
 @pytest.fixture(name="experiment_repository")
@@ -249,6 +253,57 @@ class TestExportExperimentMarkdown:
         # when / then
         with pytest.raises(ExperimentNotFoundError, match="does not exist"):
             service.export_experiment_markdown(999)
+
+    def test_omits_institution_line_when_not_provided(
+        self, service: ExportService
+    ) -> None:
+        # when
+        file_path = service.export_experiment_markdown(1)
+
+        # then
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        assert "Test User" in lines
+        assert "test@example.com" in lines
+        assert len(lines) > 3
+        assert lines[3] == ""
+
+
+class TestExportInstitutionHeader:
+    def test_includes_institution_below_email_when_provided(
+        self,
+        tmp_path: Path,
+        experiment_repository: InMemoryExperimentRepository,
+        reagent_repository: InMemoryReagentRepository,
+        equipment_repository: InMemoryEquipmentRepository,
+        project_repository: InMemoryProjectRepository,
+        protocol_repository: InMemoryProtocolRepository,
+        attachment_repository: InMemoryAttachmentRepository,
+    ) -> None:
+        # given
+        experiment_repository.add_experiment(
+            {"id": 9, "title": "T", "state": "Running", "notes": None}
+        )
+        service = ExportService(
+            tmp_path,
+            experiment_repository,
+            reagent_repository,
+            equipment_repository,
+            project_repository,
+            protocol_repository,
+            attachment_repository,
+            user_name="Test User",
+            user_email="test@example.com",
+            user_institution="Example University",
+        )
+
+        # when
+        file_path = service.export_experiment_markdown(9)
+
+        # then
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        assert lines[1] == "Test User"
+        assert lines[2] == "test@example.com"
+        assert lines[3] == "Example University"
 
 
 class TestExportExperimentPdf:
@@ -430,7 +485,26 @@ class TestExportAiReportMarkdown:
         assert file_path.suffix == ".md"
         assert file_path.is_absolute()
         assert file_path.exists()
-        assert file_path.read_text(encoding="utf-8") == markdown
+        content = file_path.read_text(encoding="utf-8")
+        assert markdown in content
+        assert "Test User" in content
+        assert "test@example.com" in content
+
+    def test_prepends_user_header_before_draft_content(
+        self, service: ExportService
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        file_path = service.export_ai_report_markdown(markdown)
+
+        # then
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        assert lines[1] == "Test User"
+        assert lines[2] == "test@example.com"
+        assert lines[3] == ""
+        assert lines[4] == "# AI Report"
 
     def test_leaves_database_untouched(
         self,
@@ -521,6 +595,117 @@ class TestExportAiReportPdf:
         # when / then
         with pytest.raises(ValueError, match="markdown_content"):
             service.export_ai_report_pdf(empty_markdown)
+
+
+class TestExportReportMarkdown:
+    def test_writes_report_file_with_experiment_like_name(
+        self,
+        ai_service: ExportService,
+        tmp_path: Path,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        report_id = ai_service.save_report("# Body", [1], 1, "Weekly Report")
+
+        # when
+        file_path = ai_service.export_report_markdown(report_id)
+
+        # then
+        assert file_path == tmp_path / "exports" / f"report_{report_id}.md"
+        assert file_path.exists()
+
+    def test_includes_date_user_and_content_without_duplicate_title(
+        self,
+        ai_service: ExportService,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        report_id = ai_service.save_report("# Body text", [1], 1, "Weekly Report")
+
+        # when
+        file_path = ai_service.export_report_markdown(report_id)
+
+        # then
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        assert lines[4] == "# Body text"
+        assert "# Weekly Report" not in lines
+
+    def test_includes_institution_when_provided(
+        self,
+        tmp_path: Path,
+        experiment_repository: InMemoryExperimentRepository,
+        reagent_repository: InMemoryReagentRepository,
+        equipment_repository: InMemoryEquipmentRepository,
+        project_repository: InMemoryProjectRepository,
+        protocol_repository: InMemoryProtocolRepository,
+        attachment_repository: InMemoryAttachmentRepository,
+        report_repository: InMemoryReportRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        service = ExportService(
+            tmp_path,
+            experiment_repository,
+            reagent_repository,
+            equipment_repository,
+            project_repository,
+            protocol_repository,
+            attachment_repository,
+            user_name="Test User",
+            user_email="test@example.com",
+            user_institution="Example University",
+            report_repo=report_repository,
+        )
+        report_id = service.save_report("# Body", [1], 1, "Titled")
+
+        # when
+        file_path = service.export_report_markdown(report_id)
+
+        # then
+        lines = file_path.read_text(encoding="utf-8").splitlines()
+        assert lines[1] == "Test User"
+        assert lines[2] == "test@example.com"
+        assert lines[3] == "Example University"
+
+    def test_rejects_missing_report(self, ai_service: ExportService) -> None:
+        # when / then
+        with pytest.raises(ReportNotFoundError, match="does not exist"):
+            ai_service.export_report_markdown(999)
+
+    def test_rejects_export_without_report_repository(
+        self, service: ExportService
+    ) -> None:
+        # given — the service fixture has no report repository
+
+        # when / then
+        with pytest.raises(RuntimeError, match="not configured"):
+            service.export_report_markdown(1)
+
+
+class TestExportReportPdf:
+    def test_writes_pdf_file_with_experiment_like_name(
+        self,
+        ai_service: ExportService,
+        tmp_path: Path,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        report_id = ai_service.save_report("# Body", [1], 1, "Weekly Report")
+
+        # when
+        file_path = ai_service.export_report_pdf(report_id)
+
+        # then
+        assert file_path == tmp_path / "exports" / f"report_{report_id}.pdf"
+        assert file_path.read_bytes().startswith(b"%PDF")
+
+    def test_rejects_missing_report(self, ai_service: ExportService) -> None:
+        # when / then
+        with pytest.raises(ReportNotFoundError, match="does not exist"):
+            ai_service.export_report_pdf(999)
 
 
 class TestSaveReport:
