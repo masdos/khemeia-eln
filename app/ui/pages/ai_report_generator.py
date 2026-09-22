@@ -37,6 +37,7 @@ from app.services.ollama_client import OllamaClient
 from app.services.project_service import SqliteProjectRepository
 from app.services.protocol_service import SqliteProtocolRepository
 from app.ui import router
+from app.ui.components.export_location import export_location_label
 from app.ui.components.forms import back_button
 from app.ui.components.markdown_editor import markdown_editor
 
@@ -415,9 +416,9 @@ def build_ai_report_generator_page(
             ui.button("Export PDF", on_click=lambda: on_export("pdf")).props(
                 "color=primary"
             )
-        ui.label(f"Exports are stored in ({base_dir / 'exports'})").classes(
-            "text-xs text-slate-400"
-        )
+
+        export_location_label(base_dir / "exports")
+
         save_button.disable()
 
         def refresh_save_state() -> None:

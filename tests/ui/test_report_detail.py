@@ -116,7 +116,11 @@ def _build_with_mocks(mock_ui: MagicMock, report_id: int) -> MagicMock:
 
                 from app.ui.pages.report_detail import build_report_detail_page
 
-                build_report_detail_page(report_id)
+                with patch(
+                    "app.ui.pages.report_detail.export_location_label",
+                    return_value=None,
+                ):
+                    build_report_detail_page(report_id)
     return draft
 
 
@@ -185,7 +189,11 @@ def test_saving_from_detail_updates_report() -> None:
                             build_report_detail_page,
                         )
 
-                        build_report_detail_page(report_id)
+                        with patch(
+                            "app.ui.pages.report_detail.export_location_label",
+                            return_value=None,
+                        ):
+                            build_report_detail_page(report_id)
 
                         # when - the Save button is pressed
                         assert len(save_handler) == 1
@@ -257,15 +265,20 @@ def _build_for_export(
 
                 from app.ui.pages.report_detail import build_report_detail_page
 
-                build_report_detail_page(
-                    report_id,
-                    export_service=export_service,  # type: ignore[arg-type]
-                )
+                with patch(
+                    "app.ui.pages.report_detail.export_location_label",
+                    return_value=None,
+                ) as mock_picker:
+                    build_report_detail_page(
+                        report_id,
+                        export_service=export_service,  # type: ignore[arg-type]
+                    )
+                    buttons["__display_mock__"] = mock_picker
     return export_service, draft, buttons, content_handlers
 
 
 def test_shows_exports_location_hint() -> None:
-    """Export section must tell where files are stored."""
+    """Export section must show a clickable folder path hint."""
     # given
     repo = FakeReportRepository()
     service = ReportService(repo)
@@ -274,15 +287,11 @@ def test_shows_exports_location_hint() -> None:
     with patch("app.ui.pages.report_detail._get_service", return_value=service):
         with patch("app.ui.pages.report_detail.ui") as mock_ui:
             # when
-            _build_for_export(mock_ui, service, report_id)
+            _, _, buttons, _ = _build_for_export(mock_ui, service, report_id)
 
             # then
-            hint_calls = [
-                call
-                for call in mock_ui.label.call_args_list
-                if call.args and "Exports are stored in" in call.args[0]
-            ]
-            assert len(hint_calls) == 1
+            assert "__display_mock__" in buttons
+            assert buttons["__display_mock__"].call_count == 1
 
 
 def test_warns_when_exporting_without_content() -> None:

@@ -270,14 +270,18 @@ def _build_page(
         _setup_component_ui(mock_comp_ui, context)
         with patch("app.ui.pages.ai_report_generator.run") as loader_run:
             loader_run.io_bound.side_effect = _inline_io_bound
-            build_ai_report_generator_page(
-                base_dir,
-                experiment_service=experiment_service,  # type: ignore[arg-type]
-                ai_service=ai_service,  # type: ignore[arg-type]
-                export_service=export_service,  # type: ignore[arg-type]
-                ollama_client=ollama_client,  # type: ignore[arg-type]
-                project_repo=project_repo,  # type: ignore[arg-type]
-            )
+            with patch(
+                "app.ui.pages.ai_report_generator.export_location_label",
+            ) as mock_display:
+                build_ai_report_generator_page(
+                    base_dir,
+                    experiment_service=experiment_service,  # type: ignore[arg-type]
+                    ai_service=ai_service,  # type: ignore[arg-type]
+                    export_service=export_service,  # type: ignore[arg-type]
+                    ollama_client=ollama_client,  # type: ignore[arg-type]
+                    project_repo=project_repo,  # type: ignore[arg-type]
+                )
+                context.display_mock = mock_display
             _run_model_loader(mock_ui, context)
     if chosen_project is not None:
         context.project_select.value = chosen_project
@@ -631,13 +635,9 @@ def test_shows_exports_location_hint() -> None:
     with patch.object(ai_report_generator, "ui") as mock_ui:
         _build_page(mock_ui, context)
 
-        # then
-        hint_calls = [
-            call
-            for call in mock_ui.label.call_args_list
-            if call.args and "Exports are stored in" in call.args[0]
-        ]
-        assert len(hint_calls) == 1
+        # then - clickable path hint below the export buttons
+        assert hasattr(context, "display_mock")
+        assert context.display_mock.call_count == 1
 
 
 def test_warns_when_exporting_without_draft() -> None:

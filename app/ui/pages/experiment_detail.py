@@ -51,6 +51,10 @@ from app.services.protocol_service import (
     SqliteProtocolRepository,
 )
 from app.ui import router
+from app.ui.components.export_location import (
+    attachment_location_label,
+    export_location_label,
+)
 from app.ui.components.forms import back_button, detail_save_row
 from app.ui.components.markdown_editor import markdown_editor
 from app.ui.components.meta import entity_meta
@@ -490,9 +494,7 @@ def _build_attachments_section(
         label="Upload file",
         on_upload=upload,
     ).classes("w-full mt-2")
-    ui.label(
-        f"Files are stored in ({base_dir / 'attachments' / str(experiment_id)})"
-    ).classes("text-xs text-slate-400")
+    attachment_location_label(base_dir / "attachments" / str(experiment_id))
 
 
 def _build_export_section(
@@ -520,6 +522,5 @@ def _build_export_section(
     with ui.row().classes("gap-2"):
         ui.button("Export Markdown", on_click=export_md).props("color=primary")
         ui.button("Export PDF", on_click=export_pdf).props("color=primary")
-    ui.label(f"Exports are stored in ({base_dir / 'exports'})").classes(
-        "text-xs text-slate-400"
-    )
+
+    export_location_label(base_dir / "exports")

@@ -34,6 +34,7 @@ from app.services.report_service import (
 from app.services.report_service import (
     SqliteReportRepository as DetailSqliteReportRepository,
 )
+from app.ui.components.export_location import export_location_label
 from app.ui.components.forms import (
     back_button,
     detail_save_row,
@@ -146,8 +147,7 @@ def build_report_detail_page(
             ui.button("Export PDF", on_click=lambda: on_export("pdf")).props(
                 "color=primary"
             )
-        ui.label(f"Exports are stored in ({base_dir / 'exports'})").classes(
-            "text-xs text-slate-400"
-        )
+
+        export_location_label(base_dir / "exports")
 
         back_button("reports")
