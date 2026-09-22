@@ -3,6 +3,10 @@ from collections.abc import Sequence
 from datetime import date
 
 
+class ReagentHasExperimentsError(ValueError):
+    """Raised when trying to delete a reagent that is used in experiments."""
+
+
 def create(
     connection: sqlite3.Connection,
     name: str,
@@ -166,3 +170,17 @@ def get_experiment_history(
         (reagent_id,),
     )
     return cursor.fetchall()
+
+
+def delete(connection: sqlite3.Connection, reagent_id: int) -> None:
+    row = connection.execute(
+        "SELECT COUNT(*) AS count FROM experiment_reagents WHERE reagent_id = ?",
+        (reagent_id,),
+    ).fetchone()
+    if row["count"] > 0:
+        raise ReagentHasExperimentsError(
+            "Reagent cannot be deleted while experiments reference it"
+        )
+
+    connection.execute("DELETE FROM reagents WHERE id = ?", (reagent_id,))
+    connection.commit()

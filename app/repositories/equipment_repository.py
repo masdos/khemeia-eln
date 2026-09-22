@@ -2,6 +2,10 @@ import sqlite3
 from collections.abc import Sequence
 
 
+class EquipmentHasExperimentsError(ValueError):
+    """Raised when trying to delete equipment that is used in experiments."""
+
+
 def create(
     connection: sqlite3.Connection,
     name: str,
@@ -85,3 +89,32 @@ def get_by_experiment(
         (experiment_id,),
     )
     return cursor.fetchall()
+
+
+def get_experiment_history(
+    connection: sqlite3.Connection,
+    equipment_id: int,
+) -> Sequence[sqlite3.Row]:
+    cursor = connection.execute(
+        "SELECT e.id, e.title, e.state, e.created_at "
+        "FROM experiment_equipment ee "
+        "JOIN experiments e ON e.id = ee.experiment_id "
+        "WHERE ee.equipment_id = ? "
+        "ORDER BY e.created_at DESC",
+        (equipment_id,),
+    )
+    return cursor.fetchall()
+
+
+def delete(connection: sqlite3.Connection, equipment_id: int) -> None:
+    row = connection.execute(
+        "SELECT COUNT(*) AS count FROM experiment_equipment WHERE equipment_id = ?",
+        (equipment_id,),
+    ).fetchone()
+    if row["count"] > 0:
+        raise EquipmentHasExperimentsError(
+            "Equipment cannot be deleted while experiments reference it"
+        )
+
+    connection.execute("DELETE FROM equipment WHERE id = ?", (equipment_id,))
+    connection.commit()

@@ -7,6 +7,8 @@ from datetime import date
 from typing import Any, Protocol
 
 from app.repositories import equipment_repository, reagent_repository
+from app.repositories.equipment_repository import EquipmentHasExperimentsError
+from app.repositories.reagent_repository import ReagentHasExperimentsError
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,14 @@ class EquipmentNotFoundError(ValueError):
 
 class InventoryNameError(ValueError):
     """Raised when a reagent or equipment is created with a blank name."""
+
+
+class ReagentDeletionError(ValueError):
+    """Raised when a reagent with associated experiments cannot be deleted."""
+
+
+class EquipmentDeletionError(ValueError):
+    """Raised when equipment with associated experiments cannot be deleted."""
 
 
 class ReagentRepository(Protocol):
@@ -52,9 +62,7 @@ class ReagentRepository(Protocol):
 
     def get_all(self) -> Sequence[dict[str, Any]]: ...
 
-    def update(
-        self, reagent_id: int, **fields: object
-    ) -> dict[str, Any] | None: ...
+    def update(self, reagent_id: int, **fields: object) -> dict[str, Any] | None: ...
 
     def link_to_experiment(
         self,
@@ -74,6 +82,8 @@ class ReagentRepository(Protocol):
 
     def get_experiment_history(self, reagent_id: int) -> Sequence[dict[str, Any]]: ...
 
+    def delete(self, reagent_id: int) -> None: ...
+
 
 class EquipmentRepository(Protocol):
     """Data access contract for equipment required by InventoryService."""
@@ -84,15 +94,17 @@ class EquipmentRepository(Protocol):
 
     def get_all(self) -> Sequence[dict[str, Any]]: ...
 
-    def update(
-        self, equipment_id: int, **fields: object
-    ) -> dict[str, Any] | None: ...
+    def update(self, equipment_id: int, **fields: object) -> dict[str, Any] | None: ...
 
     def link_to_experiment(self, experiment_id: int, equipment_id: int) -> None: ...
 
     def unlink_from_experiment(self, experiment_id: int, equipment_id: int) -> None: ...
 
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]: ...
+
+    def get_experiment_history(self, equipment_id: int) -> Sequence[dict[str, Any]]: ...
+
+    def delete(self, equipment_id: int) -> None: ...
 
 
 class SqliteReagentRepository:
@@ -184,6 +196,9 @@ class SqliteReagentRepository:
         rows = reagent_repository.get_experiment_history(self._connection, reagent_id)
         return [_row_to_dict(row) for row in rows]
 
+    def delete(self, reagent_id: int) -> None:
+        reagent_repository.delete(self._connection, reagent_id)
+
 
 class SqliteEquipmentRepository:
     """Adapter that backs EquipmentRepository with the SQLite equipment functions."""
@@ -221,6 +236,15 @@ class SqliteEquipmentRepository:
     def get_by_experiment(self, experiment_id: int) -> Sequence[dict[str, Any]]:
         rows = equipment_repository.get_by_experiment(self._connection, experiment_id)
         return [_row_to_dict(row) for row in rows]
+
+    def get_experiment_history(self, equipment_id: int) -> Sequence[dict[str, Any]]:
+        rows = equipment_repository.get_experiment_history(
+            self._connection, equipment_id
+        )
+        return [_row_to_dict(row) for row in rows]
+
+    def delete(self, equipment_id: int) -> None:
+        equipment_repository.delete(self._connection, equipment_id)
 
 
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -305,9 +329,7 @@ class InventoryService:
     def get_reagent(self, reagent_id: int) -> dict[str, Any]:
         reagent = self._reagent_repo.get_by_id(reagent_id)
         if reagent is None:
-            raise ReagentNotFoundError(
-                f"Reagent with id {reagent_id} does not exist"
-            )
+            raise ReagentNotFoundError(f"Reagent with id {reagent_id} does not exist")
 
         return reagent
 
@@ -334,9 +356,7 @@ class InventoryService:
         is_environmental_hazard: bool | None = None,
     ) -> dict[str, Any]:
         if self._reagent_repo.get_by_id(reagent_id) is None:
-            raise ReagentNotFoundError(
-                f"Reagent with id {reagent_id} does not exist"
-            )
+            raise ReagentNotFoundError(f"Reagent with id {reagent_id} does not exist")
 
         fields: dict[str, Any] = {}
         if name is not None:
@@ -366,9 +386,7 @@ class InventoryService:
 
         updated = self._reagent_repo.update(reagent_id, **fields)
         if updated is None:
-            raise ReagentNotFoundError(
-                f"Reagent with id {reagent_id} does not exist"
-            )
+            raise ReagentNotFoundError(f"Reagent with id {reagent_id} does not exist")
 
         logger.info("Reagent updated reagent_id=%s", reagent_id)
         return updated
@@ -476,6 +494,50 @@ class InventoryService:
             "Reagent history fetched reagent_id=%s count=%s", reagent_id, len(history)
         )
         return history
+
+    def get_equipment_history(self, equipment_id: int) -> Sequence[dict[str, Any]]:
+        if self._equipment_repo.get_by_id(equipment_id) is None:
+            raise EquipmentNotFoundError(
+                f"Equipment with id {equipment_id} does not exist"
+            )
+
+        history = self._equipment_repo.get_experiment_history(equipment_id)
+        logger.debug(
+            "Equipment history fetched equipment_id=%s count=%s",
+            equipment_id,
+            len(history),
+        )
+        return history
+
+    def delete_reagent(self, reagent_id: int) -> None:
+        if self._reagent_repo.get_by_id(reagent_id) is None:
+            raise ReagentNotFoundError(f"Reagent with id {reagent_id} does not exist")
+
+        try:
+            self._reagent_repo.delete(reagent_id)
+        except ReagentHasExperimentsError as error:
+            raise ReagentDeletionError(
+                f"Reagent with id {reagent_id} cannot be deleted because "
+                "it is used in experiments"
+            ) from error
+
+        logger.info("Reagent deleted reagent_id=%s", reagent_id)
+
+    def delete_equipment(self, equipment_id: int) -> None:
+        if self._equipment_repo.get_by_id(equipment_id) is None:
+            raise EquipmentNotFoundError(
+                f"Equipment with id {equipment_id} does not exist"
+            )
+
+        try:
+            self._equipment_repo.delete(equipment_id)
+        except EquipmentHasExperimentsError as error:
+            raise EquipmentDeletionError(
+                f"Equipment with id {equipment_id} cannot be deleted because "
+                "it is used in experiments"
+            ) from error
+
+        logger.info("Equipment deleted equipment_id=%s", equipment_id)
 
     def get_experiment_resources(
         self, experiment_id: int
