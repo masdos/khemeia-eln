@@ -194,9 +194,7 @@ def build_experiment_detail_page(
 
         experimental_procedure_input = markdown_editor(
             "Experimental Procedure",
-            experiment.get("experimental_procedure_markdown", "")
-            if experiment
-            else "",
+            experiment.get("experimental_procedure_markdown", "") if experiment else "",
         )
 
         result_input = markdown_editor(
@@ -206,9 +204,7 @@ def build_experiment_detail_page(
 
         ui.label("Conclusions").classes("font-semibold mt-2")
         conclusions_input = (
-            ui.textarea(
-                value=experiment.get("conclusions", "") if experiment else ""
-            )
+            ui.textarea(value=experiment.get("conclusions", "") if experiment else "")
             .props("outlined")
             .classes("w-full")
         )
@@ -304,11 +300,19 @@ def _build_resources_section(
                         with dialog:
                             with ui.column().classes("bg-white p-4 gap-2"):
                                 ui.image(img_src).style("width:500px; height:400px;")
-                                ui.button(
-                                    "Copy SVG",
-                                    icon="content_copy",
-                                    on_click=lambda s=svg_clean: ui.clipboard.write(s),
-                                ).props("flat dense")
+                                with ui.row().classes("w-full items-center gap-2"):
+                                    ui.button(
+                                        "Copy SVG",
+                                        icon="content_copy",
+                                        on_click=lambda s=svg_clean: ui.clipboard.write(
+                                            s
+                                        ),
+                                    ).props("flat dense")
+                                    ui.button(
+                                        "Close",
+                                        icon="close",
+                                        on_click=dialog.close,
+                                    ).props("flat dense")
                         ui.button(
                             icon="image",
                             on_click=dialog.open,
