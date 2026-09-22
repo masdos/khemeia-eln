@@ -10,6 +10,7 @@ REQUIRED_FIELDS = ("user_name", "user_email")
 ENV_KEYS = {
     "user_name": ("USER_NAME", "KHEMEIA_USER_NAME"),
     "user_email": ("USER_EMAIL", "KHEMEIA_USER_EMAIL"),
+    "institution": ("INSTITUTION", "KHEMEIA_INSTITUTION"),
     "last_used_model": ("LAST_USED_MODEL", "KHEMEIA_LAST_USED_MODEL"),
 }
 
@@ -24,12 +25,14 @@ class ConfigValidationError(ValueError):
 class AppConfig:
     user_name: str
     user_email: str
+    institution: str | None = None
     last_used_model: str | None = None
 
     def to_json_data(self) -> dict[str, str | None]:
         return {
             "user_name": self.user_name,
             "user_email": self.user_email,
+            "institution": self.institution,
             "last_used_model": self.last_used_model,
         }
 
@@ -88,8 +91,8 @@ def write_config(
     """Validate and persist the user profile to BASE_DIR/config.json.
 
     Args:
-        config_data: Configuration dict with user_name, user_email
-            and last_used_model
+        config_data: Configuration dict with user_name, user_email,
+            institution and last_used_model
         base_dir: Application data directory (typically from BootstrapResult.base_dir)
 
     Returns:
@@ -116,10 +119,13 @@ def validate_config(config_data: Mapping[str, object]) -> AppConfig:
 
     last_used_model_value = _clean_value(config_data.get("last_used_model"))
     last_used_model = last_used_model_value if last_used_model_value else None
+    institution_value = _clean_value(config_data.get("institution"))
+    institution = institution_value if institution_value else None
 
     return AppConfig(
         user_name=values["user_name"],
         user_email=values["user_email"],
+        institution=institution,
         last_used_model=last_used_model,
     )
 

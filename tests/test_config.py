@@ -66,6 +66,77 @@ def test_current_config_state_can_be_set_and_cleared() -> None:
         get_current_config()
 
 
+def test_validate_config_defaults_institution_to_none_when_missing() -> None:
+    # given
+    config_data = {"user_name": "Ada", "user_email": "ada@example.com"}
+
+    # when
+    config = validate_config(config_data)
+
+    # then
+    assert config.institution is None
+    clear_current_config()
+
+
+def test_validate_config_keeps_provided_institution() -> None:
+    # given
+    config_data = {
+        "user_name": "Ada",
+        "user_email": "ada@example.com",
+        "institution": "  University of Example  ",
+    }
+
+    # when
+    config = validate_config(config_data)
+
+    # then
+    assert config.institution == "University of Example"
+    clear_current_config()
+
+
+def test_write_then_load_roundtrips_institution(tmp_path) -> None:
+    # given
+    clear_current_config()
+    write_config(
+        {
+            "user_name": "Ada",
+            "user_email": "ada@example.com",
+            "institution": "Example Institute",
+        },
+        base_dir=tmp_path,
+    )
+
+    # when
+    config = load_config(base_dir=tmp_path, load_env_file=False)
+
+    # then
+    assert config is not None
+    assert config.institution == "Example Institute"
+    clear_current_config()
+
+
+def test_load_config_applies_institution_env_override(tmp_path) -> None:
+    # given
+    clear_current_config()
+
+    # when
+    config = load_config(
+        base_dir=tmp_path,
+        env={
+            "USER_NAME": "Grace",
+            "USER_EMAIL": "grace@example.com",
+            "INSTITUTION": "Example University",
+        },
+        load_env_file=False,
+        pre_loaded_config={},
+    )
+
+    # then
+    assert config is not None
+    assert config.institution == "Example University"
+    clear_current_config()
+
+
 def test_validate_config_defaults_last_used_model_to_none_when_missing() -> None:
     # given
     config_data = {"user_name": "Ada", "user_email": "ada@example.com"}

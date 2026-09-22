@@ -99,6 +99,9 @@ def _build_welcome_dialog(base_dir: Path) -> None:
 
         user_name = ui.input("Full name").props("outlined").classes("w-full")
         user_email = ui.input("Email").props("outlined").classes("w-full")
+        institution = (
+            ui.input("Institution (optional)").props("outlined").classes("w-full")
+        )
         message = ui.label().classes("text-negative")
 
         def save_profile() -> None:
@@ -107,6 +110,7 @@ def _build_welcome_dialog(base_dir: Path) -> None:
                     {
                         "user_name": user_name.value,
                         "user_email": user_email.value,
+                        "institution": institution.value,
                     },
                     base_dir=base_dir,
                 )

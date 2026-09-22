@@ -27,6 +27,9 @@ def build_profile_page(base_dir: Path) -> None:
             ui.label("Email").classes("text-sm text-slate-500")
             ui.label(config.user_email).classes("text-lg mb-4")
 
+            ui.label("Institution").classes("text-sm text-slate-500")
+            ui.label(config.institution or "-").classes("text-lg mb-4")
+
             ui.button(
                 "Edit profile",
                 on_click=lambda: _open_edit_dialog(base_dir, refresh),
@@ -69,6 +72,14 @@ def _open_edit_dialog(base_dir: Path, refresh) -> None:
             .props("outlined")
             .classes("w-full")
         )
+        institution = (
+            ui.input(
+                "Institution (optional)",
+                value=config.institution or "",
+            )
+            .props("outlined")
+            .classes("w-full")
+        )
 
         message = form_message()
 
@@ -78,6 +89,7 @@ def _open_edit_dialog(base_dir: Path, refresh) -> None:
                     {
                         "user_name": user_name.value,
                         "user_email": user_email.value,
+                        "institution": institution.value,
                     },
                     base_dir=base_dir,
                 )

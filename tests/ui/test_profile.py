@@ -164,6 +164,7 @@ def test_profile_edit_dialog_has_input_fields(tmp_path: Path) -> None:
 
     name_mock = _make_chainable_input("Full name", "Ada Lovelace")
     email_mock = _make_chainable_input("Email", "ada@example.com")
+    institution_mock = _make_chainable_input("Institution (optional)", "")
 
     with (
         patch("app.ui.pages.profile.ui") as mock_ui,
@@ -177,7 +178,7 @@ def test_profile_edit_dialog_has_input_fields(tmp_path: Path) -> None:
         mock_ui.label.return_value = MagicMock()
         mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-        mock_ui.input = MagicMock(side_effect=[name_mock, email_mock])
+        mock_ui.input = MagicMock(side_effect=[name_mock, email_mock, institution_mock])
         mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
         mock_ui.button.return_value = MagicMock()
@@ -200,6 +201,7 @@ def test_profile_edit_dialog_has_input_fields(tmp_path: Path) -> None:
         calls = mock_ui.input.call_args_list
         assert calls[0].kwargs["value"] == "Ada Lovelace"
         assert calls[1].kwargs["value"] == "ada@example.com"
+        assert calls[2].kwargs["value"] == ""
 
     clear_current_config()
 
@@ -211,6 +213,7 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
 
     name_mock = _make_chainable_input("Full name", "Grace Hopper")
     email_mock = _make_chainable_input("Email", "grace@example.com")
+    institution_mock = _make_chainable_input("Institution (optional)", "US Navy")
 
     with (
         patch("app.ui.pages.profile.ui") as mock_ui,
@@ -224,7 +227,7 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
         mock_ui.label.return_value = MagicMock()
         mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-        mock_ui.input = MagicMock(side_effect=[name_mock, email_mock])
+        mock_ui.input = MagicMock(side_effect=[name_mock, email_mock, institution_mock])
         mock_forms_ui.label.return_value = MagicMock()
         mock_forms_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
@@ -255,7 +258,11 @@ def test_profile_save_writes_config_to_disk(tmp_path: Path) -> None:
 
         # then
         mock_write.assert_called_once_with(
-            {"user_name": "Grace Hopper", "user_email": "grace@example.com"},
+            {
+                "user_name": "Grace Hopper",
+                "user_email": "grace@example.com",
+                "institution": "US Navy",
+            },
             base_dir=tmp_path,
         )
 
@@ -269,6 +276,7 @@ def test_profile_page_does_not_show_ai_provider_field(tmp_path: Path) -> None:
 
     name_mock = _make_chainable_input("Full name", "Ada Lovelace")
     email_mock = _make_chainable_input("Email", "ada@example.com")
+    institution_mock = _make_chainable_input("Institution (optional)", "")
 
     with (
         patch("app.ui.pages.profile.ui") as mock_ui,
@@ -282,7 +290,7 @@ def test_profile_page_does_not_show_ai_provider_field(tmp_path: Path) -> None:
         mock_ui.label.return_value = MagicMock()
         mock_ui.dialog.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
-        mock_ui.input = MagicMock(side_effect=[name_mock, email_mock])
+        mock_ui.input = MagicMock(side_effect=[name_mock, email_mock, institution_mock])
         mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
         mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
         mock_ui.button.return_value = MagicMock()
@@ -297,10 +305,11 @@ def test_profile_page_does_not_show_ai_provider_field(tmp_path: Path) -> None:
         ]
         button_calls[0].kwargs["on_click"]()
 
-        # then — only 2 inputs (name, email), no AI provider dropdown
-        assert mock_ui.input.call_count == 2
+        # then — only 3 inputs (name, email, institution), no AI dropdown
+        assert mock_ui.input.call_count == 3
         input_labels = [call.args[0] for call in mock_ui.input.call_args_list]
         assert "Full name" in input_labels
         assert "Email" in input_labels
+        assert "Institution (optional)" in input_labels
 
     clear_current_config()
