@@ -934,6 +934,20 @@ def test_requires_title_before_saving() -> None:
         assert export_service.save_calls == []
 
 
+def test_notifies_with_warning_when_save_rejected() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_title=None)
+        context.draft.value = "# Edited draft"
+        context.buttons["Save report"].click()
+
+        # then — rejection is always visible as a popup, not just inline text
+        mock_ui.notify.assert_called_with("Enter a report title.", type="warning")
+
+
 def test_places_save_button_right_of_generate_button() -> None:
     # given
     context = _UIContext()

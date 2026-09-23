@@ -248,7 +248,7 @@ def build_ai_report_generator_page(
             .classes("w-full")
         )
 
-        title_input = ui.input("Title").props("outlined").classes("w-full")
+        title_input = ui.input("Title *").props("outlined").classes("w-full")
 
         message = ui.label().classes("text-negative")
 
@@ -339,26 +339,30 @@ def build_ai_report_generator_page(
             poll_timer = ui.timer(PROGRESS_POLL_SECONDS, poll_updates)
 
         def on_save() -> None:
+            def reject(reason: str) -> None:
+                message.text = reason
+                ui.notify(reason, type="warning")
+
             project_id = project_select.value
             if project_id is None:
-                message.text = PROJECT_REQUIRED
+                reject(PROJECT_REQUIRED)
                 return
             title = (title_input.value or "").strip()
             if not title:
-                message.text = TITLE_REQUIRED
+                reject(TITLE_REQUIRED)
                 return
             markdown = draft_area.value or ""
             if not markdown.strip():
-                message.text = SAVE_REQUIRED
+                reject(SAVE_REQUIRED)
                 return
             ids = selected_ids()
             if not ids:
-                message.text = SELECTION_REQUIRED
+                reject(SELECTION_REQUIRED)
                 return
             try:
                 report_id = save_draft(export_service, markdown, ids, project_id, title)
             except (ValueError, RuntimeError) as error:
-                message.text = str(error)
+                reject(str(error))
                 return
             message.text = ""
             logger.info("AI draft saved report_id=%s", report_id)
