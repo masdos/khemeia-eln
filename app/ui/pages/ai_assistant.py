@@ -27,7 +27,7 @@ HUB_TRUST = (
 )
 MODEL_DOWNLOAD_URL = "https://docs.ollama.com/cli#download-a-model"
 START_SERVER_URL = "https://docs.ollama.com/cli#start-ollama"
-COMPATIBILITY_URL = "https://www.canirun.ai/tier"
+COMPATIBILITY_URL = "https://www.canirun.ai/"
 OLLAMA_SEARCH_URL = "https://ollama.com/search"
 NOT_CHECKED_HINT = "Press Check requirements to verify the setup."
 REPORTS_SUMMARY = (
