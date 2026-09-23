@@ -29,10 +29,12 @@ class FakeSdkClient:
         models: Any = None,
         response: Any = "",
         done_reason: Any = "stop",
+        stream_chunks: list[str] | None = None,
     ) -> None:
         self._models = models
         self._response = response
         self._done_reason = done_reason
+        self._stream_chunks = stream_chunks
         self.generate_calls: list[tuple[str, Any, Any]] = []
         self.generate_kwargs: list[dict[str, Any]] = []
 
@@ -52,9 +54,22 @@ class FakeSdkClient:
         self.generate_kwargs.append(kwargs)
         if isinstance(self._response, Exception):
             raise self._response
-        return SimpleNamespace(
-            response=self._response, done_reason=self._done_reason
-        )
+        if kwargs.get("stream") and self._stream_chunks is not None:
+            return iter(
+                [
+                    SimpleNamespace(response=text, done_reason=None)
+                    for text in self._stream_chunks[:-1]
+                ]
+                + [
+                    SimpleNamespace(
+                        response=(
+                            self._stream_chunks[-1] if self._stream_chunks else ""
+                        ),
+                        done_reason=self._done_reason,
+                    )
+                ]
+            )
+        return SimpleNamespace(response=self._response, done_reason=self._done_reason)
 
 
 class FakeSdkFactory:
@@ -75,10 +90,13 @@ def _make_client(
     models: Any = None,
     response: Any = "",
     done_reason: Any = "stop",
+    stream_chunks: list[str] | None = None,
     **kwargs: Any,
 ) -> tuple[OllamaClient, FakeSdkFactory, FakeSdkClient, FakeSdkClient]:
     status_client = FakeSdkClient(models=models)
-    generate_client = FakeSdkClient(response=response, done_reason=done_reason)
+    generate_client = FakeSdkClient(
+        response=response, done_reason=done_reason, stream_chunks=stream_chunks
+    )
     factory = FakeSdkFactory(status_client, generate_client)
     return (
         OllamaClient(sdk_client_factory=factory, **kwargs),
@@ -319,3 +337,29 @@ def test_sends_system_prompt_without_manual_concatenation() -> None:
 def test_uses_updated_recommended_model() -> None:
     # given / when / then
     assert RECOMMENDED_MODEL == "qwen3.5:4b"
+
+
+def test_streams_response_chunks_in_order() -> None:
+    # given
+    client, _, _, generate_client = _make_client(stream_chunks=["# Re", "port"])
+
+    # when
+    chunks = list(client.generate_stream(RECOMMENDED_MODEL, "System.", "Data."))
+
+    # then
+    assert chunks == ["# Re", "port"]
+    assert generate_client.generate_calls == [(RECOMMENDED_MODEL, "System.", "Data.")]
+    assert generate_client.generate_kwargs[0]["stream"] is True
+    assert generate_client.generate_kwargs[0]["think"] is False
+    assert generate_client.generate_kwargs[0]["options"] == {
+        "num_predict": GENERATE_MAX_TOKENS
+    }
+
+
+def test_raises_incomplete_error_when_stream_stops_early() -> None:
+    # given
+    client, _, _, _ = _make_client(stream_chunks=["# Partial"], done_reason="length")
+
+    # when / then
+    with pytest.raises(IncompleteGenerationError):
+        list(client.generate_stream(RECOMMENDED_MODEL, "System.", "Data."))

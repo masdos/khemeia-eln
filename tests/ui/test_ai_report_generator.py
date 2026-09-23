@@ -1,4 +1,6 @@
 import asyncio
+import threading
+import time
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -54,9 +56,16 @@ class FakeAIService:
         self.calls: list[tuple[list[Any], str, str]] = []
 
     def generate_report(
-        self, experiments_data: Any, model: str, language: str = "English"
+        self,
+        experiments_data: Any,
+        model: str,
+        language: str = "English",
+        on_progress: Any = None,
     ) -> str | None:
         self.calls.append((list(experiments_data), model, language))
+        if self._draft is not None and on_progress is not None:
+            on_progress(self._draft[:5])
+            on_progress(self._draft)
         return self._draft
 
 
@@ -138,8 +147,9 @@ class _UIContext:
         self.preview.content = ""
         self.message = _chainable()
         self.warning = _container()
-        self.busy = _chainable()
-        self.busy.visible = False
+        self.progress = _container()
+        self.progress.visible = False
+        self.progress.is_deleted = False
         self.buttons: dict[str, MagicMock] = {}
 
     def button_factory(self, *args: Any, **kwargs: Any) -> MagicMock:
@@ -155,7 +165,7 @@ class _UIContext:
 
 def _setup_ui(mock_ui: MagicMock, context: _UIContext) -> None:
     page_container = _container()
-    pending = [page_container, context.warning]
+    pending = [page_container, context.warning, context.progress]
 
     def make_column(*args: Any, **kwargs: Any) -> MagicMock:
         if pending:
@@ -189,7 +199,7 @@ def _setup_ui(mock_ui: MagicMock, context: _UIContext) -> None:
     mock_ui.input.return_value = context.title_input
     mock_ui.textarea.return_value = context.draft
     mock_ui.button.side_effect = context.button_factory
-    mock_ui.spinner.return_value = context.busy
+    mock_ui.spinner.return_value = _chainable()
     mock_ui.notify.return_value = None
     context.project_select.on_value_change.side_effect = capture_project_handler
     context.model_select.on_value_change.side_effect = capture_select_handler
@@ -225,10 +235,32 @@ def _run_model_loader(mock_ui: MagicMock, context: _UIContext) -> None:
         context.model_select.value = set_call.kwargs.get("value")
 
 
-def _click_generate(mock_run: MagicMock, context: _UIContext) -> None:
-    """Drive the async Generate handler with inline worker execution."""
-    mock_run.io_bound.side_effect = _inline_io_bound
-    asyncio.run(context.buttons["Generate draft"].click())
+def _click_generate(mock_ui: MagicMock, context: _UIContext) -> None:
+    """Drive the Generate handler and pump progress until it finishes."""
+    context.buttons["Generate draft"].click()
+    if context.progress.visible:
+        _pump_until_hidden(mock_ui, context)
+
+
+def _progress_timer_callback(mock_ui: MagicMock) -> Any:
+    """Return the generation progress timer callback registered on the page."""
+    for call in mock_ui.timer.call_args_list:
+        interval = call.args[0] if call.args else call.kwargs.get("interval")
+        if interval == 0.2:
+            return call.args[1] if len(call.args) > 1 else call.kwargs["callback"]
+    raise AssertionError("progress timer not found")
+
+
+def _pump_until_hidden(
+    mock_ui: MagicMock, context: _UIContext, timeout: float = 5.0
+) -> None:
+    """Drive the progress poller until the worker finishes or time runs out."""
+    callback = _progress_timer_callback(mock_ui)
+    deadline = time.time() + timeout
+    while context.progress.visible and time.time() < deadline:
+        callback()
+        time.sleep(0.01)
+    assert context.progress.visible is False
 
 
 def _build_page(
@@ -439,10 +471,7 @@ def test_generates_draft_into_editable_textarea_with_chosen_model() -> None:
     context = _UIContext()
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
+    with patch.object(ai_report_generator, "ui") as mock_ui:
         _, ai_service, _ = _build_page(
             mock_ui,
             context,
@@ -450,7 +479,7 @@ def test_generates_draft_into_editable_textarea_with_chosen_model() -> None:
             chosen_model="gemma3:4b",
             chosen_language="English",
         )
-        _click_generate(mock_run, context)
+        _click_generate(mock_ui, context)
 
         # then
         assert ai_service.calls == [
@@ -470,13 +499,10 @@ def test_shows_warning_with_hub_access_when_ai_not_ready() -> None:
     context = _UIContext()
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
+    with patch.object(ai_report_generator, "ui") as mock_ui:
         _build_page(mock_ui, context, draft=None)
         with patch.object(ai_report_generator.router, "navigate") as mock_navigate:
-            _click_generate(mock_run, context)
+            _click_generate(mock_ui, context)
             context.buttons["Go to AI Assistant"].click()
 
             # then
@@ -492,14 +518,14 @@ def test_requires_model_before_generating() -> None:
     # when
     with (
         patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
+        patch("app.ui.pages.ai_report_generator.run"),
     ):
         _, ai_service, _ = _build_page(mock_ui, context, chosen_model=None)
-        _click_generate(mock_run, context)
+        _click_generate(mock_ui, context)
 
         # then
         assert ai_service.calls == []
-        assert mock_run.io_bound.call_count == 0
+        assert context.progress.visible is False
 
 
 def test_disables_save_button_until_draft_exists() -> None:
@@ -545,31 +571,47 @@ def test_disables_save_button_when_draft_is_cleared() -> None:
         assert context.buttons["Save report"].disable.called
 
 
-def test_shows_spinner_while_generating() -> None:
+def test_shows_progress_while_generating() -> None:
     # given
     context = _UIContext()
-    seen: dict[str, Any] = {}
+    entered = threading.Event()
+    release = threading.Event()
 
-    async def observing(function, *args):
-        seen["busy"] = context.busy.visible
-        return function(*args)
+    def gating_generate(
+        ai_service: Any,
+        experiments_data: Any,
+        model: str,
+        language: str,
+        on_progress: Any = None,
+    ) -> str | None:
+        if on_progress is not None:
+            on_progress("# Partial")
+        entered.set()
+        assert release.wait(timeout=5)
+        return "# Draft"
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
-        _build_page(mock_ui, context)
-        generate_button = context.buttons["Generate draft"]
-        generate_button.disable.reset_mock()
-        mock_run.io_bound.side_effect = observing
-        asyncio.run(generate_button.click())
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        with patch.object(
+            ai_report_generator, "generate_draft", side_effect=gating_generate
+        ):
+            _build_page(mock_ui, context)
+            context.buttons["Generate draft"].click()
+            assert entered.wait(timeout=5)
+            _progress_timer_callback(mock_ui)()
 
-        # then — feedback shown during work, restored after
-        assert seen["busy"] is True
-        assert context.busy.visible is False
-        assert generate_button.disable.called
-        assert generate_button.enable.called
+            # then — spinner feedback visible with live preview mid-generation
+            assert context.progress.visible is True
+            assert mock_ui.spinner.called
+            assert context.draft.value == "# Partial"
+
+            # when — the worker finishes
+            release.set()
+            _pump_until_hidden(mock_ui, context)
+
+            # then — feedback hidden and draft is final
+            assert context.progress.visible is False
+            assert context.draft.value == "# Draft"
 
 
 def test_saves_edited_draft_to_database() -> None:
@@ -643,12 +685,9 @@ def test_persists_last_used_model_after_successful_generation(
     )
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
+    with patch.object(ai_report_generator, "ui") as mock_ui:
         _build_page(mock_ui, context, chosen_model="gemma3:4b", base_dir=tmp_path)
-        _click_generate(mock_run, context)
+        _click_generate(mock_ui, context)
 
     # then
     saved = load_config(base_dir=tmp_path, load_env_file=False)
@@ -764,10 +803,7 @@ def test_sends_chosen_language_when_generating() -> None:
     context = _UIContext()
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
+    with patch.object(ai_report_generator, "ui") as mock_ui:
         _, ai_service, _ = _build_page(
             mock_ui,
             context,
@@ -775,7 +811,7 @@ def test_sends_chosen_language_when_generating() -> None:
             chosen_model="gemma3:4b",
             chosen_language="Spanish",
         )
-        _click_generate(mock_run, context)
+        _click_generate(mock_ui, context)
 
         # then
         assert ai_service.calls[0][2] == "Spanish"
@@ -800,18 +836,15 @@ def test_requires_language_before_generating() -> None:
     context = _UIContext()
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
+    with patch.object(ai_report_generator, "ui") as mock_ui:
         _, ai_service, _ = _build_page(
             mock_ui, context, chosen_model="gemma3:4b", chosen_language=None
         )
-        _click_generate(mock_run, context)
+        _click_generate(mock_ui, context)
 
         # then
         assert ai_service.calls == []
-        assert mock_run.io_bound.call_count == 0
+        assert context.progress.visible is False
 
 
 def test_uses_shared_markdown_editor_for_draft() -> None:
@@ -832,12 +865,9 @@ def test_updates_preview_when_draft_changes() -> None:
     context = _UIContext()
 
     # when
-    with (
-        patch.object(ai_report_generator, "ui") as mock_ui,
-        patch("app.ui.pages.ai_report_generator.run") as mock_run,
-    ):
+    with patch.object(ai_report_generator, "ui") as mock_ui:
         _build_page(mock_ui, context, draft="# Report")
-        _click_generate(mock_run, context)
+        _click_generate(mock_ui, context)
         for handler in context.draft_handlers:
             handler()
 

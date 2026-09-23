@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from app.services.ollama_client import OllamaClient
@@ -62,11 +62,14 @@ class AIService:
         experiments_data: Mapping[str, Any] | Sequence[Mapping[str, Any]],
         model: str,
         language: str,
+        on_progress: Callable[[str], None] | None = None,
     ) -> str | None:
         """Return a Markdown report draft, or None when AI is not ready.
 
         The model and the language are always chosen by the caller; the
         model must be installed at call time or no report is generated.
+        When on_progress is given, generation streams and the callback
+        receives the accumulated text after each chunk.
         """
         experiments = _normalize_experiments(experiments_data)
         if not experiments:
@@ -105,7 +108,16 @@ class AIService:
             language.strip(),
         )
         try:
-            report = self._ollama_client.generate(model, system_prompt, prompt)
+            if on_progress is None:
+                report = self._ollama_client.generate(model, system_prompt, prompt)
+            else:
+                parts: list[str] = []
+                for chunk in self._ollama_client.generate_stream(
+                    model, system_prompt, prompt
+                ):
+                    parts.append(chunk)
+                    on_progress("".join(parts))
+                report = "".join(parts)
         except Exception as error:
             logger.warning("Report generation failed error=%s", str(error))
             return None

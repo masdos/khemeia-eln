@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, Sequence
+import queue
+import threading
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -51,6 +53,8 @@ TITLE_REQUIRED = "Enter a report title."
 SAVE_REQUIRED = "Generate a draft before saving."
 LANGUAGE_OPTIONS = ["Spanish", "English"]
 
+PROGRESS_POLL_SECONDS = 0.2
+
 
 def get_project_choices(project_repo: Any) -> dict[int, str]:
     """Return project id to name mapping for the selector."""
@@ -95,9 +99,12 @@ def generate_draft(
     experiments_data: Sequence[Mapping[str, Any]],
     model: str,
     language: str,
+    on_progress: Callable[[str], None] | None = None,
 ) -> str | None:
     """Generate a report draft with the chosen model, or None when not ready."""
-    draft = ai_service.generate_report(experiments_data, model, language)
+    draft = ai_service.generate_report(
+        experiments_data, model, language, on_progress=on_progress
+    )
     if draft is None:
         logger.warning("AI draft generation returned no content")
         return None
@@ -259,7 +266,7 @@ def build_ai_report_generator_page(
         def selected_ids() -> list[int]:
             return list(experiment_select.value or [])
 
-        async def on_generate() -> None:
+        def on_generate() -> None:
             ids = selected_ids()
             if not ids:
                 message.text = SELECTION_REQUIRED
@@ -277,28 +284,59 @@ def build_ai_report_generator_page(
                 message.text = SELECTION_REQUIRED
                 return
             generate_button.disable()
-            busy.visible = True
+            progress_container.visible = True
             ui.notify(
                 "Generating draft, this can take several minutes on CPU-only machines.",
                 type="info",
             )
-            try:
-                draft = await run.io_bound(
-                    generate_draft, ai_service, experiments_data, model, language
-                )
-            finally:
-                busy.visible = False
+            updates: queue.Queue[tuple[str, str | None]] = queue.Queue()
+
+            def worker() -> None:
+                try:
+                    draft = generate_draft(
+                        ai_service,
+                        experiments_data,
+                        model,
+                        language,
+                        on_progress=lambda text: updates.put(("chunk", text)),
+                    )
+                except Exception as error:
+                    logger.warning("Report generation failed error=%s", str(error))
+                    updates.put(("error", None))
+                    return
+                updates.put(("done", draft))
+
+            def finish_generation(draft: str | None) -> None:
+                progress_container.visible = False
                 refresh_generate_state()
-            if draft is None:
-                warning_container.visible = True
-                ui.notify(NO_AI_WARNING, type="warning")
-                return
-            warning_container.visible = False
-            message.text = ""
-            draft_area.value = draft
-            refresh_save_state()
-            _persist_last_used_model(base_dir, model)
-            ui.notify("Draft generated", type="positive")
+                if draft is None:
+                    warning_container.visible = True
+                    ui.notify(NO_AI_WARNING, type="warning")
+                    return
+                warning_container.visible = False
+                message.text = ""
+                draft_area.value = draft
+                refresh_save_state()
+                _persist_last_used_model(base_dir, model)
+                ui.notify("Draft generated", type="positive")
+
+            def poll_updates() -> None:
+                if progress_container.is_deleted:
+                    poll_timer.cancel()
+                    return
+                while True:
+                    try:
+                        kind, text = updates.get_nowait()
+                    except queue.Empty:
+                        return
+                    if kind == "chunk":
+                        draft_area.value = text or ""
+                    else:
+                        poll_timer.cancel()
+                        finish_generation(text if kind == "done" else None)
+
+            threading.Thread(target=worker, daemon=True).start()
+            poll_timer = ui.timer(PROGRESS_POLL_SECONDS, poll_updates)
 
         def on_save() -> None:
             project_id = project_select.value
@@ -333,8 +371,13 @@ def build_ai_report_generator_page(
             save_button = ui.button("Save report", on_click=on_save).props(
                 "color=primary"
             )
-            busy = ui.spinner()
-            busy.visible = False
+
+        progress_container = ui.column().classes("w-full mt-4")
+        progress_container.visible = False
+        with progress_container:
+            with ui.row().classes("items-center gap-2"):
+                ui.spinner().props("color=primary")
+                ui.label("Generating draft…").classes("text-slate-600")
 
         def refresh_generate_state() -> None:
             if model_select.value:

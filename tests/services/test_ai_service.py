@@ -44,6 +44,16 @@ class FakeOllamaClient:
             raise self._generate_error
         return self._response
 
+    def generate_stream(self, model: str, system_prompt: str, user_prompt: str) -> Any:
+        self.seen_models.append(model)
+        self.seen_system.append(system_prompt)
+        self.seen_prompts.append(user_prompt)
+        if self._generate_error is not None:
+            raise self._generate_error
+        midpoint = len(self._response) // 2
+        yield self._response[:midpoint]
+        yield self._response[midpoint:]
+
 
 def _ready_status(*models: str) -> OllamaStatus:
     return OllamaStatus(is_available=True, installed_models=models)
@@ -322,3 +332,20 @@ def test_preserves_italic_markup_when_sanitizing() -> None:
 
     # then
     assert cleaned == raw
+
+
+def test_reports_accumulated_text_while_streaming() -> None:
+    # given
+    client = FakeOllamaClient(status=_ready_status("qwen3:4b"), response="# Report")
+    service = AIService(client)  # type: ignore[arg-type]
+    seen: list[str] = []
+
+    # when
+    report = service.generate_report(
+        _experiment(), "qwen3:4b", "English", on_progress=seen.append
+    )
+
+    # then
+    assert report == "# Report"
+    assert seen == ["# Re", "# Report"]
+    assert client.seen_models == ["qwen3:4b"]

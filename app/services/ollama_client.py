@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 
 from ollama import Client as OllamaSdkClient
@@ -109,6 +109,39 @@ class OllamaClient:
             raise ValueError("Ollama response did not contain text")
         logger.debug("Ollama completion generated model=%s", model)
         return text
+
+    def generate_stream(
+        self, model: str, system_prompt: str, user_prompt: str
+    ) -> Iterator[str]:
+        """Yield response text chunks as Ollama streams them.
+
+        Uses the same options as generate (no thinking, capped length).
+        Raises IncompleteGenerationError when Ollama stops without
+        completing the response, mirroring generate().
+        """
+        stream = self._generate_client.generate(
+            model=model,
+            prompt=user_prompt,
+            system=system_prompt,
+            stream=True,
+            think=False,
+            options={"num_predict": GENERATE_MAX_TOKENS},
+        )
+        done_reason = None
+        for chunk in stream:
+            done_reason = getattr(chunk, "done_reason", done_reason)
+            text = getattr(chunk, "response", None)
+            if isinstance(text, str) and text:
+                yield text
+        if done_reason != "stop":
+            logger.warning(
+                "Incomplete Ollama stream model=%s done_reason=%s",
+                model,
+                done_reason,
+            )
+            raise IncompleteGenerationError(
+                f"Ollama stopped without completing the response (model={model})"
+            )
 
     def get_installed_models(self) -> tuple[str, ...]:
         """Return names of installed local models, or empty when unknown.
