@@ -67,26 +67,45 @@ def build_inventory_page() -> None:
 
 
 def _build_reagents_section(service: InventoryService) -> None:
-    search = search_toolbar(
-        placeholder="Search reagents...",
-        action_label="Add Reagent",
-        on_action=lambda: _open_reagent_dialog(service, refresh_reagents),
-        top_margin=False,
-    )
+    with ui.row().classes("w-full items-center gap-4"):
+        search = (
+            ui.input(placeholder="Search reagents...")
+            .props("outlined dense")
+            .classes("flex-1")
+        )
+        stock_filter = (
+            ui.select(
+                options=["All", "In Stock", "Out of Stock"],
+                value="All",
+                label="Stock",
+            )
+            .props("outlined dense")
+            .classes("w-40")
+        )
+        ui.button(
+            "Add Reagent",
+            on_click=lambda: _open_reagent_dialog(service, refresh_reagents),
+        ).props("color=primary")
 
     reagent_container = ui.column().classes("w-full")
 
     def refresh_reagents() -> None:
         reagent_container.clear()
         with reagent_container:
-            _render_reagent_list(service, search.value or "", refresh_reagents)
+            _render_reagent_list(
+                service,
+                search.value or "",
+                stock_filter.value or "All",
+                refresh_reagents,
+            )
 
     search.on_value_change(lambda: refresh_reagents())
+    stock_filter.on_value_change(lambda: refresh_reagents())
     refresh_reagents()
 
 
 def _render_reagent_list(
-    service: InventoryService, search_text: str, refresh: callable
+    service: InventoryService, search_text: str, stock_filter: str, refresh: callable
 ) -> None:
     reagents = service._reagent_repo.get_all()
     query = (search_text or "").strip().lower()
@@ -98,10 +117,14 @@ def _render_reagent_list(
             or query in (r.get("cas_number") or "").lower()
             or query in (r.get("lot_number") or "").lower()
         ]
+    if stock_filter == "In Stock":
+        reagents = [r for r in reagents if r.get("in_stock")]
+    elif stock_filter == "Out of Stock":
+        reagents = [r for r in reagents if not r.get("in_stock")]
 
     if not reagents:
-        if query:
-            ui.label("No reagents match the search.").classes("text-slate-500")
+        if query or stock_filter != "All":
+            ui.label("No reagents match the filters.").classes("text-slate-500")
         else:
             ui.label("No reagents in inventory.").classes("text-slate-500")
         return

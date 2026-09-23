@@ -117,6 +117,13 @@ def test_inventory_page_renders_tabs() -> None:
                         return_value=False
                     )
                     mock_ui.label.return_value = MagicMock()
+                    mock_ui.row.return_value.__enter__ = MagicMock(
+                        return_value=MagicMock()
+                    )
+                    mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+                    mock_ui.input.return_value = _make_chainable("")
+                    mock_ui.select.return_value = _make_chainable("All")
+                    mock_ui.button.return_value = MagicMock()
                     mock_lists_ui.row.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
@@ -314,6 +321,11 @@ def test_rejects_blank_reagent_name() -> None:
 def _mock_section_chrome(mock_ui: MagicMock, mock_lists_ui: MagicMock) -> None:
     mock_ui.column.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
+    mock_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
+    mock_ui.row.return_value.__exit__ = MagicMock(return_value=False)
+    mock_ui.input.return_value = _make_chainable("")
+    mock_ui.select.return_value = _make_chainable("All")
+    mock_ui.button.return_value = MagicMock()
     mock_lists_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_lists_ui.row.return_value.__exit__ = MagicMock(return_value=False)
     mock_lists_ui.input.return_value = _make_chainable("")
