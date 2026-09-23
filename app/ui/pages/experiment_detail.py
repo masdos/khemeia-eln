@@ -40,6 +40,7 @@ from app.services.export_service import (
 )
 from app.services.file_service import FileService
 from app.services.inventory_service import (
+    EquipmentNotFoundError,
     InventoryService,
     SqliteEquipmentRepository,
     SqliteReagentRepository,
@@ -408,6 +409,12 @@ def _build_resources_section(
                     router.refresh()
 
                 ui.button(
+                    icon="visibility",
+                    on_click=lambda _equip_id=e["id"]: _open_equipment_preview_dialog(
+                        inv_svc, _equip_id
+                    ),
+                ).props("flat dense color=primary").classes("text-xs")
+                ui.button(
                     icon="delete",
                     on_click=_make_unlink_equip,
                 ).props("flat dense color=negative").classes("text-xs")
@@ -446,6 +453,35 @@ def _build_resources_section(
                 "Create some",
                 on_click=lambda: router.navigate("inventory"),
             ).props("flat dense").classes("text-sm text-primary p-0")
+
+
+def _open_equipment_preview_dialog(
+    inv_svc: InventoryService, equipment_id: int
+) -> None:
+    try:
+        equipment = inv_svc.get_equipment(equipment_id)
+    except EquipmentNotFoundError:
+        ui.notify("Equipment not found", type="negative")
+        return
+
+    dialog = ui.dialog()
+    with dialog, ui.card().classes("w-[32rem] max-w-full"):
+        ui.label(equipment["name"]).classes("text-xl font-semibold")
+        entity_meta(equipment.get("created_at"), equipment.get("modified_at"))
+        description = (equipment.get("description") or "").strip()
+        ui.label(description if description else "No description.").classes(
+            "text-sm text-slate-600 mt-2"
+        )
+        with ui.row().classes("w-full justify-end gap-2 mt-4"):
+            ui.button(
+                "Open full page",
+                on_click=lambda: (
+                    dialog.close(),
+                    router.navigate("equipment_detail", equipment_id=equipment_id),
+                ),
+            ).props("outline color=primary")
+            ui.button("Close", on_click=dialog.close).props("color=primary")
+    dialog.open()
 
 
 def _build_attachments_section(
