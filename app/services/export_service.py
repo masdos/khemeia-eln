@@ -18,6 +18,8 @@ from reportlab.platypus import (
     Paragraph,
     SimpleDocTemplate,
     Spacer,
+    Table,
+    TableStyle,
 )
 
 from app.repositories import (
@@ -513,6 +515,59 @@ def _build_ai_report_names(extension: str) -> tuple[str, str]:
     return file_name, stored_name
 
 
+def _split_table_row(line: str) -> list[str]:
+    """Split a GitHub Markdown table row into stripped cell values."""
+    placeholder = "\0"
+    protected = line.replace("\\|", placeholder)
+    stripped = protected.strip()
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.strip().replace(placeholder, "|") for cell in stripped.split("|")]
+
+
+def _is_table_separator(line: str) -> bool:
+    """Check whether a line is a GitHub Markdown table separator row."""
+    import re
+
+    cells = _split_table_row(line)
+    return len(cells) > 0 and all(
+        re.fullmatch(r":?-{1,}:?", cell) is not None for cell in cells
+    )
+
+
+def _collect_table_block(
+    lines: Sequence[str], start: int
+) -> tuple[list[str], list[list[str]], int] | None:
+    """Collect a GitHub Markdown table starting at the given line index.
+
+    Return the header cells, body rows and number of consumed lines,
+    or None when the lines do not form a table.
+    """
+    first = lines[start].strip()
+    if not first.startswith("|") or "|" not in first[1:]:
+        return None
+    if start + 1 >= len(lines) or not _is_table_separator(lines[start + 1]):
+        return None
+
+    header = _split_table_row(first)
+    rows: list[list[str]] = []
+    consumed = 2
+    for raw_line in lines[start + 2 :]:
+        stripped = raw_line.strip()
+        if not stripped.startswith("|") or "|" not in stripped[1:]:
+            break
+        rows.append(_split_table_row(stripped))
+        consumed += 1
+
+    width = len(header)
+    normalized = [
+        (row + [""] * width)[:width] if len(row) != width else row for row in rows
+    ]
+    return header, normalized, consumed
+
+
 def _write_markdown_pdf(file_path: Path, markdown: str) -> None:
     """Render simple Markdown content into a PDF file."""
     styles = getSampleStyleSheet()
@@ -545,10 +600,20 @@ def _write_markdown_pdf(file_path: Path, markdown: str) -> None:
     )
 
     flowables: list = []
-    for raw_line in markdown.splitlines():
-        line = raw_line.rstrip()
+    lines = markdown.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index].rstrip()
         if not line.strip():
             flowables.append(Spacer(1, 6))
+            index += 1
+            continue
+
+        table_block = _collect_table_block(lines, index)
+        if table_block is not None:
+            header, rows, consumed = table_block
+            flowables.append(_build_pdf_table(header, rows, body_style))
+            index += consumed
             continue
 
         if line.startswith("### "):
@@ -589,8 +654,46 @@ def _write_markdown_pdf(file_path: Path, markdown: str) -> None:
             flowables.append(
                 Paragraph(_convert_inline_markdown(_escape_html(line)), body_style)
             )
+        index += 1
 
     document.build(flowables)
+
+
+def _build_pdf_table(
+    header: list[str], rows: list[list[str]], body_style: ParagraphStyle
+) -> Table:
+    """Build a styled reportlab Table from header and body rows."""
+    data = [
+        [
+            Paragraph(_convert_inline_markdown(_escape_html(cell)), body_style)
+            for cell in header
+        ]
+    ]
+    data.extend(
+        [
+            Paragraph(_convert_inline_markdown(_escape_html(cell)), body_style)
+            for cell in row
+        ]
+        for row in rows
+    )
+    table = Table(data, repeatRows=1)
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E5E7EB")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#1F2937")),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), 9),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#9CA3AF")),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    return table
 
 
 def _write_markdown_docx(file_path: Path, markdown: str) -> None:
@@ -598,9 +701,19 @@ def _write_markdown_docx(file_path: Path, markdown: str) -> None:
     document = Document()
     document.core_properties.title = file_path.stem
 
-    for raw_line in markdown.splitlines():
-        line = raw_line.rstrip()
+    lines = markdown.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index].rstrip()
         if not line.strip():
+            index += 1
+            continue
+
+        table_block = _collect_table_block(lines, index)
+        if table_block is not None:
+            header, rows, consumed = table_block
+            _add_docx_table(document, header, rows)
+            index += consumed
             continue
 
         if line.startswith("### "):
@@ -613,8 +726,31 @@ def _write_markdown_docx(file_path: Path, markdown: str) -> None:
             _add_docx_paragraph(document, line[2:], style="List Bullet")
         else:
             _add_docx_paragraph(document, line)
+        index += 1
 
     document.save(str(file_path))
+
+
+def _add_docx_table(
+    document: Document, header: list[str], rows: list[list[str]]
+) -> None:
+    """Add a gridded table with a bold header row to the document."""
+    table = document.add_table(rows=1 + len(rows), cols=len(header))
+    table.style = "Table Grid"
+    for col, cell_text in enumerate(header):
+        _set_docx_cell_text(table.cell(0, col), cell_text, bold=True)
+    for row_idx, row in enumerate(rows, start=1):
+        for col, cell_text in enumerate(row):
+            _set_docx_cell_text(table.cell(row_idx, col), cell_text)
+
+
+def _set_docx_cell_text(cell: Any, text: str, bold: bool = False) -> None:
+    """Fill a table cell with **bold** and _italic_ markdown as styled runs."""
+    paragraph = cell.paragraphs[0]
+    for chunk, chunk_bold, italic in _iter_inline_runs(text):
+        run = paragraph.add_run(chunk)
+        run.bold = bold or chunk_bold
+        run.italic = italic
 
 
 def _add_docx_paragraph(

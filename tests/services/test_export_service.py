@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -8,6 +9,8 @@ from app.services.export_service import (
     ExperimentNotFoundError,
     ExportService,
     ReportNotFoundError,
+    _build_pdf_table,
+    _collect_table_block,
     _convert_inline_markdown,
 )
 
@@ -485,6 +488,80 @@ class TestConvertInlineMarkdown:
 
         # then
         assert result == "<b>Bold1</b> and <b>Bold2</b>"
+
+
+class TestMarkdownTables:
+    TABLE_MARKDOWN = (
+        "# Report\n\n"
+        "| Reagent | Amount |\n"
+        "| --- | --- |\n"
+        "| Ethanol | 5 mL |\n"
+        "| Water | 10 mL |\n"
+    )
+
+    def test_collects_header_body_and_consumed_lines(self) -> None:
+        # given
+        lines = self.TABLE_MARKDOWN.splitlines()
+
+        # when
+        result = _collect_table_block(lines, 2)
+
+        # then
+        assert result is not None
+        header, rows, consumed = result
+        assert header == ["Reagent", "Amount"]
+        assert rows == [["Ethanol", "5 mL"], ["Water", "10 mL"]]
+        assert consumed == 4
+
+    def test_rejects_block_without_separator_row(self) -> None:
+        # given
+        lines = ["| Reagent | Amount |", "| Ethanol | 5 mL |"]
+
+        # when
+        result = _collect_table_block(lines, 0)
+
+        # then
+        assert result is None
+
+    def test_pdf_writer_builds_table_flowable_for_markdown_tables(
+        self, service: ExportService
+    ) -> None:
+        # given
+        calls: list = []
+        real_builder = _build_pdf_table
+
+        def spy(header: list, rows: list, body_style: object) -> object:
+            calls.append((header, rows))
+            return real_builder(header, rows, body_style)  # type: ignore[arg-type]
+
+        # when
+        with patch("app.services.export_service._build_pdf_table", side_effect=spy):
+            file_path = service.export_ai_report_pdf(self.TABLE_MARKDOWN)
+
+        # then
+        assert file_path.read_bytes().startswith(b"%PDF")
+        assert calls == [
+            (["Reagent", "Amount"], [["Ethanol", "5 mL"], ["Water", "10 mL"]])
+        ]
+
+    def test_docx_export_renders_table_with_bold_header(
+        self, service: ExportService
+    ) -> None:
+        # given
+        from docx import Document
+
+        # when
+        file_path = service.export_ai_report_docx(self.TABLE_MARKDOWN)
+
+        # then
+        tables = Document(str(file_path)).tables
+        assert len(tables) == 1
+        assert [cell.text for cell in tables[0].rows[0].cells] == [
+            "Reagent",
+            "Amount",
+        ]
+        assert [cell.text for cell in tables[0].rows[1].cells] == ["Ethanol", "5 mL"]
+        assert tables[0].cell(0, 0).paragraphs[0].runs[0].bold is True
 
 
 @pytest.fixture(name="ai_service")
