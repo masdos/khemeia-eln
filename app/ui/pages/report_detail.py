@@ -130,6 +130,8 @@ def build_report_detail_page(
             try:
                 if file_format == "pdf":
                     file_path = svc.export_report_pdf(report_id)
+                elif file_format == "docx":
+                    file_path = svc.export_report_docx(report_id)
                 else:
                     file_path = svc.export_report_markdown(report_id)
             except (ValueError, RuntimeError) as error:
@@ -138,12 +140,11 @@ def build_report_detail_page(
             ui.notify(f"Exported to {file_path.name}", type="positive")
 
         with ui.row().classes("gap-2"):
-            ui.button("Export Markdown", on_click=lambda: on_export("md")).props(
+            ui.button("Markdown", on_click=lambda: on_export("md")).props(
                 "color=primary"
             )
-            ui.button("Export PDF", on_click=lambda: on_export("pdf")).props(
-                "color=primary"
-            )
+            ui.button("DOCX", on_click=lambda: on_export("docx")).props("color=primary")
+            ui.button("PDF", on_click=lambda: on_export("pdf")).props("color=primary")
 
         export_location_label(base_dir / "exports")
 

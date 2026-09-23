@@ -334,6 +334,47 @@ class TestExportExperimentPdf:
             service.export_experiment_pdf(999)
 
 
+class TestExportExperimentDocx:
+    def test_writes_docx_file_that_exists_and_is_not_empty(
+        self, service: ExportService, tmp_path: Path
+    ) -> None:
+        # when
+        file_path = service.export_experiment_docx(1)
+
+        # then
+        assert file_path == tmp_path / "exports" / "experiment_1.docx"
+        assert file_path.exists()
+        assert file_path.stat().st_size > 0
+
+    def test_docx_starts_with_zip_header(self, service: ExportService) -> None:
+        # when
+        file_path = service.export_experiment_docx(1)
+
+        # then
+        content = file_path.read_bytes()
+        assert content.startswith(b"PK")
+
+    def test_docx_contains_title_and_resources(self, service: ExportService) -> None:
+        # given
+        from docx import Document
+
+        # when
+        file_path = service.export_experiment_docx(1)
+
+        # then
+        texts = [p.text for p in Document(str(file_path)).paragraphs]
+        assert "Synthesis of Aspirin" in texts
+        assert any("Acetic anhydride" in text for text in texts)
+        assert any("Hotplate stirrer" in text for text in texts)
+
+    def test_raises_not_found_for_missing_experiment(
+        self, service: ExportService
+    ) -> None:
+        # when / then
+        with pytest.raises(ExperimentNotFoundError, match="does not exist"):
+            service.export_experiment_docx(999)
+
+
 class TestExportsDirectory:
     def test_creates_exports_directory_when_missing(
         self,
@@ -597,6 +638,45 @@ class TestExportAiReportPdf:
             service.export_ai_report_pdf(empty_markdown)
 
 
+class TestExportAiReportDocx:
+    def test_writes_docx_file_under_exports_with_zip_header(
+        self, service: ExportService, tmp_path: Path
+    ) -> None:
+        # given
+        markdown = "# AI Report\n\nDraft content."
+
+        # when
+        file_path = service.export_ai_report_docx(markdown)
+
+        # then
+        assert file_path.parent == tmp_path / "exports"
+        assert file_path.suffix == ".docx"
+        assert file_path.is_absolute()
+        assert file_path.exists()
+        assert file_path.read_bytes().startswith(b"PK")
+
+    def test_generates_unique_filenames_for_consecutive_reports(
+        self, service: ExportService
+    ) -> None:
+        # given
+        markdown = "# AI Report"
+
+        # when
+        first = service.export_ai_report_docx(markdown)
+        second = service.export_ai_report_docx(markdown)
+
+        # then
+        assert first != second
+
+    def test_rejects_empty_markdown_content(self, service: ExportService) -> None:
+        # given
+        empty_markdown = ""
+
+        # when / then
+        with pytest.raises(ValueError, match="markdown_content"):
+            service.export_ai_report_docx(empty_markdown)
+
+
 class TestExportReportMarkdown:
     def test_writes_report_file_with_experiment_like_name(
         self,
@@ -706,6 +786,30 @@ class TestExportReportPdf:
         # when / then
         with pytest.raises(ReportNotFoundError, match="does not exist"):
             ai_service.export_report_pdf(999)
+
+
+class TestExportReportDocx:
+    def test_writes_docx_file_with_experiment_like_name(
+        self,
+        ai_service: ExportService,
+        tmp_path: Path,
+        project_repository: InMemoryProjectRepository,
+    ) -> None:
+        # given
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        report_id = ai_service.save_report("# Body", [1], 1, "Weekly Report")
+
+        # when
+        file_path = ai_service.export_report_docx(report_id)
+
+        # then
+        assert file_path == tmp_path / "exports" / f"report_{report_id}.docx"
+        assert file_path.read_bytes().startswith(b"PK")
+
+    def test_rejects_missing_report(self, ai_service: ExportService) -> None:
+        # when / then
+        with pytest.raises(ReportNotFoundError, match="does not exist"):
+            ai_service.export_report_docx(999)
 
 
 class TestSaveReport:

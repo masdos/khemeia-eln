@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any, Protocol
 
+from docx import Document
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.pagesizes import A4
@@ -195,7 +196,7 @@ def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
 
 
 class ExportService:
-    """Generates Markdown and PDF exports of experiments."""
+    """Generates Markdown, PDF and DOCX exports of experiments and reports."""
 
     def __init__(
         self,
@@ -269,6 +270,29 @@ class ExportService:
         logger.info("Experiment exported to pdf experiment_id=%s", experiment_id)
         return file_path
 
+    def export_experiment_docx(self, experiment_id: int) -> Path:
+        """Export an experiment to DOCX under BASE_DIR/exports/."""
+        experiment = self._experiment_repo.get_by_id(experiment_id)
+        if experiment is None:
+            raise ExperimentNotFoundError(
+                f"Experiment with id {experiment_id} does not exist"
+            )
+
+        reagents = self._reagent_repo.get_by_experiment(experiment_id)
+        equipment = self._equipment_repo.get_by_experiment(experiment_id)
+        project = self._project_repo.get_by_id(experiment.get("project_id"))
+        protocol = self._protocol_repo.get_by_id(experiment.get("protocol_id"))
+        attachments = self._attachment_repo.get_by_experiment(experiment_id)
+        markdown = self._build_markdown(
+            experiment, reagents, equipment, project, protocol, attachments
+        )
+
+        file_path = self._exports_dir() / f"experiment_{experiment_id}.docx"
+        _write_markdown_docx(file_path, markdown)
+
+        logger.info("Experiment exported to docx experiment_id=%s", experiment_id)
+        return file_path
+
     def save_report(
         self,
         markdown_content: str,
@@ -319,6 +343,18 @@ class ExportService:
         logger.info("AI report exported to pdf stored_name=%s", stored_name)
         return file_path
 
+    def export_ai_report_docx(self, markdown_content: str) -> Path:
+        """Export AI generated Markdown as a DOCX file under BASE_DIR/exports/."""
+        if not markdown_content or not markdown_content.strip():
+            raise ValueError("markdown_content must not be empty")
+
+        _, stored_name = _build_ai_report_names("docx")
+        file_path = self._exports_dir() / stored_name
+        _write_markdown_docx(file_path, self._with_user_header(markdown_content))
+
+        logger.info("AI report exported to docx stored_name=%s", stored_name)
+        return file_path
+
     def export_report_markdown(self, report_id: int) -> Path:
         """Export a saved report to Markdown under BASE_DIR/exports/."""
         report = self._require_report(report_id)
@@ -339,6 +375,17 @@ class ExportService:
         _write_markdown_pdf(file_path, content)
 
         logger.info("Report exported to pdf report_id=%s", report_id)
+        return file_path
+
+    def export_report_docx(self, report_id: int) -> Path:
+        """Export a saved report to DOCX under BASE_DIR/exports/."""
+        report = self._require_report(report_id)
+        content = self._with_user_header(report.get("content_markdown") or "")
+
+        file_path = self._exports_dir() / f"report_{report_id}.docx"
+        _write_markdown_docx(file_path, content)
+
+        logger.info("Report exported to docx report_id=%s", report_id)
         return file_path
 
     def _require_report(self, report_id: int) -> dict[str, Any]:
@@ -544,6 +591,61 @@ def _write_markdown_pdf(file_path: Path, markdown: str) -> None:
             )
 
     document.build(flowables)
+
+
+def _write_markdown_docx(file_path: Path, markdown: str) -> None:
+    """Render simple Markdown content into a DOCX file."""
+    document = Document()
+    document.core_properties.title = file_path.stem
+
+    for raw_line in markdown.splitlines():
+        line = raw_line.rstrip()
+        if not line.strip():
+            continue
+
+        if line.startswith("### "):
+            _add_docx_paragraph(document, line[4:], style="Heading 3")
+        elif line.startswith("## "):
+            _add_docx_paragraph(document, line[3:], style="Heading 2")
+        elif line.startswith("# "):
+            _add_docx_paragraph(document, line[2:], style="Heading 1")
+        elif line.startswith("- "):
+            _add_docx_paragraph(document, line[2:], style="List Bullet")
+        else:
+            _add_docx_paragraph(document, line)
+
+    document.save(str(file_path))
+
+
+def _add_docx_paragraph(
+    document: Document, text: str, style: str | None = None
+) -> None:
+    """Add a paragraph with **bold** and _italic_ markdown as styled runs."""
+    paragraph = (
+        document.add_paragraph(style=style) if style else document.add_paragraph()
+    )
+    for chunk, bold, italic in _iter_inline_runs(text):
+        run = paragraph.add_run(chunk)
+        run.bold = bold
+        run.italic = italic
+
+
+def _iter_inline_runs(text: str) -> Iterator[tuple[str, bool, bool]]:
+    """Split **bold** and _italic_ markdown into (text, bold, italic) runs."""
+    import re
+
+    pattern = re.compile(r"\*\*(.+?)\*\*|(?<!\w)_(.+?)_(?!\w)")
+    pos = 0
+    for match in pattern.finditer(text):
+        if match.start() > pos:
+            yield text[pos : match.start()], False, False
+        if match.group(1) is not None:
+            yield match.group(1), True, False
+        else:
+            yield match.group(2), False, True
+        pos = match.end()
+    if pos < len(text):
+        yield text[pos:], False, False
 
 
 def _escape_html(text: str) -> str:

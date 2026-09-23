@@ -8,6 +8,7 @@ dependencies = [
     "nicegui>=3.12.1",
     "ollama>=0.6.2",
     "platformdirs>=4.10.0",
+    "python-docx>=1.2.0",
     "python-dotenv>=1.2.2",
     "pywebview>=6.2.1",
     "rdkit>=2026.3.2",

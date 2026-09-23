@@ -12,11 +12,16 @@ class FakeExportService:
 
     def __init__(self) -> None:
         self.markdown_calls: list[int] = []
+        self.docx_calls: list[int] = []
         self.pdf_calls: list[int] = []
 
     def export_report_markdown(self, report_id: int) -> Path:
         self.markdown_calls.append(report_id)
         return Path(f"report_{report_id}.md")
+
+    def export_report_docx(self, report_id: int) -> Path:
+        self.docx_calls.append(report_id)
+        return Path(f"report_{report_id}.docx")
 
     def export_report_pdf(self, report_id: int) -> Path:
         self.pdf_calls.append(report_id)
@@ -295,7 +300,7 @@ def test_shows_exports_location_hint() -> None:
 
 
 def test_exports_saved_report_to_markdown_by_id() -> None:
-    """Export Markdown must export the saved report by identifier."""
+    """Markdown export must export the saved report by identifier."""
     # given
     repo = FakeReportRepository()
     service = ReportService(repo)
@@ -308,18 +313,19 @@ def test_exports_saved_report_to_markdown_by_id() -> None:
                 mock_ui, service, report_id
             )
             draft.value = "# Edited"
-            buttons["Export Markdown"].click()
+            buttons["Markdown"].click()
 
             # then
             assert export_service.markdown_calls == [report_id]
+            assert export_service.docx_calls == []
             assert export_service.pdf_calls == []
             mock_ui.notify.assert_called_with(
                 f"Exported to report_{report_id}.md", type="positive"
             )
 
 
-def test_exports_saved_report_to_pdf_by_id() -> None:
-    """Export PDF must export the saved report by identifier."""
+def test_exports_saved_report_to_docx_by_id() -> None:
+    """DOCX export must export the saved report by identifier."""
     # given
     repo = FakeReportRepository()
     service = ReportService(repo)
@@ -332,8 +338,34 @@ def test_exports_saved_report_to_pdf_by_id() -> None:
                 mock_ui, service, report_id
             )
             draft.value = "# Edited"
-            buttons["Export PDF"].click()
+            buttons["DOCX"].click()
+
+            # then
+            assert export_service.docx_calls == [report_id]
+            assert export_service.markdown_calls == []
+            assert export_service.pdf_calls == []
+            mock_ui.notify.assert_called_with(
+                f"Exported to report_{report_id}.docx", type="positive"
+            )
+
+
+def test_exports_saved_report_to_pdf_by_id() -> None:
+    """PDF export must export the saved report by identifier."""
+    # given
+    repo = FakeReportRepository()
+    service = ReportService(repo)
+    report_id = repo.seed(1, "Report A", "# Content")
+
+    with patch("app.ui.pages.report_detail._get_service", return_value=service):
+        with patch("app.ui.pages.report_detail.ui") as mock_ui:
+            # when
+            export_service, draft, buttons, _ = _build_for_export(
+                mock_ui, service, report_id
+            )
+            draft.value = "# Edited"
+            buttons["PDF"].click()
 
             # then
             assert export_service.pdf_calls == [report_id]
             assert export_service.markdown_calls == []
+            assert export_service.docx_calls == []

@@ -553,6 +553,13 @@ def _build_export_section(
         except Exception as e:
             ui.notify(str(e), type="negative")
 
+    def export_docx() -> None:
+        try:
+            path = export_svc.export_experiment_docx(experiment_id)
+            ui.notify(f"Exported to {path.name}", type="positive")
+        except Exception as e:
+            ui.notify(str(e), type="negative")
+
     def export_pdf() -> None:
         try:
             path = export_svc.export_experiment_pdf(experiment_id)
@@ -561,7 +568,8 @@ def _build_export_section(
             ui.notify(str(e), type="negative")
 
     with ui.row().classes("gap-2"):
-        ui.button("Export Markdown", on_click=export_md).props("color=primary")
-        ui.button("Export PDF", on_click=export_pdf).props("color=primary")
+        ui.button("Markdown", on_click=export_md).props("color=primary")
+        ui.button("DOCX", on_click=export_docx).props("color=primary")
+        ui.button("PDF", on_click=export_pdf).props("color=primary")
 
     export_location_label(base_dir / "exports")
