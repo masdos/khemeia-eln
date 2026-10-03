@@ -11,8 +11,10 @@ from nicegui import run, ui
 
 from app.config import ConfigValidationError, get_current_config, write_config
 from app.database.connection import get_connection
+from app.repositories import attachment_repository
 from app.services.ai_service import AIService
 from app.services.experiment_service import (
+    ExperimentNotFoundError,
     ExperimentService,
     SqliteExperimentRepository,
 )
@@ -35,6 +37,11 @@ from app.services.export_service import (
 from app.services.export_service import (
     SqliteReagentRepository as ExportSqliteReagentRepository,
 )
+from app.services.inventory_service import (
+    InventoryService,
+    SqliteEquipmentRepository,
+    SqliteReagentRepository,
+)
 from app.services.ollama_client import OllamaClient
 from app.services.project_service import SqliteProjectRepository
 from app.services.protocol_service import SqliteProtocolRepository
@@ -54,6 +61,18 @@ SAVE_REQUIRED = "Generate a draft before saving."
 LANGUAGE_OPTIONS = ["Spanish", "English"]
 
 PROGRESS_POLL_SECONDS = 0.2
+
+GHS_HAZARDS = (
+    ("is_explosive", "Explosive"),
+    ("is_flammable", "Flammable"),
+    ("is_oxidizer", "Oxidizer"),
+    ("is_gas_under_pressure", "Gas under pressure"),
+    ("is_corrosive", "Corrosive"),
+    ("is_acute_toxic", "Acute toxicity"),
+    ("is_harmful_irritant", "Harmful/Irritant"),
+    ("is_health_hazard", "Health hazard"),
+    ("is_environmental_hazard", "Environmental hazard"),
+)
 
 
 def get_project_choices(project_repo: Any) -> dict[int, str]:
@@ -84,13 +103,60 @@ def get_experiment_choices(
 def collect_experiments_data(
     experiment_service: ExperimentService,
     experiment_ids: Sequence[int],
+    *,
+    protocol_repo: Any | None = None,
+    inventory_service: InventoryService | None = None,
+    connection: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """Return full experiment records for the selected ids, skipping missing."""
+    """Return full experiment records for the selected ids, skipping missing.
+
+    Each record is enriched with the protocol name, the linked reagents
+    (with amount, lot and hazards), the linked equipment and the attachment
+    file names, so the AI draft is built from the same data shown on the
+    experiment detail page. Sources left as None are skipped.
+    """
     collected: list[dict[str, Any]] = []
     for experiment_id in experiment_ids:
-        experiment = experiment_service.get_experiment(experiment_id)
-        if experiment is not None:
-            collected.append(experiment)
+        try:
+            experiment = experiment_service.get_experiment(experiment_id)
+        except ExperimentNotFoundError:
+            continue
+        if experiment is None:
+            continue
+        record = dict(experiment)
+        if protocol_repo is not None:
+            protocol = protocol_repo.get_by_id(record.get("protocol_id"))
+            if protocol is not None:
+                record["protocol_name"] = protocol.get("name")
+        if inventory_service is not None:
+            resources = inventory_service.get_experiment_resources(experiment_id)
+            record["reagents"] = [
+                {
+                    "name": reagent.get("name", ""),
+                    "amount_used": reagent.get("amount_used"),
+                    "unit": reagent.get("unit", "") or "",
+                    "lot_number": reagent.get("lot_number", "") or "",
+                    "hazards": [
+                        label for field, label in GHS_HAZARDS if reagent.get(field)
+                    ],
+                }
+                for reagent in resources.get("reagents", [])
+            ]
+            record["equipment"] = [
+                {
+                    "name": item.get("name", ""),
+                    "description": item.get("description", "") or "",
+                }
+                for item in resources.get("equipment", [])
+            ]
+        if connection is not None:
+            record["attachments"] = [
+                attachment["file_name"]
+                for attachment in attachment_repository.get_by_experiment(
+                    connection, experiment_id
+                )
+            ]
+        collected.append(record)
     return collected
 
 
@@ -134,6 +200,11 @@ def _get_services(base_dir: Path) -> dict[str, Any]:
         project_repo=SqliteProjectRepository(conn),
         protocol_repo=SqliteProtocolRepository(conn),
     )
+    protocol_repo = SqliteProtocolRepository(conn)
+    inventory_service = InventoryService(
+        reagent_repo=SqliteReagentRepository(conn),
+        equipment_repo=SqliteEquipmentRepository(conn),
+    )
     config = get_current_config()
     export_service = ExportService(
         base_dir=base_dir,
@@ -151,6 +222,9 @@ def _get_services(base_dir: Path) -> dict[str, Any]:
     ollama_client = OllamaClient()
     return {
         "experiment_service": experiment_service,
+        "protocol_repo": protocol_repo,
+        "inventory_service": inventory_service,
+        "connection": conn,
         "ai_service": AIService(ollama_client),
         "export_service": export_service,
         "ollama_client": ollama_client,
@@ -191,6 +265,9 @@ def build_ai_report_generator_page(
     base_dir: Path | None = None,
     *,
     experiment_service: ExperimentService | None = None,
+    protocol_repo: Any | None = None,
+    inventory_service: InventoryService | None = None,
+    connection: Any | None = None,
     ai_service: AIService | None = None,
     export_service: ExportService | None = None,
     ollama_client: OllamaClient | None = None,
@@ -210,6 +287,9 @@ def build_ai_report_generator_page(
     ):
         services = _get_services(base_dir)
         experiment_service = experiment_service or services["experiment_service"]
+        protocol_repo = protocol_repo or services["protocol_repo"]
+        inventory_service = inventory_service or services["inventory_service"]
+        connection = connection or services["connection"]
         ai_service = ai_service or services["ai_service"]
         export_service = export_service or services["export_service"]
         ollama_client = ollama_client or services["ollama_client"]
@@ -279,7 +359,13 @@ def build_ai_report_generator_page(
             if not language:
                 message.text = LANGUAGE_REQUIRED
                 return
-            experiments_data = collect_experiments_data(experiment_service, ids)
+            experiments_data = collect_experiments_data(
+                experiment_service,
+                ids,
+                protocol_repo=protocol_repo,
+                inventory_service=inventory_service,
+                connection=connection,
+            )
             if not experiments_data:
                 message.text = SELECTION_REQUIRED
                 return

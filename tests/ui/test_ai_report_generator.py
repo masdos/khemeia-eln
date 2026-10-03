@@ -707,6 +707,117 @@ def test_skips_missing_experiments_when_collecting_data() -> None:
     assert [experiment["id"] for experiment in collected] == [1]
 
 
+class FakeProtocolRepo:
+    """Test double returning protocols without SQLite."""
+
+    def __init__(self, protocols: list[dict[str, Any]]) -> None:
+        self._protocols = {protocol["id"]: protocol for protocol in protocols}
+
+    def get_by_id(self, protocol_id: int | None) -> dict[str, Any] | None:
+        return self._protocols.get(protocol_id)  # type: ignore[arg-type]
+
+
+class FakeInventoryService:
+    """Test double returning experiment resources without SQLite."""
+
+    def __init__(
+        self,
+        reagents: list[dict[str, Any]] | None = None,
+        equipment: list[dict[str, Any]] | None = None,
+    ) -> None:
+        self._reagents = reagents or []
+        self._equipment = equipment or []
+
+    def get_experiment_resources(self, experiment_id: int) -> dict[str, Any]:
+        return {"reagents": self._reagents, "equipment": self._equipment}
+
+
+def test_attaches_protocol_reagents_and_equipment_when_collecting_data() -> None:
+    # given
+    experiment_service = FakeExperimentService(
+        [{"id": 1, "title": "Exp A", "protocol_id": 7}]
+    )
+    protocol_repo = FakeProtocolRepo([{"id": 7, "name": "Standard Protocol"}])
+    inventory_service = FakeInventoryService(
+        reagents=[
+            {
+                "name": "Acetic anhydride",
+                "amount_used": 5.0,
+                "unit": "mL",
+                "lot_number": "AA-001",
+                "is_corrosive": True,
+            }
+        ],
+        equipment=[{"name": "Hotplate stirrer", "description": "Heating"}],
+    )
+
+    # when
+    collected = collect_experiments_data(
+        experiment_service,  # type: ignore[arg-type]
+        [1],
+        protocol_repo=protocol_repo,  # type: ignore[arg-type]
+        inventory_service=inventory_service,  # type: ignore[arg-type]
+    )
+
+    # then
+    assert collected[0]["protocol_name"] == "Standard Protocol"
+    assert collected[0]["reagents"] == [
+        {
+            "name": "Acetic anhydride",
+            "amount_used": 5.0,
+            "unit": "mL",
+            "lot_number": "AA-001",
+            "hazards": ["Corrosive"],
+        }
+    ]
+    assert collected[0]["equipment"] == [
+        {"name": "Hotplate stirrer", "description": "Heating"}
+    ]
+
+
+def test_attaches_attachment_file_names_when_collecting_data() -> None:
+    # given
+    from app.database.connection import close_connection, get_connection
+    from app.repositories import attachment_repository
+    from app.repositories.experiment_repository import create as create_experiment
+
+    connection = get_connection(":memory:")
+    try:
+        project_id = connection.execute(
+            "INSERT INTO projects (name) VALUES (?)", ("Project",)
+        ).lastrowid
+        connection.commit()
+        protocol_id = connection.execute(
+            "INSERT INTO protocols (name, content_markdown) VALUES (?, '# C')",
+            ("Protocol",),
+        ).lastrowid
+        connection.commit()
+        experiment_id = create_experiment(
+            connection,
+            project_id=project_id,
+            protocol_id=protocol_id,
+            title="Exp A",
+        )
+        attachment_repository.create(
+            connection, experiment_id, "spectrum.png", "a1b2.png", "png"
+        )
+        experiment_service = FakeExperimentService(
+            [{"id": experiment_id, "title": "Exp A"}]
+        )
+
+        # when
+        collected = collect_experiments_data(
+            experiment_service,  # type: ignore[arg-type]
+            [experiment_id],
+            connection=connection,
+        )
+
+        # then
+        assert collected[0]["attachments"] == ["spectrum.png"]
+    finally:
+        close_connection(connection)
+
+
 def test_returns_none_when_ai_reports_nothing() -> None:
     # given
     ai_service = FakeAIService(None)

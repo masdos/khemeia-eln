@@ -349,3 +349,50 @@ def test_reports_accumulated_text_while_streaming() -> None:
     assert report == "# Report"
     assert seen == ["# Re", "# Report"]
     assert client.seen_models == ["qwen3:4b"]
+
+
+def test_includes_protocol_reagents_equipment_and_attachments_in_prompt() -> None:
+    # given
+    client = FakeOllamaClient(status=_ready_status("qwen3:4b"), response="# Draft")
+    service = AIService(client)  # type: ignore[arg-type]
+    experiment = _experiment()
+    experiment["protocol_name"] = "Standard Protocol"
+    experiment["reagents"] = [
+        {
+            "name": "Acetic anhydride",
+            "amount_used": 5.0,
+            "unit": "mL",
+            "lot_number": "AA-001",
+            "hazards": ["Corrosive"],
+        }
+    ]
+    experiment["equipment"] = [
+        {"name": "Hotplate stirrer", "description": "Heating and stirring"}
+    ]
+    experiment["attachments"] = ["spectrum.png"]
+
+    # when
+    service.generate_report(experiment, "qwen3:4b", "English")
+
+    # then
+    prompt = client.seen_prompts[0]
+    assert "Protocol name: Standard Protocol" in prompt
+    assert "Acetic anhydride (5.0 mL, Lot: AA-001, Hazards: Corrosive)" in prompt
+    assert "Hotplate stirrer (Heating and stirring)" in prompt
+    assert "Attachments: spectrum.png" in prompt
+
+
+def test_marks_missing_resources_as_not_recorded_in_prompt() -> None:
+    # given
+    client = FakeOllamaClient(status=_ready_status("qwen3:4b"), response="# Draft")
+    service = AIService(client)  # type: ignore[arg-type]
+
+    # when
+    service.generate_report(_experiment(), "qwen3:4b", "English")
+
+    # then
+    prompt = client.seen_prompts[0]
+    assert "Protocol name: Not recorded" in prompt
+    assert "Reagents: Not recorded" in prompt
+    assert "Equipment: Not recorded" in prompt
+    assert "Attachments: Not recorded" in prompt

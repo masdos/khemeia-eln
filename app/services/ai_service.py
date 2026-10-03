@@ -12,26 +12,107 @@ logger = logging.getLogger(__name__)
 _SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 _SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
 
+_ROLE = (
+    "You are a chemistry laboratory assistant inside an electronic lab "
+    "notebook. Write a DRAFT technical scientific report in Markdown from "
+    "the experiment records in the user message. A chemist will review and "
+    "edit the draft, so accuracy matters more than polish."
+)
+
+_REPORT_RULES = """\
+RECORDS FORMAT
+Each experiment has these labeled fields: Title, State, Research question,
+Protocol name, Experimental procedure, Results, Conclusions,
+Reagents, Equipment, Attachments. Only the protocol name is sent, not its
+content. An empty field is marked NOT RECORDED.
+
+TRUTH RULES (highest priority)
+1. Use only facts that appear in the records. Do not invent data.
+2. If a value is missing, write "Not recorded" in the report language. Never
+   estimate or invent numbers, dates, observations, yields, melting points,
+   Rf values or literature values.
+3. Do not calculate. Report only numbers that already appear in the records.
+4. Do not cite literature and do not invent references. Never cite Wikipedia.
+5. Describe what actually happened. The protocol name is context only: the
+   experimental procedure is the correct account of the work. Include
+   deviations and failures. Do not idealize.
+6. Keep every quantity, unit and chemical name exactly as recorded. Do not
+   round or convert. When the records use another language, translate them
+   faithfully without altering quantities, units or chemical names.
+7. Yields, melting points, Rf values and similar data exist only if they are
+   written in the Results field. Copy each value with its unit and the
+   compound it belongs to. If it is unclear which compound a value belongs
+   to, reproduce the original sentence instead of assigning it.
+8. The State decides the outcome:
+   - Success: say the experiment worked only if Results or Conclusions
+     support it.
+   - Fail: say clearly that the experiment failed. Give causes only if the
+     records mention them.
+   - Running: the experiment is not finished. Write only the title, Summary,
+     Objective and Methods. Under Results, Discussion and Conclusions write
+     only "Pending: experiment still running." in the report language.
+
+FORMAT RULES
+- Use only standard Markdown (headings, bold, italic, lists, tables).
+- Do not use LaTeX, math delimiters like $...$, backslash commands, HTML tags
+  such as <sub> or <sup>, or Unicode sub/superscripts. If the records contain
+  LaTeX, rewrite it in plain text.
+- Write chemical formulas in plain text with inline numbers, for example
+  H2SO4, CO2 or H2O.
+- Be concise, factual and neutral.
+- Use third person and passive voice for all actions. Do not use "I" or "we".
+  Reagents and compounds are the only actors.
+- Use short sentences and precise terms. Avoid vague verbs such as "reacts
+  with" when a precise verb exists.
+- State how reagents were added when the records say so (dropwise, in
+  portions).
+- Mention the hazards listed in the records as safety precautions in Methods.
+- Every table and figure must be mentioned in the text by its number.
+- Write the section headings in the report language.
+
+STRUCTURE
+Start with the report title as a level-1 heading: short, and naming the
+experiment performed. Then write exactly these sections as level-2 headings,
+in this order, and no others (no References section):
+- Summary: one paragraph of 3 to 4 full sentences with the purpose, the
+  method and the key recorded results.
+- Objective: state the purpose using the Research question and explain why it
+  matters. Use only background found in the records. Include chemical
+  equations only if they appear in the records: copy them in plain text, do
+  not create or balance them.
+- Methods: built from the Experimental procedure, using the protocol only as
+  context, and from the Reagents and Equipment lists. Give enough detail for
+  another chemist to repeat the work, including reagent amounts. Record color,
+  texture and physical state when present. Leave out trivial details.
+- Results: present only the content of the Results field. No analysis and no
+  opinion on quality. Build a table only if the field gives values for clearly
+  labeled compounds: caption ABOVE the table, units in every column header.
+  Otherwise describe the data in prose. Figure captions go BELOW the figure.
+  Mention a figure only if it is in the Attachments list. Never invent
+  figures.
+- Discussion: continuous prose that tells a logical story. Never use bullet
+  points or numbered lists here. Analyze the recorded results and the
+  chemist's Conclusions. Compare with literature values only if they appear
+  in the records. Discuss sources of error only if the records support them.
+  Suggest concrete improvements. Do not add new calculations.
+- Conclusions: one paragraph. Base it on the Conclusions field and do not
+  contradict it. If it is NOT RECORDED, summarize only what the Results and
+  the State support. Say whether the Research question was answered,
+  according to the State.
+
+SEVERAL EXPERIMENTS
+Give each experiment its own subsection in Methods. Use one table in Results
+with one row per experiment. Compare the experiments in the Discussion.
+
+OUTPUT
+Return only the report. No introduction, no closing remarks, no notes about
+your reasoning.
+"""
+
 
 def _build_system_prompt(language: str) -> str:
     """Return the system prompt requesting a full report in one language."""
-    return (
-        "You are a chemistry laboratory assistant. "
-        f"Write the complete report in {language}. "
-        "Write a structured technical scientific report in Markdown based only "
-        "on the supplied experiments. "
-        "Use exactly these sections: # Title, ## Summary, ## Objective, "
-        "## Methods, ## Results, ## Conclusions. "
-        "Use only standard Markdown (headings, bold, italic, lists, tables). "
-        "Do not use LaTeX, math delimiters like $...$, backslash commands, "
-        "HTML tags such as <sub> or <sup>, or Unicode sub/superscripts. "
-        "Write chemical formulas in plain text with inline numbers, "
-        "for example H2SO4, CO2 or H2O. "
-        "Be concise, factual and neutral. "
-        "Do not invent data that is not present in the experiments. "
-        "When the source data uses another language, translate it faithfully "
-        "without altering quantities, units or chemical names."
-    )
+    return f"{_ROLE}\nWrite the complete report in {language}.\n\n{_REPORT_RULES}"
 
 
 def _sanitize_report(text: str) -> str:
@@ -160,6 +241,7 @@ def _format_experiment(index: int, experiment: Mapping[str, Any]) -> str:
     title = experiment.get("title") or f"Experiment {index}"
     state = experiment.get("state") or "Unknown"
     question = experiment.get("question") or "Not recorded"
+    protocol_name = experiment.get("protocol_name") or "Not recorded"
     procedure = experiment.get("experimental_procedure_markdown") or "Not recorded"
     result = experiment.get("result_markdown") or "Not recorded"
     conclusions = experiment.get("conclusions") or "Not recorded"
@@ -167,7 +249,51 @@ def _format_experiment(index: int, experiment: Mapping[str, Any]) -> str:
         f"Experiment {index}: {title}\n"
         f"State: {state}\n"
         f"Question: {question}\n"
+        f"Protocol name: {protocol_name}\n"
         f"Procedure: {procedure}\n"
         f"Result: {result}\n"
-        f"Conclusions: {conclusions}"
+        f"Conclusions: {conclusions}\n"
+        f"Reagents: {_format_reagents(experiment.get('reagents'))}\n"
+        f"Equipment: {_format_equipment(experiment.get('equipment'))}\n"
+        f"Attachments: {_format_attachments(experiment.get('attachments'))}"
     )
+
+
+def _format_reagents(reagents: Any) -> str:
+    """Format linked reagents with amount, lot and hazards for the prompt."""
+    if not reagents:
+        return "Not recorded"
+    parts = []
+    for reagent in reagents:
+        name = reagent.get("name") or "Unnamed reagent"
+        details: list[str] = []
+        if reagent.get("amount_used") is not None:
+            amount = f"{reagent['amount_used']} {reagent.get('unit') or ''}".strip()
+            details.append(amount)
+        if reagent.get("lot_number"):
+            details.append(f"Lot: {reagent['lot_number']}")
+        hazards = reagent.get("hazards") or []
+        if hazards:
+            details.append(f"Hazards: {', '.join(hazards)}")
+        parts.append(f"{name} ({', '.join(details)})" if details else name)
+    return "; ".join(parts)
+
+
+def _format_equipment(equipment: Any) -> str:
+    """Format linked equipment with descriptions for the prompt."""
+    if not equipment:
+        return "Not recorded"
+    parts = []
+    for item in equipment:
+        name = item.get("name") or "Unnamed equipment"
+        description = (item.get("description") or "").strip()
+        parts.append(f"{name} ({description})" if description else name)
+    return "; ".join(parts)
+
+
+def _format_attachments(attachments: Any) -> str:
+    """Format attachment file names for the prompt."""
+    if not attachments:
+        return "Not recorded"
+    names = [str(name) for name in attachments if str(name).strip()]
+    return ", ".join(names) if names else "Not recorded"
