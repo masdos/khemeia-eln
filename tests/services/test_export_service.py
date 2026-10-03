@@ -114,6 +114,7 @@ class InMemoryReportRepository:
             "project_id": project_id,
             "title": title,
             "content_markdown": content_markdown,
+            "modified_at": "2026-06-06 14:00:00",
         }
         return report_id
 
@@ -178,6 +179,7 @@ def service_fixture(
             "state": "Success",
             "conclusions": "Acetylated salicylic acid at 90 C.",
             "created_at": "2026-01-01 00:00:00",
+            "modified_at": "2026-05-05 12:00:00",
             "project_id": 1,
             "protocol_id": 1,
         }
@@ -197,6 +199,7 @@ def service_fixture(
             "amount_used": 5.0,
             "unit": "mL",
             "lot_number": "AA-2026-001",
+            "is_corrosive": True,
         },
     )
     reagent_repository.add_to_experiment(
@@ -204,7 +207,7 @@ def service_fixture(
         {"name": "Salicylic acid", "amount_used": 2.0, "unit": "g", "lot_number": None},
     )
     equipment_repository.add_to_experiment(
-        1, {"name": "Hotplate stirrer", "description": ""}
+        1, {"name": "Hotplate stirrer", "description": "Heating and stirring"}
     )
     return ExportService(
         tmp_path,
@@ -239,16 +242,26 @@ class TestExportExperimentMarkdown:
 
         # then
         content = file_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        assert lines[0] == "2026-05-05"
+        assert lines[1] == "Test User | test@example.com"
         assert "# Synthesis of Aspirin" in content
+        assert "Fecha:" not in content
+        assert "Autor:" not in content
         assert "**State:** Success" in content
         assert "**Project:** Aspirin Synthesis" in content
         assert "**Protocol:** Standard Protocol" in content
         assert "Acetylated salicylic acid" in content
-        assert "Acetic anhydride (5.0 mL, Lot: AA-2026-001)" in content
-        assert "Salicylic acid (2.0 g)" in content
+        assert "| Name | Amount Used | Lot | GHS |" in content
+        assert "Acetic anhydride" in content
+        assert "5.0 mL" in content
+        assert "AA-2026-001" in content
+        assert "Corrosive" in content
+        assert "Salicylic acid" in content
+        assert "2.0 g" in content
+        assert "| Name | Description |" in content
         assert "Hotplate stirrer" in content
-        assert "Test User" in content
-        assert "test@example.com" in content
+        assert "Heating and stirring" in content
 
     def test_raises_not_found_for_missing_experiment(
         self, service: ExportService
@@ -264,11 +277,61 @@ class TestExportExperimentMarkdown:
         file_path = service.export_experiment_markdown(1)
 
         # then
-        lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert "Test User" in lines
-        assert "test@example.com" in lines
-        assert len(lines) > 3
-        assert lines[3] == ""
+        content = file_path.read_text(encoding="utf-8")
+        assert "Test User | test@example.com" in content
+        assert "Example University" not in content
+
+    def test_keeps_multiline_equipment_description_inside_table_row(
+        self,
+        tmp_path: Path,
+        experiment_repository: InMemoryExperimentRepository,
+        reagent_repository: InMemoryReagentRepository,
+        equipment_repository: InMemoryEquipmentRepository,
+        project_repository: InMemoryProjectRepository,
+        protocol_repository: InMemoryProtocolRepository,
+        attachment_repository: InMemoryAttachmentRepository,
+    ) -> None:
+        # given
+        experiment_repository.add_experiment(
+            {
+                "id": 7,
+                "title": "Reflux",
+                "state": "Running",
+                "modified_at": "2026-02-02 00:00:00",
+            }
+        )
+        equipment_repository.add_to_experiment(
+            7,
+            {
+                "name": "Montaje de reflujo con manta calefactora",
+                "description": (
+                    "- Matraz de fondo redondo\n\n- refrigerante\n- manta calefactora |"
+                ),
+            },
+        )
+        service = ExportService(
+            tmp_path,
+            experiment_repository,
+            reagent_repository,
+            equipment_repository,
+            project_repository,
+            protocol_repository,
+            attachment_repository,
+            user_name="Test User",
+            user_email="test@example.com",
+        )
+
+        # when
+        file_path = service.export_experiment_markdown(7)
+
+        # then
+        content = file_path.read_text(encoding="utf-8")
+        table_rows = [
+            line for line in content.splitlines() if line.startswith("| Montaje")
+        ]
+        assert len(table_rows) == 1
+        assert "refrigerante" in table_rows[0]
+        assert "manta calefactora" in table_rows[0]
 
 
 class TestExportInstitutionHeader:
@@ -303,10 +366,8 @@ class TestExportInstitutionHeader:
         file_path = service.export_experiment_markdown(9)
 
         # then
-        lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert lines[1] == "Test User"
-        assert lines[2] == "test@example.com"
-        assert lines[3] == "Example University"
+        content = file_path.read_text(encoding="utf-8")
+        assert "Test User | test@example.com | Example University" in content
 
 
 class TestExportExperimentPdf:
@@ -365,10 +426,17 @@ class TestExportExperimentDocx:
         file_path = service.export_experiment_docx(1)
 
         # then
-        texts = [p.text for p in Document(str(file_path)).paragraphs]
+        document = Document(str(file_path))
+        texts = [p.text for p in document.paragraphs]
+        table_texts = [
+            cell.text
+            for table in document.tables
+            for row in table.rows
+            for cell in row.cells
+        ]
         assert "Synthesis of Aspirin" in texts
-        assert any("Acetic anhydride" in text for text in texts)
-        assert any("Hotplate stirrer" in text for text in texts)
+        assert any("Acetic anhydride" in text for text in table_texts)
+        assert any("Hotplate stirrer" in text for text in table_texts)
 
     def test_raises_not_found_for_missing_experiment(
         self, service: ExportService
@@ -618,11 +686,13 @@ class TestExportAiReportMarkdown:
         file_path = service.export_ai_report_markdown(markdown)
 
         # then
+        from datetime import date
+
         lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert lines[1] == "Test User"
-        assert lines[2] == "test@example.com"
-        assert lines[3] == ""
-        assert lines[4] == "# AI Report"
+        assert lines[0] == date.today().strftime("%Y-%m-%d")
+        assert lines[1] == "Test User | test@example.com"
+        assert lines[2] == ""
+        assert lines[3] == "# AI Report"
 
     def test_leaves_database_untouched(
         self,
@@ -786,7 +856,8 @@ class TestExportReportMarkdown:
 
         # then
         lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert lines[4] == "# Body text"
+        assert lines[0] == "2026-06-06"
+        assert lines[2] == "# Body text"
         assert "# Weekly Report" not in lines
 
     def test_includes_institution_when_provided(
@@ -822,9 +893,8 @@ class TestExportReportMarkdown:
 
         # then
         lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert lines[1] == "Test User"
-        assert lines[2] == "test@example.com"
-        assert lines[3] == "Example University"
+        assert lines[0] == "2026-06-06"
+        assert lines[1] == "Test User | test@example.com | Example University"
 
     def test_rejects_missing_report(self, ai_service: ExportService) -> None:
         # when / then

@@ -35,6 +35,19 @@ from app.repositories import (
 logger = logging.getLogger(__name__)
 
 
+GHS_FIELDS = [
+    ("is_explosive", "GHS01", "Explosive"),
+    ("is_flammable", "GHS02", "Flammable"),
+    ("is_oxidizer", "GHS03", "Oxidizer"),
+    ("is_gas_under_pressure", "GHS04", "Gas under pressure"),
+    ("is_corrosive", "GHS05", "Corrosive"),
+    ("is_acute_toxic", "GHS06", "Acute toxicity"),
+    ("is_harmful_irritant", "GHS07", "Harmful/Irritant"),
+    ("is_health_hazard", "GHS08", "Health hazard"),
+    ("is_environmental_hazard", "GHS09", "Environmental hazard"),
+]
+
+
 class ExperimentNotFoundError(ValueError):
     """Raised when exporting an experiment that does not exist."""
 
@@ -360,7 +373,9 @@ class ExportService:
     def export_report_markdown(self, report_id: int) -> Path:
         """Export a saved report to Markdown under BASE_DIR/exports/."""
         report = self._require_report(report_id)
-        content = self._with_user_header(report.get("content_markdown") or "")
+        content = self._with_user_header(
+            report.get("content_markdown") or "", _modification_date(report)
+        )
 
         file_path = self._exports_dir() / f"report_{report_id}.md"
         file_path.write_text(content, encoding="utf-8")
@@ -371,7 +386,9 @@ class ExportService:
     def export_report_pdf(self, report_id: int) -> Path:
         """Export a saved report to PDF under BASE_DIR/exports/."""
         report = self._require_report(report_id)
-        content = self._with_user_header(report.get("content_markdown") or "")
+        content = self._with_user_header(
+            report.get("content_markdown") or "", _modification_date(report)
+        )
 
         file_path = self._exports_dir() / f"report_{report_id}.pdf"
         _write_markdown_pdf(file_path, content)
@@ -382,7 +399,9 @@ class ExportService:
     def export_report_docx(self, report_id: int) -> Path:
         """Export a saved report to DOCX under BASE_DIR/exports/."""
         report = self._require_report(report_id)
-        content = self._with_user_header(report.get("content_markdown") or "")
+        content = self._with_user_header(
+            report.get("content_markdown") or "", _modification_date(report)
+        )
 
         file_path = self._exports_dir() / f"report_{report_id}.docx"
         _write_markdown_docx(file_path, content)
@@ -398,20 +417,34 @@ class ExportService:
 
         return report
 
-    def _user_header_lines(self) -> list[str]:
+    def _author_line(self) -> str:
+        parts = [
+            part
+            for part in (
+                self._user_name.strip(),
+                self._user_email.strip(),
+                self._user_institution.strip(),
+            )
+            if part
+        ]
+        return " | ".join(parts)
+
+    def _header_lines(self, date_text: str) -> list[str]:
+        lines = [date_text]
+        author = self._author_line()
+        if author:
+            lines.append(author)
+        lines.append("")
+        return lines
+
+    def _with_user_header(
+        self, markdown_content: str, date_text: str | None = None
+    ) -> str:
         from datetime import date
 
-        header = [
-            date.today().strftime("%Y-%m-%d"),
-            self._user_name,
-            self._user_email,
-        ]
-        if self._user_institution.strip():
-            header.append(self._user_institution.strip())
-        return header
-
-    def _with_user_header(self, markdown_content: str) -> str:
-        return "\n".join([*self._user_header_lines(), "", markdown_content]) + "\n"
+        if date_text is None:
+            date_text = date.today().strftime("%Y-%m-%d")
+        return "\n".join([*self._header_lines(date_text), markdown_content]) + "\n"
 
     def _require_report_repo(self) -> ReportRepository:
         if self._report_repo is None:
@@ -438,9 +471,21 @@ class ExportService:
     ) -> str:
         project_name = project["name"] if project else "_None_"
         protocol_name = protocol["name"] if protocol else "_None_"
+        author_parts = [
+            part
+            for part in (
+                self._user_name.strip(),
+                self._user_email.strip(),
+                self._user_institution.strip(),
+            )
+            if part
+        ]
+        header_lines = [_modification_date(experiment)]
+        if author_parts:
+            header_lines.append(" | ".join(author_parts))
 
         lines = [
-            *self._user_header_lines(),
+            *header_lines,
             "",
             f"# {experiment['title']}",
             "",
@@ -469,13 +514,35 @@ class ExportService:
             "",
         ]
         if reagents:
-            lines.extend(self._format_reagent_line(row) for row in reagents)
+            lines.extend(
+                [
+                    "| Name | Amount Used | Lot | GHS |",
+                    "| --- | --- | --- | --- |",
+                    *(
+                        f"| {_md_cell(row.get('name'))} "
+                        f"| {_md_cell(_format_amount(row))} "
+                        f"| {_md_cell(row.get('lot_number'))} "
+                        f"| {_md_cell(_format_ghs(row))} |"
+                        for row in reagents
+                    ),
+                ]
+            )
         else:
             lines.append("_No reagents recorded._")
 
         lines.extend(["", "## Equipment", ""])
         if equipment:
-            lines.extend(f"- {row['name']}" for row in equipment)
+            lines.extend(
+                [
+                    "| Name | Description |",
+                    "| --- | --- |",
+                    *(
+                        f"| {_md_cell(row.get('name'))} "
+                        f"| {_md_cell(row.get('description'))} |"
+                        for row in equipment
+                    ),
+                ]
+            )
         else:
             lines.append("_No equipment recorded._")
 
@@ -487,21 +554,49 @@ class ExportService:
 
         return "\n".join(lines) + "\n"
 
-    def _format_reagent_line(self, row: dict[str, Any]) -> str:
-        parts = [f"- {row['name']}"]
-        details: list[str] = []
-        if row.get("amount_used") is not None:
-            details.append(f"{row['amount_used']} {row['unit']}")
-        if row.get("lot_number"):
-            details.append(f"Lot: {row['lot_number']}")
-        if details:
-            parts.append(f" ({', '.join(details)})")
-        return "".join(parts)
-
     def _exports_dir(self) -> Path:
         exports_dir = self._base_dir / "exports"
         exports_dir.mkdir(parents=True, exist_ok=True)
         return exports_dir
+
+
+def _format_amount(row: dict[str, Any]) -> str:
+    """Format the amount used with its unit, or "-" when not recorded."""
+    if row.get("amount_used") is None:
+        return "-"
+    return f"{row['amount_used']} {row.get('unit') or ''}".strip() or "-"
+
+
+def _format_ghs(row: dict[str, Any]) -> str:
+    """Format the GHS hazard labels, or "-" when none apply."""
+    labels = [label for field, _code, label in GHS_FIELDS if row.get(field)]
+    return ", ".join(labels) if labels else "-"
+
+
+def _modification_date(entity: dict[str, Any]) -> str:
+    """Return the entity modification date as year, month and day."""
+    from datetime import date
+
+    modified_at = entity.get("modified_at")
+    if modified_at:
+        return str(modified_at).strip()[:10]
+    return date.today().strftime("%Y-%m-%d")
+
+
+def _md_cell(value: Any) -> str:
+    """Format a value as a single-line Markdown table cell.
+
+    Newlines are joined so multiline content cannot break out of
+    the table row, and pipe characters are escaped.
+    """
+    if value is None:
+        return "-"
+    normalized = str(value).replace("\r\n", "\n").replace("\r", "\n")
+    parts = [part.strip() for part in normalized.split("\n")]
+    text = "; ".join(part for part in parts if part)
+    if not text:
+        return "-"
+    return text.replace("|", "\\|")
 
 
 def _build_ai_report_names(extension: str) -> tuple[str, str]:
