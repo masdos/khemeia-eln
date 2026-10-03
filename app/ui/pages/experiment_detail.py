@@ -40,7 +40,6 @@ from app.services.export_service import (
 )
 from app.services.file_service import FileService
 from app.services.inventory_service import (
-    EquipmentNotFoundError,
     InventoryService,
     SqliteEquipmentRepository,
     SqliteReagentRepository,
@@ -59,6 +58,42 @@ from app.ui.components.export_location import (
 from app.ui.components.forms import back_button, detail_save_row
 from app.ui.components.markdown_editor import markdown_editor
 from app.ui.components.meta import entity_meta
+from app.ui.components.tables import entity_table
+
+GHS_FIELDS = [
+    ("is_explosive", "GHS01", "Explosive"),
+    ("is_flammable", "GHS02", "Flammable"),
+    ("is_oxidizer", "GHS03", "Oxidizer"),
+    ("is_gas_under_pressure", "GHS04", "Gas under pressure"),
+    ("is_corrosive", "GHS05", "Corrosive"),
+    ("is_acute_toxic", "GHS06", "Acute toxicity"),
+    ("is_harmful_irritant", "GHS07", "Harmful/Irritant"),
+    ("is_health_hazard", "GHS08", "Health hazard"),
+    ("is_environmental_hazard", "GHS09", "Environmental hazard"),
+]
+
+REAGENT_ACTIONS_SLOT = """
+<q-td :props="props">
+    <q-btn flat dense icon="image" color="primary"
+            :disable="!props.row.has_structure"
+            @click="() => $parent.$emit('structure', props.row)">
+        <q-tooltip>View structure</q-tooltip>
+    </q-btn>
+    <q-btn flat dense icon="delete" color="negative"
+            @click="() => $parent.$emit('unlink', props.row)">
+        <q-tooltip>Unlink reagent</q-tooltip>
+    </q-btn>
+</q-td>
+"""
+
+EQUIPMENT_ACTIONS_SLOT = """
+<q-td :props="props">
+    <q-btn flat dense icon="delete" color="negative"
+            @click="() => $parent.$emit('unlink', props.row)">
+        <q-tooltip>Unlink equipment</q-tooltip>
+    </q-btn>
+</q-td>
+"""
 
 
 def _strip_svg_rect(svg: str) -> str:
@@ -276,65 +311,6 @@ def _build_resources_section(
 
     # --- Reagents ---
     ui.label("Reagents").classes("font-semibold mt-2")
-    reagent_rows = resources.get("reagents", [])
-    if reagent_rows:
-        for r in reagent_rows:
-            with ui.row().classes("items-center gap-2"):
-                ui.label(f"- {r['name']}").classes("text-sm")
-                lot_number = r.get("lot_number", "")
-                unit = r.get("unit", "")
-                if r.get("amount_used") is not None:
-                    label_text = f"({r['amount_used']} {unit}"
-                    if lot_number:
-                        label_text += f" - {lot_number}"
-                    label_text += ")"
-                    ui.label(label_text).classes("text-sm text-slate-500")
-                elif lot_number:
-                    ui.label(f" - {lot_number}").classes("text-sm text-slate-500")
-                smiles = r.get("smiles", "")
-                if smiles:
-                    svg = chem_svc.smiles_to_svg(smiles)
-                    if svg:
-                        svg_clean = _strip_svg_rect(svg)
-                        svg_b64 = base64.b64encode(svg.encode()).decode()
-                        img_src = f"data:image/svg+xml;base64,{svg_b64}"
-                        dialog = ui.dialog()
-                        with dialog:
-                            with ui.column().classes("bg-white p-4 gap-2"):
-                                ui.image(img_src).style("width:500px; height:400px;")
-                                with ui.row().classes("w-full items-center gap-2"):
-                                    ui.button(
-                                        "Copy SVG",
-                                        icon="content_copy",
-                                        on_click=lambda s=svg_clean: ui.clipboard.write(
-                                            s
-                                        ),
-                                    ).props("flat dense")
-                                    ui.button(
-                                        "Close",
-                                        icon="close",
-                                        on_click=dialog.close,
-                                    ).props("flat dense")
-                        ui.button(
-                            icon="image",
-                            on_click=dialog.open,
-                        ).props("flat dense color=primary").classes("text-sm")
-
-                def _make_unlink(
-                    _exp_id=experiment_id,
-                    _reagent_id=r["id"],
-                ) -> None:
-                    inv_svc.unlink_reagent_from_experiment(_exp_id, _reagent_id)
-                    ui.notify("Reagent unlinked", type="positive")
-                    router.refresh()
-
-                ui.button(
-                    icon="delete",
-                    on_click=_make_unlink,
-                ).props("flat dense color=negative").classes("text-xs")
-    else:
-        ui.label("No reagents linked.").classes("text-slate-500 text-sm")
-
     all_reagents = inv_svc.list_reagents()
     reagent_options = {r["id"]: r["name"] for r in all_reagents}
     if reagent_options:
@@ -392,35 +368,65 @@ def _build_resources_section(
                 on_click=lambda: router.navigate("inventory"),
             ).props("flat dense").classes("text-sm text-primary p-0")
 
+    reagent_rows = resources.get("reagents", [])
+    if reagent_rows:
+        reagent_by_id = {r["id"]: r for r in reagent_rows}
+        columns = [
+            {"name": "name", "label": "Name", "field": "name", "align": "left"},
+            {
+                "name": "amount",
+                "label": "Amount Used",
+                "field": "amount",
+                "align": "left",
+            },
+            {"name": "lot", "label": "Lot", "field": "lot", "align": "left"},
+            {"name": "ghs", "label": "GHS", "field": "ghs", "align": "left"},
+            {
+                "name": "actions",
+                "label": "Actions",
+                "field": "actions",
+                "align": "center",
+            },
+        ]
+        rows = []
+        for r in reagent_rows:
+            amount_used = r.get("amount_used")
+            unit = r.get("unit", "") or ""
+            if amount_used is not None:
+                amount_text = f"{amount_used} {unit}".strip()
+            else:
+                amount_text = "-"
+            ghs_labels = [label for field, _code, label in GHS_FIELDS if r.get(field)]
+            rows.append(
+                {
+                    "id": r["id"],
+                    "name": r.get("name", ""),
+                    "amount": amount_text,
+                    "lot": r.get("lot_number", "") or "-",
+                    "ghs": ", ".join(ghs_labels) if ghs_labels else "-",
+                    "has_structure": bool(r.get("smiles", "")),
+                }
+            )
+        reagent_table = entity_table(columns, rows)
+        reagent_table.add_slot("body-cell-actions", REAGENT_ACTIONS_SLOT)
+        reagent_table.on(
+            "structure",
+            lambda e, _by_id=reagent_by_id: _open_structure_dialog(
+                chem_svc, _by_id.get(e.args["id"], {}).get("smiles", "")
+            ),
+        )
+
+        def _unlink_reagent(e) -> None:
+            inv_svc.unlink_reagent_from_experiment(experiment_id, e.args["id"])
+            ui.notify("Reagent unlinked", type="positive")
+            router.refresh()
+
+        reagent_table.on("unlink", _unlink_reagent)
+    else:
+        ui.label("No reagents linked.").classes("text-slate-500 text-sm")
+
     # --- Equipment ---
     ui.label("Equipment").classes("font-semibold mt-2")
-    equip_rows = resources.get("equipment", [])
-    if equip_rows:
-        for e in equip_rows:
-            with ui.row().classes("items-center gap-2"):
-                ui.label(f"- {e['name']}").classes("text-sm")
-
-                def _make_unlink_equip(
-                    _exp_id=experiment_id,
-                    _equip_id=e["id"],
-                ) -> None:
-                    inv_svc.unlink_equipment_from_experiment(_exp_id, _equip_id)
-                    ui.notify("Equipment unlinked", type="positive")
-                    router.refresh()
-
-                ui.button(
-                    icon="visibility",
-                    on_click=lambda _equip_id=e["id"]: _open_equipment_preview_dialog(
-                        inv_svc, _equip_id
-                    ),
-                ).props("flat dense color=primary").classes("text-xs")
-                ui.button(
-                    icon="delete",
-                    on_click=_make_unlink_equip,
-                ).props("flat dense color=negative").classes("text-xs")
-    else:
-        ui.label("No equipment linked.").classes("text-slate-500 text-sm")
-
     all_equipment = inv_svc.list_equipment()
     equipment_options = {eq["id"]: eq["name"] for eq in all_equipment}
     if equipment_options:
@@ -454,33 +460,70 @@ def _build_resources_section(
                 on_click=lambda: router.navigate("inventory"),
             ).props("flat dense").classes("text-sm text-primary p-0")
 
+    equip_rows = resources.get("equipment", [])
+    if equip_rows:
+        columns = [
+            {"name": "name", "label": "Name", "field": "name", "align": "left"},
+            {
+                "name": "description",
+                "label": "Description",
+                "field": "description",
+                "align": "left",
+            },
+            {
+                "name": "actions",
+                "label": "Actions",
+                "field": "actions",
+                "align": "center",
+            },
+        ]
+        rows = [
+            {
+                "id": e["id"],
+                "name": e.get("name", ""),
+                "description": e.get("description", "") or "-",
+            }
+            for e in equip_rows
+        ]
+        equipment_table = entity_table(columns, rows)
+        equipment_table.add_slot("body-cell-actions", EQUIPMENT_ACTIONS_SLOT)
 
-def _open_equipment_preview_dialog(
-    inv_svc: InventoryService, equipment_id: int
-) -> None:
-    try:
-        equipment = inv_svc.get_equipment(equipment_id)
-    except EquipmentNotFoundError:
-        ui.notify("Equipment not found", type="negative")
+        def _unlink_equipment(e) -> None:
+            inv_svc.unlink_equipment_from_experiment(experiment_id, e.args["id"])
+            ui.notify("Equipment unlinked", type="positive")
+            router.refresh()
+
+        equipment_table.on("unlink", _unlink_equipment)
+    else:
+        ui.label("No equipment linked.").classes("text-slate-500 text-sm")
+
+
+def _open_structure_dialog(chem_svc: ChemistryService, smiles: str) -> None:
+    if not smiles:
+        ui.notify("No structure available", type="warning")
         return
-
+    svg = chem_svc.smiles_to_svg(smiles)
+    if not svg:
+        ui.notify("Could not render structure", type="negative")
+        return
+    svg_clean = _strip_svg_rect(svg)
+    svg_b64 = base64.b64encode(svg.encode()).decode()
+    img_src = f"data:image/svg+xml;base64,{svg_b64}"
     dialog = ui.dialog()
-    with dialog, ui.card().classes("w-[32rem] max-w-full"):
-        ui.label(equipment["name"]).classes("text-xl font-semibold")
-        entity_meta(equipment.get("created_at"), equipment.get("modified_at"))
-        description = (equipment.get("description") or "").strip()
-        ui.label(description if description else "No description.").classes(
-            "text-sm text-slate-600 mt-2"
-        )
-        with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button(
-                "Open full page",
-                on_click=lambda: (
-                    dialog.close(),
-                    router.navigate("equipment_detail", equipment_id=equipment_id),
-                ),
-            ).props("outline color=primary")
-            ui.button("Close", on_click=dialog.close).props("color=primary")
+    with dialog:
+        with ui.column().classes("bg-white p-4 gap-2"):
+            ui.image(img_src).style("width:500px; height:400px;")
+            with ui.row().classes("w-full items-center gap-2"):
+                ui.button(
+                    "Copy SVG",
+                    icon="content_copy",
+                    on_click=lambda: ui.clipboard.write(svg_clean),
+                ).props("flat dense")
+                ui.button(
+                    "Close",
+                    icon="close",
+                    on_click=dialog.close,
+                ).props("flat dense")
     dialog.open()
 
 
