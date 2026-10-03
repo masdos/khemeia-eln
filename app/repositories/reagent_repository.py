@@ -2,6 +2,8 @@ import sqlite3
 from collections.abc import Sequence
 from datetime import date
 
+from app.repositories import experiment_repository
+
 
 class ReagentHasExperimentsError(ValueError):
     """Raised when trying to delete a reagent that is used in experiments."""
@@ -126,6 +128,7 @@ def link_to_experiment(
         "VALUES (?, ?, ?, ?)",
         (experiment_id, reagent_id, amount, unit),
     )
+    experiment_repository.touch(connection, experiment_id)
     connection.commit()
 
 
@@ -138,6 +141,7 @@ def unlink_from_experiment(
         "DELETE FROM experiment_reagents WHERE experiment_id = ? AND reagent_id = ?",
         (experiment_id, reagent_id),
     )
+    experiment_repository.touch(connection, experiment_id)
     connection.commit()
 
 

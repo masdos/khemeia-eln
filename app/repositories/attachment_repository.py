@@ -1,6 +1,8 @@
 import sqlite3
 from collections.abc import Sequence
 
+from app.repositories import experiment_repository
+
 
 def create(
     connection: sqlite3.Connection,
@@ -15,6 +17,7 @@ def create(
         "VALUES (?, ?, ?, ?)",
         (experiment_id, file_name, stored_name, extension),
     )
+    experiment_repository.touch(connection, experiment_id)
     connection.commit()
     return cursor.lastrowid
 
@@ -34,9 +37,11 @@ def get_by_experiment(
 def delete(
     connection: sqlite3.Connection,
     attachment_id: int,
+    experiment_id: int,
 ) -> None:
     connection.execute(
         "DELETE FROM attachments WHERE id = ?",
         (attachment_id,),
     )
+    experiment_repository.touch(connection, experiment_id)
     connection.commit()

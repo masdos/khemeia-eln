@@ -549,7 +549,7 @@ def _build_attachments_section(
                     exp_id: int = experiment_id,
                 ) -> None:
                     file_svc.delete_attachment(exp_id, stored_name)
-                    attachment_repository.delete(conn, att_id)
+                    attachment_repository.delete(conn, att_id, exp_id)
                     ui.notify("Attachment deleted", type="positive")
                     router.refresh()
 

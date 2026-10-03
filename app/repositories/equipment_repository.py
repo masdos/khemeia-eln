@@ -1,6 +1,8 @@
 import sqlite3
 from collections.abc import Sequence
 
+from app.repositories import experiment_repository
+
 
 class EquipmentHasExperimentsError(ValueError):
     """Raised when trying to delete equipment that is used in experiments."""
@@ -61,6 +63,7 @@ def link_to_experiment(
         "(experiment_id, equipment_id) VALUES (?, ?)",
         (experiment_id, equipment_id),
     )
+    experiment_repository.touch(connection, experiment_id)
     connection.commit()
 
 
@@ -73,6 +76,7 @@ def unlink_from_experiment(
         "DELETE FROM experiment_equipment WHERE experiment_id = ? AND equipment_id = ?",
         (experiment_id, equipment_id),
     )
+    experiment_repository.touch(connection, experiment_id)
     connection.commit()
 
 

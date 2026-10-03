@@ -159,7 +159,7 @@ class TestDelete:
         )
 
         # when
-        delete(connection, attachment_id)
+        delete(connection, attachment_id, experiment_id)
 
         # then
         row = connection.execute(
@@ -188,7 +188,7 @@ class TestDelete:
         )
 
         # when
-        delete(connection, id_a)
+        delete(connection, id_a, experiment_id)
 
         # then
         remaining = get_by_experiment(connection, experiment_id)

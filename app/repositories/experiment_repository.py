@@ -125,6 +125,19 @@ def delete(connection: sqlite3.Connection, experiment_id: int) -> bool:
     return cursor.rowcount > 0
 
 
+def touch(connection: sqlite3.Connection, experiment_id: int) -> None:
+    """Refresh the modification timestamp without changing experiment data.
+
+    Callers must commit the transaction. It is kept commit-free so each
+    repository operation performs a single commit for its write plus the
+    timestamp refresh.
+    """
+    connection.execute(
+        "UPDATE experiments SET modified_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (experiment_id,),
+    )
+
+
 def _require_valid_state(state: object) -> None:
     if state not in VALID_STATES:
         raise InvalidExperimentStateError(

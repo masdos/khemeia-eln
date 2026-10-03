@@ -3,12 +3,16 @@ import sqlite3
 import pytest
 
 from app.database.connection import close_connection, get_connection
+from app.repositories import attachment_repository
+from app.repositories import equipment_repository as equipment_repo
+from app.repositories import reagent_repository as reagent_repo
 from app.repositories.experiment_repository import (
     ExperimentReferenceNotFoundError,
     InvalidExperimentStateError,
     create,
     get_all,
     get_by_id,
+    touch,
     update,
 )
 
@@ -516,3 +520,150 @@ class TestUpdate:
         # when / then
         with pytest.raises(InvalidExperimentStateError):
             update(connection, experiment_id, state="Paused")
+
+
+def _insert_experiment_with_old_timestamp(
+    connection: sqlite3.Connection,
+) -> int:
+    project_id = _insert_project(connection)
+    protocol_id = _insert_protocol(connection)
+    experiment_id = create(
+        connection,
+        project_id=project_id,
+        protocol_id=protocol_id,
+        title="Synthesis",
+    )
+    connection.execute(
+        "UPDATE experiments SET modified_at = '2000-01-01 00:00:00' WHERE id = ?",
+        (experiment_id,),
+    )
+    connection.commit()
+    return experiment_id
+
+
+def _modified_at(connection: sqlite3.Connection, experiment_id: int) -> str:
+    row = connection.execute(
+        "SELECT modified_at FROM experiments WHERE id = ?", (experiment_id,)
+    ).fetchone()
+    assert row is not None
+    return row["modified_at"]
+
+
+class TestTouch:
+    def test_refreshes_timestamp_without_changing_data(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+
+        # when
+        touch(connection, experiment_id)
+        connection.commit()
+
+        # then
+        row = get_by_id(connection, experiment_id)
+        assert row is not None
+        assert row["title"] == "Synthesis"
+        assert row["modified_at"] != "2000-01-01 00:00:00"
+
+    def test_refreshes_timestamp_when_linking_reagent(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+        reagent_id = reagent_repo.create(connection, "Acetic anhydride")
+
+        # when
+        reagent_repo.link_to_experiment(
+            connection, experiment_id, reagent_id, 5.0, "mL"
+        )
+
+        # then
+        assert _modified_at(connection, experiment_id) != "2000-01-01 00:00:00"
+
+    def test_refreshes_timestamp_when_unlinking_reagent(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+        reagent_id = reagent_repo.create(connection, "Acetic anhydride")
+        reagent_repo.link_to_experiment(
+            connection, experiment_id, reagent_id, 5.0, "mL"
+        )
+        connection.execute(
+            "UPDATE experiments SET modified_at = '2000-01-01 00:00:00' WHERE id = ?",
+            (experiment_id,),
+        )
+        connection.commit()
+
+        # when
+        reagent_repo.unlink_from_experiment(connection, experiment_id, reagent_id)
+
+        # then
+        assert _modified_at(connection, experiment_id) != "2000-01-01 00:00:00"
+
+    def test_refreshes_timestamp_when_linking_equipment(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+        equipment_id = equipment_repo.create(connection, "Hotplate")
+
+        # when
+        equipment_repo.link_to_experiment(connection, experiment_id, equipment_id)
+
+        # then
+        assert _modified_at(connection, experiment_id) != "2000-01-01 00:00:00"
+
+    def test_refreshes_timestamp_when_unlinking_equipment(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+        equipment_id = equipment_repo.create(connection, "Hotplate")
+        equipment_repo.link_to_experiment(connection, experiment_id, equipment_id)
+        connection.execute(
+            "UPDATE experiments SET modified_at = '2000-01-01 00:00:00' WHERE id = ?",
+            (experiment_id,),
+        )
+        connection.commit()
+
+        # when
+        equipment_repo.unlink_from_experiment(connection, experiment_id, equipment_id)
+
+        # then
+        assert _modified_at(connection, experiment_id) != "2000-01-01 00:00:00"
+
+    def test_refreshes_timestamp_when_adding_attachment(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+
+        # when
+        attachment_repository.create(
+            connection, experiment_id, "spectrum.png", "a1b2c3.png", "png"
+        )
+
+        # then
+        assert _modified_at(connection, experiment_id) != "2000-01-01 00:00:00"
+
+    def test_refreshes_timestamp_when_deleting_attachment(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment_with_old_timestamp(connection)
+        attachment_id = attachment_repository.create(
+            connection, experiment_id, "spectrum.png", "a1b2c3.png", "png"
+        )
+        connection.execute(
+            "UPDATE experiments SET modified_at = '2000-01-01 00:00:00' WHERE id = ?",
+            (experiment_id,),
+        )
+        connection.commit()
+
+        # when
+        attachment_repository.delete(connection, attachment_id, experiment_id)
+
+        # then
+        assert _modified_at(connection, experiment_id) != "2000-01-01 00:00:00"
