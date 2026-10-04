@@ -396,3 +396,36 @@ def test_marks_missing_resources_as_not_recorded_in_prompt() -> None:
     assert "Reagents: Not recorded" in prompt
     assert "Equipment: Not recorded" in prompt
     assert "Attachments: Not recorded" in prompt
+
+
+def test_flattens_braced_superscript_to_plain_text() -> None:
+    # given
+    raw = "Fe^{3+}"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "Fe3+"
+
+
+def test_flattens_unicode_superscript_to_plain_text() -> None:
+    # given
+    raw = "CO²"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "CO2"
+
+
+def test_flattens_caret_exponent_to_plain_text() -> None:
+    # given
+    raw = "x^2"
+
+    # when
+    cleaned = _sanitize_report(raw)
+
+    # then
+    assert cleaned == "x2"

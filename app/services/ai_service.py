@@ -124,8 +124,9 @@ def _sanitize_report(text: str) -> str:
     """
     cleaned = re.sub(r"</?(?:sub|sup|super)[^>]*>", "", text, flags=re.IGNORECASE)
     cleaned = re.sub(r"\\(?:text|mathrm|ce|ch)\{([^}]*)\}", r"\1", cleaned)
-    cleaned = re.sub(r"[_^]\{([^}]*)\}", r"\1", cleaned)
-    cleaned = re.sub(r"_([0-9]+)", r"\1", cleaned)
+    cleaned = re.sub(r"_\{([^}]*)\}", r"\1", cleaned)
+    cleaned = re.sub(r"\^\{([^}]*)\}", r"\1", cleaned)
+    cleaned = re.sub(r"(?<=[A-Za-z)])_(\d+)", r"\1", cleaned)
     cleaned = re.sub(r"\^([0-9+\-]+)", r"\1", cleaned)
     cleaned = cleaned.translate(_SUBSCRIPTS).translate(_SUPERSCRIPTS)
     cleaned = cleaned.replace("$", "")

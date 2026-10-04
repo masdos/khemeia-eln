@@ -11,6 +11,38 @@ RECOMMENDED_MODEL = "qwen3.5:4b"
 STATUS_TIMEOUT_SECONDS = 2.0
 GENERATE_TIMEOUT_SECONDS = 1800.0
 GENERATE_MAX_TOKENS = 2000
+GENERATE_NUM_CTX = 8192
+GENERATE_TEMPERATURE = 0.3
+_CONTEXT_WARNING_RATIO = 0.9
+
+
+def _generate_options() -> dict[str, int | float]:
+    return {
+        "num_ctx": GENERATE_NUM_CTX,
+        "num_predict": GENERATE_MAX_TOKENS,
+        "temperature": GENERATE_TEMPERATURE,
+    }
+
+
+def _log_token_usage(model: str, metrics: object) -> None:
+    prompt_tokens = getattr(metrics, "prompt_eval_count", None)
+    completion_tokens = getattr(metrics, "eval_count", None)
+    logger.info(
+        "Ollama usage model=%s prompt_tokens=%s completion_tokens=%s num_ctx=%s",
+        model,
+        prompt_tokens,
+        completion_tokens,
+        GENERATE_NUM_CTX,
+    )
+    if isinstance(prompt_tokens, int) and isinstance(completion_tokens, int):
+        used_tokens = prompt_tokens + completion_tokens
+        if used_tokens >= GENERATE_NUM_CTX * _CONTEXT_WARNING_RATIO:
+            logger.warning(
+                "Context window nearly full model=%s used_tokens=%s num_ctx=%s",
+                model,
+                used_tokens,
+                GENERATE_NUM_CTX,
+            )
 
 
 class IncompleteGenerationError(RuntimeError):
@@ -92,8 +124,9 @@ class OllamaClient:
             system=system_prompt,
             stream=False,
             think=False,
-            options={"num_predict": GENERATE_MAX_TOKENS},
+            options=_generate_options(),
         )
+        _log_token_usage(model, response)
         done_reason = getattr(response, "done_reason", None)
         if done_reason != "stop":
             logger.warning(
@@ -125,14 +158,18 @@ class OllamaClient:
             system=system_prompt,
             stream=True,
             think=False,
-            options={"num_predict": GENERATE_MAX_TOKENS},
+            options=_generate_options(),
         )
         done_reason = None
+        last_chunk = None
         for chunk in stream:
+            last_chunk = chunk
             done_reason = getattr(chunk, "done_reason", done_reason)
             text = getattr(chunk, "response", None)
             if isinstance(text, str) and text:
                 yield text
+        if last_chunk is not None:
+            _log_token_usage(model, last_chunk)
         if done_reason != "stop":
             logger.warning(
                 "Incomplete Ollama stream model=%s done_reason=%s",

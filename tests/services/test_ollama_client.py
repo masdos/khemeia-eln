@@ -5,6 +5,8 @@ import pytest
 
 from app.services.ollama_client import (
     GENERATE_MAX_TOKENS,
+    GENERATE_NUM_CTX,
+    GENERATE_TEMPERATURE,
     GENERATE_TIMEOUT_SECONDS,
     OLLAMA_BASE_URL,
     RECOMMENDED_MODEL,
@@ -259,7 +261,9 @@ def test_caps_generation_length_to_bound_slow_hardware_time() -> None:
 
     # then
     assert generate_client.generate_kwargs[0]["options"] == {
-        "num_predict": GENERATE_MAX_TOKENS
+        "num_ctx": GENERATE_NUM_CTX,
+        "num_predict": GENERATE_MAX_TOKENS,
+        "temperature": GENERATE_TEMPERATURE,
     }
 
 
@@ -352,7 +356,9 @@ def test_streams_response_chunks_in_order() -> None:
     assert generate_client.generate_kwargs[0]["stream"] is True
     assert generate_client.generate_kwargs[0]["think"] is False
     assert generate_client.generate_kwargs[0]["options"] == {
-        "num_predict": GENERATE_MAX_TOKENS
+        "num_ctx": GENERATE_NUM_CTX,
+        "num_predict": GENERATE_MAX_TOKENS,
+        "temperature": GENERATE_TEMPERATURE,
     }
 
 
