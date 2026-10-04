@@ -264,6 +264,26 @@ class TestLinkToExperiment:
         ).fetchall()
         assert len(rows) == 2
 
+    def test_preserves_lab_precision_decimals_without_rounding(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment(connection, title="Synthesis")
+        reagent_id = create(connection, name="Catalyst")
+
+        # when
+        link_to_experiment(
+            connection, experiment_id, reagent_id, amount=0.125, unit="mg"
+        )
+
+        # then
+        row = connection.execute(
+            "SELECT amount_used, unit FROM experiment_reagents",
+        ).fetchone()
+        assert row is not None
+        assert row["amount_used"] == 0.125
+        assert row["unit"] == "mg"
+
     def test_relinking_replaces_amount_and_unit(
         self, connection: sqlite3.Connection
     ) -> None:

@@ -344,9 +344,8 @@ def _build_resources_section(
                     label="Amount",
                     value=0,
                     min=0,
-                    format="%.2f",
                 )
-                .props("outlined dense")
+                .props("outlined dense step=any")
                 .classes("w-24")
             )
             reagent_unit = (
