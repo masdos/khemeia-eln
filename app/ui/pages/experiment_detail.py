@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 import re
 from pathlib import Path
 
@@ -60,6 +61,8 @@ from app.ui.components.markdown_editor import markdown_editor
 from app.ui.components.meta import entity_meta
 from app.ui.components.tables import entity_table
 
+logger = logging.getLogger(__name__)
+
 GHS_FIELDS = [
     ("is_explosive", "GHS01", "Explosive"),
     ("is_flammable", "GHS02", "Flammable"),
@@ -91,6 +94,19 @@ EQUIPMENT_ACTIONS_SLOT = """
     <q-btn flat dense icon="delete" color="negative"
             @click="() => $parent.$emit('unlink', props.row)">
         <q-tooltip>Unlink equipment</q-tooltip>
+    </q-btn>
+</q-td>
+"""
+
+ATTACHMENT_ACTIONS_SLOT = """
+<q-td :props="props">
+    <q-btn flat dense icon="edit" color="primary"
+            @click="() => $parent.$emit('edit', props.row)">
+        <q-tooltip>Edit description</q-tooltip>
+    </q-btn>
+    <q-btn flat dense icon="delete" color="negative"
+            @click="() => $parent.$emit('delete', props.row)">
+        <q-tooltip>Delete attachment</q-tooltip>
     </q-btn>
 </q-td>
 """
@@ -537,28 +553,16 @@ def _build_attachments_section(
     ui.label("Attachments").classes("text-xl font-semibold mt-4")
 
     attachments = list(attachment_repository.get_by_experiment(conn, experiment_id))
+    attachments_by_id = {att["id"]: att for att in attachments}
 
-    if attachments:
-        for att in attachments:
-            with ui.row().classes("items-center gap-2"):
-                ui.label(f"- {att['file_name']}").classes("text-sm")
-
-                def make_delete(
-                    att_id: int = att["id"],
-                    stored_name: str = att["stored_name"],
-                    exp_id: int = experiment_id,
-                ) -> None:
-                    file_svc.delete_attachment(exp_id, stored_name)
-                    attachment_repository.delete(conn, att_id, exp_id)
-                    ui.notify("Attachment deleted", type="positive")
-                    router.refresh()
-
-                ui.button(
-                    icon="delete",
-                    on_click=make_delete,
-                ).props("flat dense color=negative").classes("text-xs")
-    else:
-        ui.label("No attachments.").classes("text-slate-500 text-sm")
+    description_input = (
+        ui.input(
+            label="Description",
+            placeholder="Optional description",
+        )
+        .props("outlined dense")
+        .classes("w-full mt-2")
+    )
 
     async def upload(event) -> None:
         uploaded = event.file
@@ -570,7 +574,9 @@ def _build_attachments_section(
             uploaded.name,
             stored,
             Path(uploaded.name).suffix,
+            (description_input.value or "").strip() or None,
         )
+        description_input.value = ""
         ui.notify("File uploaded", type="positive")
         router.refresh()
 
@@ -578,6 +584,106 @@ def _build_attachments_section(
         label="Upload file",
         on_upload=upload,
     ).classes("w-full mt-2")
+
+    if attachments:
+        columns = [
+            {
+                "name": "file_name",
+                "label": "File Name",
+                "field": "file_name",
+                "align": "left",
+            },
+            {
+                "name": "description",
+                "label": "Description",
+                "field": "description",
+                "align": "left",
+            },
+            {
+                "name": "extension",
+                "label": "Extension",
+                "field": "extension",
+                "align": "left",
+            },
+            {
+                "name": "actions",
+                "label": "Actions",
+                "field": "actions",
+                "align": "center",
+            },
+        ]
+        rows = [
+            {
+                "id": att["id"],
+                "file_name": att["file_name"],
+                "description": att["description"] or "No description",
+                "extension": att["extension"],
+            }
+            for att in attachments
+        ]
+        attachment_table = entity_table(columns, rows)
+        attachment_table.add_slot("body-cell-actions", ATTACHMENT_ACTIONS_SLOT)
+
+        def _open_description_dialog(e) -> None:
+            att = attachments_by_id.get(e.args["id"])
+            if att is None:
+                return
+            dialog = ui.dialog()
+            with dialog:
+                with ui.card().classes("w-96"):
+                    ui.label(f"Edit description - {att['file_name']}").classes(
+                        "font-semibold"
+                    )
+                    desc_input = (
+                        ui.textarea(value=att["description"] or "")
+                        .props("outlined")
+                        .classes("w-full")
+                    )
+                    with ui.row().classes("w-full justify-end gap-2 mt-2"):
+
+                        def save(
+                            _att_id: int = att["id"],
+                            _input=desc_input,
+                        ) -> None:
+                            attachment_repository.update_description(
+                                conn,
+                                _att_id,
+                                experiment_id,
+                                (_input.value or "").strip() or None,
+                            )
+                            ui.notify("Description updated", type="positive")
+                            dialog.close()
+                            router.refresh()
+
+                        ui.button("Cancel", on_click=dialog.close).props("flat dense")
+                        ui.button("Save", on_click=save).props("color=primary dense")
+            dialog.open()
+
+        def _delete_attachment(e) -> None:
+            att = attachments_by_id.get(e.args["id"])
+            if att is None:
+                return
+            try:
+                file_svc.delete_attachment(experiment_id, att["stored_name"])
+            except OSError as error:
+                logger.error(
+                    "Attachment file deletion failed experiment_id=%s stored_name=%s "
+                    "error=%s",
+                    experiment_id,
+                    att["stored_name"],
+                    str(error),
+                )
+                ui.notify(f"Could not delete file: {error}", type="negative")
+                return
+            attachment_repository.delete(conn, att["id"], experiment_id)
+            ui.notify("Attachment deleted", type="positive")
+            router.refresh()
+
+        attachment_table.on("edit", _open_description_dialog)
+        attachment_table.on("delete", _delete_attachment)
+    else:
+        ui.label("No attachments.").classes("text-slate-500 text-sm")
+
     attachment_location_label(base_dir / "attachments" / str(experiment_id))
 
 

@@ -292,8 +292,24 @@ def _format_equipment(equipment: Any) -> str:
 
 
 def _format_attachments(attachments: Any) -> str:
-    """Format attachment file names for the prompt."""
+    """Format attachment file name, extension and description for the prompt."""
     if not attachments:
         return "Not recorded"
-    names = [str(name) for name in attachments if str(name).strip()]
-    return ", ".join(names) if names else "Not recorded"
+    parts = []
+    for attachment in attachments:
+        if isinstance(attachment, Mapping):
+            file_name = str(attachment.get("file_name") or "").strip()
+            if not file_name:
+                continue
+            extension = str(attachment.get("extension") or "").strip()
+            description = str(attachment.get("description") or "").strip()
+            label = file_name
+            if extension:
+                label += f" [{extension}]"
+            label += f" - {description}" if description else " - No description"
+            parts.append(label)
+        else:
+            name = str(attachment).strip()
+            if name:
+                parts.append(name)
+    return "; ".join(parts) if parts else "Not recorded"

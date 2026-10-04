@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     file_name      TEXT NOT NULL,
     stored_name    TEXT NOT NULL,
     extension      TEXT NOT NULL,
+    description    TEXT,
     upload_date    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (experiment_id) REFERENCES experiments (id) ON DELETE CASCADE
 );

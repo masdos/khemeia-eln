@@ -130,3 +130,56 @@ class TestDeleteAttachment:
         # then
         assert service.resolve_path(2, first_name).exists()
         assert not service.resolve_path(2, second_name).exists()
+
+
+class TestUiDeleteSequence:
+    def test_removes_file_and_database_row_together(
+        self, service: FileService, tmp_path: Path
+    ) -> None:
+        # given
+        from app.database.connection import close_connection, get_connection
+        from app.repositories import attachment_repository
+        from app.repositories.experiment_repository import (
+            create as create_experiment,
+        )
+
+        connection = get_connection(":memory:")
+        try:
+            project_id = connection.execute(
+                "INSERT INTO projects (name) VALUES (?)", ("Project",)
+            ).lastrowid
+            connection.commit()
+            protocol_id = connection.execute(
+                "INSERT INTO protocols (name, content_markdown) VALUES (?, '# C')",
+                ("Protocol",),
+            ).lastrowid
+            connection.commit()
+            experiment_id = create_experiment(
+                connection,
+                project_id=project_id,
+                protocol_id=protocol_id,
+                title="Exp",
+            )
+            stored_name = service.save_attachment_bytes(
+                experiment_id, "spectrum.png", b"png-bytes"
+            )
+            attachment_id = attachment_repository.create(
+                connection, experiment_id, "spectrum.png", stored_name, ".png"
+            )
+            saved_path = tmp_path / "attachments" / str(experiment_id) / stored_name
+            assert saved_path.exists()
+
+            # when (same order as the experiment detail page delete handler)
+            service.delete_attachment(experiment_id, stored_name)
+            attachment_repository.delete(connection, attachment_id, experiment_id)
+
+            # then
+            assert not saved_path.exists()
+            experiment_dir = tmp_path / "attachments" / str(experiment_id)
+            assert list(experiment_dir.iterdir()) == []
+            row = connection.execute(
+                "SELECT * FROM attachments WHERE id = ?", (attachment_id,)
+            ).fetchone()
+            assert row is None
+        finally:
+            close_connection(connection)

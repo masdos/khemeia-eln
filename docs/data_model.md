@@ -129,5 +129,6 @@ erDiagram
 | file_name     | TEXT    | No       | Original file name                               |
 | stored_name   | TEXT    | No       | Name used for storage on disk                   |
 | extension     | TEXT    | No       | File extension                                    |
+| description   | TEXT    | Yes      | User-provided attachment description              |
 | upload_date   | DATETIME | No       | Date and time of upload            |
 

@@ -813,7 +813,9 @@ def test_attaches_attachment_file_names_when_collecting_data() -> None:
         )
 
         # then
-        assert collected[0]["attachments"] == ["spectrum.png"]
+        assert collected[0]["attachments"] == [
+            {"file_name": "spectrum.png", "extension": "png", "description": ""}
+        ]
     finally:
         close_connection(connection)
 

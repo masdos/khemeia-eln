@@ -111,9 +111,10 @@ def collect_experiments_data(
     """Return full experiment records for the selected ids, skipping missing.
 
     Each record is enriched with the protocol name, the linked reagents
-    (with amount, lot and hazards), the linked equipment and the attachment
-    file names, so the AI draft is built from the same data shown on the
-    experiment detail page. Sources left as None are skipped.
+    (with amount, lot and hazards), the linked equipment and the attachments
+    (with file name, extension and description), so the AI draft is built
+    from the same data shown on the experiment detail page. Sources left
+    as None are skipped.
     """
     collected: list[dict[str, Any]] = []
     for experiment_id in experiment_ids:
@@ -151,7 +152,11 @@ def collect_experiments_data(
             ]
         if connection is not None:
             record["attachments"] = [
-                attachment["file_name"]
+                {
+                    "file_name": attachment["file_name"],
+                    "extension": attachment["extension"],
+                    "description": attachment["description"] or "",
+                }
                 for attachment in attachment_repository.get_by_experiment(
                     connection, experiment_id
                 )

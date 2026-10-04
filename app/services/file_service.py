@@ -74,7 +74,8 @@ class FileService:
             output.write(content)
 
         logger.info(
-            "Attachment saved experiment_id=%s stored_name=%s",
+            "Attachment saved file_path=%s experiment_id=%s stored_name=%s",
+            str(destination),
             experiment_id,
             stored_name,
         )
@@ -87,19 +88,40 @@ class FileService:
     def delete_attachment(self, experiment_id: int, stored_name: str) -> None:
         """Remove an attachment file from disk, ignoring missing files."""
         file_path = self.resolve_path(experiment_id, stored_name)
+        if not file_path.exists():
+            logger.warning(
+                "Attachment file already missing file_path=%s experiment_id=%s "
+                "stored_name=%s",
+                str(file_path),
+                experiment_id,
+                stored_name,
+            )
+            return
         try:
-            file_path.unlink(missing_ok=True)
+            file_path.unlink()
         except OSError as error:
             logger.error(
-                "Attachment deletion failed experiment_id=%s stored_name=%s error=%s",
+                "Attachment deletion failed file_path=%s experiment_id=%s "
+                "stored_name=%s error=%s",
+                str(file_path),
                 experiment_id,
                 stored_name,
                 str(error),
             )
             raise
+        if file_path.exists():
+            logger.error(
+                "Attachment file still present after deletion file_path=%s "
+                "experiment_id=%s stored_name=%s",
+                str(file_path),
+                experiment_id,
+                stored_name,
+            )
+            raise OSError(f"Could not delete attachment file: {file_path}")
 
         logger.info(
-            "Attachment deleted experiment_id=%s stored_name=%s",
+            "Attachment deleted file_path=%s experiment_id=%s stored_name=%s",
+            str(file_path),
             experiment_id,
             stored_name,
         )

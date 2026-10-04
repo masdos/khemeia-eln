@@ -548,7 +548,18 @@ class ExportService:
 
         lines.extend(["", "## Attachments", ""])
         if attachments:
-            lines.extend(f"- {att['file_name']}" for att in attachments)
+            lines.extend(
+                [
+                    "| File Name | Extension | Description |",
+                    "| --- | --- | --- |",
+                    *(
+                        f"| {_md_cell(att.get('file_name'))} "
+                        f"| {_md_cell(att.get('extension'))} "
+                        f"| {_md_cell(att.get('description') or 'No description')} |"
+                        for att in attachments
+                    ),
+                ]
+            )
         else:
             lines.append("_No attachments._")
 
