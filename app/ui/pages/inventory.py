@@ -308,7 +308,7 @@ def _open_history_dialog(
                         if h.get("amount_used") is not None
                         else "-"
                     ),
-                    "date": h.get("created_at", ""),
+                    "date": (h.get("created_at") or "")[:10],
                 }
                 for h in history
             ]

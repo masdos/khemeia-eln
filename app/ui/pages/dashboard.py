@@ -143,7 +143,7 @@ def _render_table(
             "title": e["title"],
             "state": e["state"],
             "project": e.get("project_name", ""),
-            "created_at": e.get("created_at", ""),
+            "created_at": (e.get("created_at") or "")[:10],
         }
         for e in experiments
     ]

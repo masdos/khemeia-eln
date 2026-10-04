@@ -190,7 +190,7 @@ def _build_history_section(
                 if h.get("amount_used") is not None
                 else "-"
             ),
-            "date": h.get("created_at", ""),
+            "date": (h.get("created_at") or "")[:10],
         }
         for h in history
     ]

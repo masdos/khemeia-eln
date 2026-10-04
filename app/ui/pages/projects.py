@@ -87,7 +87,7 @@ def _render_table(
             "id": p["id"],
             "name": p["name"],
             "description": p.get("description", ""),
-            "created_at": p.get("created_at", ""),
+            "created_at": (p.get("created_at") or "")[:10],
         }
         for p in projects
     ]

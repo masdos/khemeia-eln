@@ -86,7 +86,7 @@ def _render_table(
             "id": p["id"],
             "name": p["name"],
             "preview": (p.get("content_markdown") or "")[:80],
-            "created_at": p.get("created_at", ""),
+            "created_at": (p.get("created_at") or "")[:10],
         }
         for p in protocols
     ]
