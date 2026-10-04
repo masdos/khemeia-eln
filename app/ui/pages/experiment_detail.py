@@ -82,6 +82,10 @@ REAGENT_ACTIONS_SLOT = """
             @click="() => $parent.$emit('structure', props.row)">
         <q-tooltip>View structure</q-tooltip>
     </q-btn>
+    <q-btn flat dense icon="edit" color="primary"
+            @click="() => $parent.$emit('edit', props.row)">
+        <q-tooltip>Edit amount</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="delete" color="negative"
             @click="() => $parent.$emit('unlink', props.row)">
         <q-tooltip>Unlink reagent</q-tooltip>
@@ -431,11 +435,64 @@ def _build_resources_section(
             ),
         )
 
+        def _edit_reagent_amount(e) -> None:
+            reagent = reagent_by_id.get(e.args["id"])
+            if reagent is None:
+                return
+            dialog = ui.dialog()
+            with dialog:
+                with ui.card().classes("w-96"):
+                    ui.label(f"Edit amount - {reagent.get('name', '')}").classes(
+                        "font-semibold"
+                    )
+                    amount_input = (
+                        ui.number(
+                            label="Amount",
+                            value=reagent.get("amount_used"),
+                            min=0,
+                        )
+                        .props("outlined dense step=any")
+                        .classes("w-full")
+                    )
+                    unit_input = (
+                        ui.input(
+                            label="Unit",
+                            value=reagent.get("unit", "") or "",
+                            placeholder="g",
+                        )
+                        .props("outlined dense")
+                        .classes("w-full")
+                    )
+                    with ui.row().classes("w-full justify-end gap-2 mt-2"):
+
+                        def save(
+                            _reagent_id: int = reagent["id"],
+                            _amount=amount_input,
+                            _unit=unit_input,
+                        ) -> None:
+                            if _amount.value is None:
+                                ui.notify("Enter an amount", type="warning")
+                                return
+                            inv_svc.link_reagent_to_experiment(
+                                experiment_id,
+                                _reagent_id,
+                                _amount.value,
+                                (_unit.value or "").strip(),
+                            )
+                            ui.notify("Amount updated", type="positive")
+                            dialog.close()
+                            router.refresh()
+
+                        ui.button("Cancel", on_click=dialog.close).props("flat dense")
+                        ui.button("Save", on_click=save).props("color=primary dense")
+            dialog.open()
+
         def _unlink_reagent(e) -> None:
             inv_svc.unlink_reagent_from_experiment(experiment_id, e.args["id"])
             ui.notify("Reagent unlinked", type="positive")
             router.refresh()
 
+        reagent_table.on("edit", _edit_reagent_amount)
         reagent_table.on("unlink", _unlink_reagent)
     else:
         ui.label("No reagents linked.").classes("text-slate-500 text-sm")
