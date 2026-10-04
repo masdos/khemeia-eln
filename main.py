@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import warnings
 from pathlib import Path
 
 from nicegui import ui
@@ -158,6 +160,79 @@ def setup_ui(base_dir: Path) -> None:
         router.navigate("dashboard")
 
 
+def _shutdown_event_loop() -> None:
+    """Cancel pending tasks and close the main event loop best-effort.
+
+    When Ctrl+C aborts the server, the Windows proactor loop can be left
+    with pending overlapped operations. If they reach garbage collection
+    in that state, the interpreter raises "still has pending operation at
+    deallocation", so drain and close the loop explicitly here instead.
+    """
+    with warnings.catch_warnings():
+        # Fetching the loop when none exists warns and creates an empty
+        # one: silence both, there is nothing to drain in that case.
+        warnings.simplefilter("ignore", DeprecationWarning)
+        try:
+            loop = asyncio.get_event_loop_policy().get_event_loop()
+        except RuntimeError:
+            return
+    if loop.is_closed():
+        return
+    try:
+        if not loop.is_running():
+            for task in asyncio.all_tasks(loop):
+                task.cancel()
+            pending = asyncio.all_tasks(loop)
+            if pending:
+                loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
+            loop.run_until_complete(loop.shutdown_asyncgens())
+    except (RuntimeError, KeyboardInterrupt):
+        logger.debug("Event loop drain interrupted")
+    finally:
+        try:
+            loop.close()
+        except (RuntimeError, KeyboardInterrupt):
+            logger.debug("Event loop close interrupted")
+
+
+def _cleanup_native_resources() -> None:
+    """Close NiceGUI native-mode queues and pipes best-effort.
+
+    In native mode the UI relays calls through multiprocessing queues and
+    a pipe, which hold Windows pipe handles. Closing them explicitly
+    avoids noisy teardown errors when the server stops abruptly.
+    """
+    try:
+        from nicegui.native import native
+    except ImportError:
+        return
+    remove_queues = getattr(native, "remove_queues", None)
+    if remove_queues is None:
+        return
+    try:
+        remove_queues()
+    except KeyboardInterrupt:
+        logger.debug("Native cleanup interrupted")
+    except Exception as error:
+        logger.warning("Native cleanup skipped error=%s", str(error))
+
+
+def _safe_log_info(message: str) -> None:
+    """Log a shutdown message without letting teardown noise escape.
+
+    Closing the native window makes NiceGUI inject KeyboardInterrupt into
+    the main thread at any point, and abandoned Windows pipe handles can
+    surface as RuntimeError during garbage collection. The process is
+    exiting, so neither is actionable here.
+    """
+    try:
+        logger.info(message)
+    except (KeyboardInterrupt, RuntimeError):
+        pass
+
+
 def main() -> None:
     try:
         bootstrap_result = _initialize_app()
@@ -172,16 +247,18 @@ def main() -> None:
             window_size=(1600, 900),
         )
     except KeyboardInterrupt:
-        logger.info("Application closed by user")
+        _safe_log_info("Application closed by user")
     except Exception as e:
         logger.critical("Application startup failed error=%s", str(e), exc_info=True)
         raise
     finally:
+        _shutdown_event_loop()
+        _cleanup_native_resources()
         try:
             close_connection()
-        except KeyboardInterrupt:
-            logger.info("Application shutdown interrupted by user")
-        logger.info("Application shutdown complete")
+        except (KeyboardInterrupt, RuntimeError):
+            _safe_log_info("Application shutdown interrupted by user")
+        _safe_log_info("Application shutdown complete")
 
 
 if __name__ in ("__main__", "__mp_main__"):
