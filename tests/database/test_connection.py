@@ -1,5 +1,9 @@
 import sqlite3
+from unittest.mock import MagicMock
 
+import pytest
+
+import app.database.connection as connection_module
 from app.database.connection import close_connection, get_connection
 
 
@@ -43,7 +47,7 @@ def test_applies_schema_to_memory_database() -> None:
     close_connection(connection)
 
 
-def test_applies_schema_when_database_file_does_not_exist(tmp_path) -> None:    # given
+def test_applies_schema_when_database_file_does_not_exist(tmp_path) -> None:  # given
     database_path = tmp_path / "database.db"
 
     # when
@@ -57,3 +61,17 @@ def test_applies_schema_when_database_file_does_not_exist(tmp_path) -> None:    
     assert row["name"] == "experiments"
 
     close_connection(connection)
+
+
+def test_releases_shared_connection_when_close_is_interrupted() -> None:
+    # given
+    failing = MagicMock()
+    failing.close.side_effect = KeyboardInterrupt
+    connection_module._connection = failing
+
+    # when
+    with pytest.raises(KeyboardInterrupt):
+        close_connection()
+
+    # then
+    assert connection_module._connection is None

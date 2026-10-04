@@ -27,8 +27,10 @@ def close_connection(connection: sqlite3.Connection | None = None) -> None:
         return
 
     if _connection is not None:
-        _connection.close()
-        _connection = None
+        try:
+            _connection.close()
+        finally:
+            _connection = None
 
 
 def _get_default_connection() -> sqlite3.Connection:

@@ -177,7 +177,10 @@ def main() -> None:
         logger.critical("Application startup failed error=%s", str(e), exc_info=True)
         raise
     finally:
-        close_connection()
+        try:
+            close_connection()
+        except KeyboardInterrupt:
+            logger.info("Application shutdown interrupted by user")
         logger.info("Application shutdown complete")
 
 
