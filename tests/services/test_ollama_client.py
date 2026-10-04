@@ -29,14 +29,12 @@ class FakeSdkClient:
     def __init__(
         self,
         models: Any = None,
-        response: Any = "",
         done_reason: Any = "stop",
         stream_chunks: list[str] | None = None,
     ) -> None:
         self._models = models
-        self._response = response
         self._done_reason = done_reason
-        self._stream_chunks = stream_chunks
+        self._stream_chunks = stream_chunks if stream_chunks is not None else []
         self.generate_calls: list[tuple[str, Any, Any]] = []
         self.generate_kwargs: list[dict[str, Any]] = []
 
@@ -54,24 +52,18 @@ class FakeSdkClient:
     ) -> Any:
         self.generate_calls.append((model, system, prompt))
         self.generate_kwargs.append(kwargs)
-        if isinstance(self._response, Exception):
-            raise self._response
-        if kwargs.get("stream") and self._stream_chunks is not None:
-            return iter(
-                [
-                    SimpleNamespace(response=text, done_reason=None)
-                    for text in self._stream_chunks[:-1]
-                ]
-                + [
-                    SimpleNamespace(
-                        response=(
-                            self._stream_chunks[-1] if self._stream_chunks else ""
-                        ),
-                        done_reason=self._done_reason,
-                    )
-                ]
-            )
-        return SimpleNamespace(response=self._response, done_reason=self._done_reason)
+        return iter(
+            [
+                SimpleNamespace(response=text, done_reason=None)
+                for text in self._stream_chunks[:-1]
+            ]
+            + [
+                SimpleNamespace(
+                    response=(self._stream_chunks[-1] if self._stream_chunks else ""),
+                    done_reason=self._done_reason,
+                )
+            ]
+        )
 
 
 class FakeSdkFactory:
@@ -90,14 +82,13 @@ class FakeSdkFactory:
 
 def _make_client(
     models: Any = None,
-    response: Any = "",
     done_reason: Any = "stop",
     stream_chunks: list[str] | None = None,
     **kwargs: Any,
 ) -> tuple[OllamaClient, FakeSdkFactory, FakeSdkClient, FakeSdkClient]:
     status_client = FakeSdkClient(models=models)
     generate_client = FakeSdkClient(
-        response=response, done_reason=done_reason, stream_chunks=stream_chunks
+        done_reason=done_reason, stream_chunks=stream_chunks
     )
     factory = FakeSdkFactory(status_client, generate_client)
     return (
@@ -147,29 +138,6 @@ def test_reports_ready_when_recommended_model_is_installed() -> None:
     assert status.is_available is True
     assert RECOMMENDED_MODEL in status.installed_models
     assert status.is_recommended_model_ready is True
-
-
-def test_returns_completion_text_when_generate_succeeds() -> None:
-    # given
-    client, _, _, generate_client = _make_client(response="# Report")
-
-    # when
-    text = client.generate(RECOMMENDED_MODEL, "Write a report.", "Summarize.")
-
-    # then
-    assert text == "# Report"
-    assert generate_client.generate_calls == [
-        (RECOMMENDED_MODEL, "Write a report.", "Summarize.")
-    ]
-
-
-def test_raises_when_generate_response_has_no_text() -> None:
-    # given
-    client, _, _, _ = _make_client(response="  ")
-
-    # when / then
-    with pytest.raises(ValueError, match="did not contain text"):
-        client.generate(RECOMMENDED_MODEL, "Write a report.", "Summarize.")
 
 
 def test_reports_ready_with_any_installed_model() -> None:
@@ -234,7 +202,7 @@ def test_returns_empty_installed_models_when_no_model_installed() -> None:
 
 def test_uses_long_timeout_for_generation_instead_of_status_timeout() -> None:
     # given
-    _, factory, _, _ = _make_client(response="# Report")
+    _, factory, _, _ = _make_client()
 
     # when / then
     assert factory.calls == [
@@ -246,25 +214,10 @@ def test_uses_long_timeout_for_generation_instead_of_status_timeout() -> None:
 
 def test_honours_custom_generate_timeout() -> None:
     # given
-    _, factory, _, _ = _make_client(response="# Report", generate_timeout_seconds=45.0)
+    _, factory, _, _ = _make_client(generate_timeout_seconds=45.0)
 
     # when / then
     assert factory.calls[1] == (OLLAMA_BASE_URL, 45.0)
-
-
-def test_caps_generation_length_to_bound_slow_hardware_time() -> None:
-    # given
-    client, _, _, generate_client = _make_client(response="# Report")
-
-    # when
-    client.generate(RECOMMENDED_MODEL, "Write a report.", "Summarize.")
-
-    # then
-    assert generate_client.generate_kwargs[0]["options"] == {
-        "num_ctx": GENERATE_NUM_CTX,
-        "num_predict": GENERATE_MAX_TOKENS,
-        "temperature": GENERATE_TEMPERATURE,
-    }
 
 
 def test_strips_trailing_slash_from_base_url() -> None:
@@ -303,39 +256,21 @@ def test_reports_no_models_when_sdk_payload_has_no_model_list() -> None:
     assert status.installed_models == ()
 
 
-def test_returns_text_when_generation_completes_with_stop_reason() -> None:
-    # given
-    client, _, _, _ = _make_client(response="# Full report", done_reason="stop")
-
-    # when
-    text = client.generate(RECOMMENDED_MODEL, "Write in English.", "Experiments.")
-
-    # then
-    assert text == "# Full report"
-
-
-def test_raises_incomplete_error_when_generation_stops_early() -> None:
-    # given
-    client, _, _, _ = _make_client(response="# Partial", done_reason="length")
-
-    # when / then
-    with pytest.raises(IncompleteGenerationError):
-        client.generate(RECOMMENDED_MODEL, "Write in English.", "Experiments.")
-
-
 def test_sends_system_prompt_without_manual_concatenation() -> None:
     # given
-    client, _, _, generate_client = _make_client(response="# Report")
+    client, _, _, generate_client = _make_client(stream_chunks=["# Report"])
 
     # when
-    client.generate(RECOMMENDED_MODEL, "System instructions.", "User data.")
+    list(
+        client.generate_stream(RECOMMENDED_MODEL, "System instructions.", "User data.")
+    )
 
     # then
     assert generate_client.generate_calls == [
         (RECOMMENDED_MODEL, "System instructions.", "User data.")
     ]
     assert generate_client.generate_kwargs[0]["think"] is False
-    assert generate_client.generate_kwargs[0]["stream"] is False
+    assert generate_client.generate_kwargs[0]["stream"] is True
 
 
 def test_uses_updated_recommended_model() -> None:

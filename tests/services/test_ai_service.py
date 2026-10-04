@@ -36,14 +36,6 @@ class FakeOllamaClient:
             raise self._status_error
         return self._status
 
-    def generate(self, model: str, system_prompt: str, user_prompt: str) -> str:
-        self.seen_models.append(model)
-        self.seen_system.append(system_prompt)
-        self.seen_prompts.append(user_prompt)
-        if self._generate_error is not None:
-            raise self._generate_error
-        return self._response
-
     def generate_stream(self, model: str, system_prompt: str, user_prompt: str) -> Any:
         self.seen_models.append(model)
         self.seen_system.append(system_prompt)

@@ -150,7 +150,7 @@ class AIService:
 
         The model and the language are always chosen by the caller; the
         model must be installed at call time or no report is generated.
-        When on_progress is given, generation streams and the callback
+        Generation always streams; when on_progress is given, the callback
         receives the accumulated text after each chunk.
         """
         experiments = _normalize_experiments(experiments_data)
@@ -190,16 +190,14 @@ class AIService:
             language.strip(),
         )
         try:
-            if on_progress is None:
-                report = self._ollama_client.generate(model, system_prompt, prompt)
-            else:
-                parts: list[str] = []
-                for chunk in self._ollama_client.generate_stream(
-                    model, system_prompt, prompt
-                ):
-                    parts.append(chunk)
+            parts: list[str] = []
+            for chunk in self._ollama_client.generate_stream(
+                model, system_prompt, prompt
+            ):
+                parts.append(chunk)
+                if on_progress is not None:
                     on_progress("".join(parts))
-                report = "".join(parts)
+            report = "".join(parts)
         except Exception as error:
             logger.warning("Report generation failed error=%s", str(error))
             return None

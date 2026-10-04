@@ -110,47 +110,17 @@ class OllamaClient:
             installed_models=_model_names(models),
         )
 
-    def generate(self, model: str, system_prompt: str, user_prompt: str) -> str:
-        """Generate a non-streaming completion with a local Ollama model.
-
-        Generation can take many minutes on CPU-only hardware, so it uses
-        a much longer timeout than the quick status probes. Output length
-        is capped to bound the worst-case generation time. Thinking output
-        stays disabled so the model returns only the final report.
-        """
-        response = self._generate_client.generate(
-            model=model,
-            prompt=user_prompt,
-            system=system_prompt,
-            stream=False,
-            think=False,
-            options=_generate_options(),
-        )
-        _log_token_usage(model, response)
-        done_reason = getattr(response, "done_reason", None)
-        if done_reason != "stop":
-            logger.warning(
-                "Incomplete Ollama generation model=%s done_reason=%s",
-                model,
-                done_reason,
-            )
-            raise IncompleteGenerationError(
-                f"Ollama stopped without completing the response (model={model})"
-            )
-        text = getattr(response, "response", None)
-        if not isinstance(text, str) or not text.strip():
-            raise ValueError("Ollama response did not contain text")
-        logger.debug("Ollama completion generated model=%s", model)
-        return text
-
     def generate_stream(
         self, model: str, system_prompt: str, user_prompt: str
     ) -> Iterator[str]:
         """Yield response text chunks as Ollama streams them.
 
-        Uses the same options as generate (no thinking, capped length).
+        Generation can take many minutes on CPU-only hardware, so it uses
+        a much longer timeout than the quick status probes. Output length
+        is capped to bound the worst-case generation time. Thinking output
+        stays disabled so the model returns only the final report.
         Raises IncompleteGenerationError when Ollama stops without
-        completing the response, mirroring generate().
+        completing the response.
         """
         stream = self._generate_client.generate(
             model=model,
