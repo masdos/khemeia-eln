@@ -12,8 +12,10 @@ STATUS_TIMEOUT_SECONDS = 2.0
 GENERATE_TIMEOUT_SECONDS = 1800.0
 GENERATE_MAX_TOKENS = 2000
 GENERATE_NUM_CTX = 8192
-GENERATE_TEMPERATURE = 0.3
-_CONTEXT_WARNING_RATIO = 0.9
+GENERATE_TEMPERATURE = 0.1
+GENERATE_TOP_P = 0.2
+GENERATE_TOP_K = 10
+CONTEXT_WARNING_RATIO = 0.9
 
 
 def _generate_options() -> dict[str, int | float]:
@@ -21,6 +23,8 @@ def _generate_options() -> dict[str, int | float]:
         "num_ctx": GENERATE_NUM_CTX,
         "num_predict": GENERATE_MAX_TOKENS,
         "temperature": GENERATE_TEMPERATURE,
+        "top_p": GENERATE_TOP_P,
+        "top_k": GENERATE_TOP_K,
     }
 
 
@@ -36,7 +40,7 @@ def _log_token_usage(model: str, metrics: object) -> None:
     )
     if isinstance(prompt_tokens, int) and isinstance(completion_tokens, int):
         used_tokens = prompt_tokens + completion_tokens
-        if used_tokens >= GENERATE_NUM_CTX * _CONTEXT_WARNING_RATIO:
+        if used_tokens >= GENERATE_NUM_CTX * CONTEXT_WARNING_RATIO:
             logger.warning(
                 "Context window nearly full model=%s used_tokens=%s num_ctx=%s",
                 model,

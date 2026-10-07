@@ -8,6 +8,8 @@ from app.services.ollama_client import (
     GENERATE_NUM_CTX,
     GENERATE_TEMPERATURE,
     GENERATE_TIMEOUT_SECONDS,
+    GENERATE_TOP_K,
+    GENERATE_TOP_P,
     OLLAMA_BASE_URL,
     RECOMMENDED_MODEL,
     STATUS_TIMEOUT_SECONDS,
@@ -294,6 +296,8 @@ def test_streams_response_chunks_in_order() -> None:
         "num_ctx": GENERATE_NUM_CTX,
         "num_predict": GENERATE_MAX_TOKENS,
         "temperature": GENERATE_TEMPERATURE,
+        "top_p": GENERATE_TOP_P,
+        "top_k": GENERATE_TOP_K,
     }
 
 
