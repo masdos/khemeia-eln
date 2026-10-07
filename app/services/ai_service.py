@@ -68,11 +68,16 @@ FORMAT RULES
   portions).
 - Mention the hazards listed in the records as safety precautions in Methods.
 - Every table and figure must be mentioned in the text by its number.
+- Never embed or link attachments with Markdown image or link syntax
+  such as ![caption](file.png) or [text](file.png). Refer to files by
+  name in plain text only; the full list belongs in Appendices.
 - Write the section headings in the report language.
 
 STRUCTURE
-Start with the report title as a level-1 heading: short, and naming the
-experiment performed. Then write exactly these sections as level-2 headings,
+Start with the report title as a level-1 heading in the report language:
+short, translated from the experiment Title, naming the experiment
+performed. Do not copy the experiment Title verbatim when it is in
+another language. Then write exactly these sections as level-2 headings,
 in this order, and no others (no References section):
 - Summary: one paragraph of 3 to 4 full sentences with the purpose, the
   method and the key recorded results.
@@ -80,16 +85,18 @@ in this order, and no others (no References section):
   matters. Use only background found in the records. Include chemical
   equations only if they appear in the records: copy them in plain text, do
   not create or balance them.
-- Methods: built from the Experimental procedure, using the protocol only as
-  context, and from the Reagents and Equipment lists. Give enough detail for
-  another chemist to repeat the work, including reagent amounts. Record color,
+- Procedures & Observations: built from the Experimental procedure, using
+  the protocol only as context, and from the Reagents and Equipment lists.
+  Give enough detail for another chemist to repeat the work, including
+  reagent amounts. Record color,
   texture and physical state when present. Leave out trivial details.
 - Results: present only the content of the Results field. No analysis and no
   opinion on quality. Build a table only if the field gives values for clearly
   labeled compounds: caption ABOVE the table, units in every column header.
   Otherwise describe the data in prose. Figure captions go BELOW the figure.
-  Mention a figure only if it is in the Attachments list. Never invent
-  figures.
+  Mention a figure only if it is in the Attachments list. Refer to it by
+  file name in plain text, without Markdown image or link syntax.
+  Never invent figures.
 - Discussion: continuous prose that tells a logical story. Never use bullet
   points or numbered lists here. Analyze the recorded results and the
   chemist's Conclusions. Compare with literature values only if they appear
@@ -99,10 +106,19 @@ in this order, and no others (no References section):
   contradict it. If it is NOT RECORDED, summarize only what the Results and
   the State support. Say whether the Research question was answered,
   according to the State.
+- Appendices: a table listing every attachment from the Attachments fields.
+  Use two columns: File name | Description. Copy file names and descriptions
+  exactly as recorded. Put the caption ABOVE the table. Never embed or link
+  the files with Markdown image or link syntax. If every Attachments
+  field is NOT RECORDED, write only "No attachments recorded." in the report
+  language instead of a table. Never invent attachments.
 
 SEVERAL EXPERIMENTS
-Give each experiment its own subsection in Methods. Use one table in Results
-with one row per experiment. Compare the experiments in the Discussion.
+Give each experiment its own subsection in Procedures & Observations.
+Use one table in Results with one row per experiment. Compare the
+experiments in the Discussion.
+In Appendices use one combined table with one row per attachment and an
+extra first column Experiment with the experiment title.
 
 OUTPUT
 Return only the report. No introduction, no closing remarks, no notes about
