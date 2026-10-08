@@ -96,7 +96,7 @@ erDiagram
 |---------------|---------|----------|-------------------------------------|
 | experiment_id | INTEGER | No       | Foreign key to experiments         |
 | reagent_id    | INTEGER | No       | Foreign key to reagents            |
-| amount_used   | REAL    | Yes      | Amount used                        |
+| amount_used   | TEXT    | Yes      | Amount used                        |
 | unit          | TEXT    | Yes      | Unit of measure (mg, mL, etc.)     |
 
 ### experiment_equipment
