@@ -23,23 +23,34 @@ nuevas funcionalidades formalizadas previamente en el backlog.
 
 La práctica descrita abarca los commits posteriores a
 `444f9aaee42b60361f6aa47ee65b759bfee741f1` y hasta
-`cca6117f80c6961e2b9a6a239417d25d92abb8e4`, que era el último commit de la
-rama `main` al elaborar este registro (10 de septiembre de 2026).
+`aa7a3f385b1a9b2333578743e3250ad145dae938`, último commit de la
+rama `main` al elaborar esta actualización (8 de octubre de 2026).
+
+El registro inicial cubría hasta
+`cca6117f80c6961e2b9a6a239417d25d92abb8e4` (10 de septiembre de 2026).
+Esta actualización añade el intervalo posterior
+`cca6117f80c6961e2b9a6a239417d25d92abb8e4..aa7a3f385b1a9b2333578743e3250ad145dae938`
+sin modificar las secciones ya consolidadas.
 
 ## Metodología y alcance
 
 El registro se obtuvo al contrastar las funcionalidades declaradas en
-`docs/feature_list.json` con los mensajes de los commits posteriores a la
-referencia indicada y hasta el último commit de la rama `main` analizado.
+`docs/feature_list.json` (versión `7.0`, todas las funcionalidades en estado
+`done`, incluidas las de la fase `ai_reports` hasta la número `31`) con los
+mensajes de los commits posteriores a la referencia indicada y hasta el último
+commit de la rama `main` analizado.
 
 Se incluyen capacidades nuevas o ampliaciones visibles para el usuario que no
 están definidas explícitamente en el backlog. Se excluyen correcciones aisladas,
 refactorizaciones internas, cambios de documentación y reglas de Git que no
 añaden una capacidad funcional o de experiencia independiente.
 
-Las funcionalidades de la fase `ai_reports` permanecen pendientes. No se ha
-implementado en este intervalo la generación de informes con IA, proveedores de
-IA, sus repositorios ni la página AI Assistant.
+En el primer intervalo las funcionalidades de la fase `ai_reports`
+permanecían pendientes. En el segundo intervalo (`cca6117` en adelante) se
+completaron en el backlog `report_repository`, cliente Ollama, `AIService`,
+exportación de informes IA, páginas AI Assistant y selector de modelo e idioma
+(funcionalidades `24` a `31`); por tanto, esas implementaciones base no se
+repiten aquí. Este documento recoge solo lo que las excede.
 
 ## Flujo de experimentos
 
@@ -149,10 +160,136 @@ duplicidades confusas para el público no técnico.
   conservó en `app/ui/pages/ai_reports.py` como módulo importado por el
   centro, sin constructor de página propio.
 
+## Ampliaciones posteriores a `cca6117` (hasta `aa7a3f3`)
+
+Intervalo `cca6117f80c6961e2b9a6a239417d25d92abb8e4..aa7a3f385b1a9b2333578743e3250ad145dae938`.
+Se excluyen las implementaciones que cierran las funcionalidades `24` a `31`
+del backlog y las tareas de documentación, limpieza, formato y apagado.
+
+### Informes guardados y gestión
+
+Amplían `ReportRepository` y `ExportService` más allá de `export_ai_report_*`.
+
+- Los informes se remodelan alrededor de `project_id`, título y
+  `content_markdown` para poder recuperar borradores desde la base de datos.
+- El generador pasa a ser proyecto-primero: los experimentos se cargan solo
+  para el proyecto elegido y guardar exige título.
+- Se separan responsabilidades: Guardar persiste en base de datos mientras
+  Exportar solo escribe ficheros, igual que en experimentos.
+- Nueva página Reports con búsqueda, diálogo de creación manual y borrado
+  desde la barra lateral.
+- Nueva página de detalle de informe con edición manual y sección de
+  exportación Markdown/PDF/DOCX.
+- La ficha de proyecto muestra sus informes, igual que su tabla de
+  experimentos.
+- En el generador se elimina la exportación directa de borradores: el flujo
+  termina guardando el informe para exportarlo después. El borrador avisa con
+  popup si el guardado es rechazado y el campo título queda marcado como
+  obligatorio.
+
+### Centro AI Assistant y generación
+
+Amplían las páginas `ai_reports`, `ai_assistant` y `ai_report_generator`.
+
+- El hub se organiza en pestañas (Assistant Features y Setup) con las
+  funciones en rejilla guiada por la lista `FEATURES` y estado visible en la
+  cabecera.
+- La vista de fórmulas pide Markdown estándar con fórmulas planas
+  (por ejemplo `H2SO4`), sin LaTeX, HTML ni subíndices Unicode; el borrador
+  se sanea en local antes de previsualizar o exportar a PDF.
+- Se elimina la sección Discussion del informe y se mantiene Conclusions; el
+  encabezado de la rejilla pasa a llamarse Features.
+- La comprobación de requisitos pasa a validación automática silenciosa al
+  entrar, con indicador solo en cabecera y zona de Check solo para mensajes.
+- La carga de modelos instalados se hace en hilo de trabajo para no bloquear
+  la navegación; la generación avisa de que el borrador puede tardar varios
+  minutos.
+- La generación usa streaming con previsualización en vivo: el cliente expone
+  `generate_stream`, `AIService` acepta callback `on_progress` y la UI sondea
+  una cola con temporizador mostrando spinner y borrador parcial. El
+  streaming queda como única vía de generación en producción.
+- Guardia de salida durante la generación: al abandonar a mitad del stream
+  se pide confirmación con diálogo Stay/Leave y cancelación cooperativa.
+- El prompt del sistema se enriquece con nombre de protocolo, reactivos,
+  equipos y adjuntos por id, con cantidades, lotes y peligros GHS; solo se
+  aporta el nombre del protocolo.
+- Opciones Ollama ajustadas para borradores factuales y estables
+  (`num_ctx 8192`, `temperature 0.1`, `top_p 0.2`, `top_k 10`), con registro
+  de tokens y aviso si el contexto está casi lleno.
+- Nuevas reglas de informe: apéndices con tabla de adjuntos (File name,
+  Description, más Experiment si hay varios), prohibición de sintaxis de
+  imagen/enlace para adjuntos (solo nombre de fichero en texto plano) y
+  título del informe en el idioma del informe en vez de copiar el Title del
+  experimento.
+- El selector de idioma acepta valores tecleados (add-unique, confirma al
+  perder foco) con placeholder de ayuda, más allá de la preselección
+  Spanish/English del backlog.
+
+### Exportación y ficheros
+
+Amplían `ExportService` y la presentación de rutas.
+
+- Nueva exportación DOCX para experimentos e informes (`python-docx`),
+  con encabezados, listas y negrita/cursiva; botones con etiquetas cortas
+  Markdown, DOCX y PDF.
+- Las tablas Markdown estilo GitHub se renderizan como tablas en PDF
+  (cabecera en negrita con reportlab) y en DOCX (tablas con rejilla).
+- Cabecera unificada: fecha de modificación y autor sobre el título como
+  líneas planas; reactivos y equipos como tablas Markdown con datos de
+  detalle, manteniendo descripciones multilínea en una sola fila.
+- Cabecera de informes con fecha, email de usuario e institución; los
+  informes guardados se exportan como `report_{id}.md` y `report_{id}.pdf`.
+  El detalle de informe exporta el informe guardado sin duplicar el título.
+- Las etiquetas de ruta de exportación y de adjuntos pasan a ser avisos
+  clicables que abren la carpeta correspondiente en el explorador.
+
+### Experimentos y recursos
+
+Amplían Experiment Detail e Inventory más allá del CRUD MVP.
+
+- Los recursos vinculados se muestran en tablas con columnas de etiquetas
+  GHS, cantidad y lote; los formularios de añadir pasan encima de las
+  tablas y las acciones se simplifican a ver estructura/desvincular.
+- Edición de cantidad de reactivo vía diálogo (re-vincula con
+  `INSERT OR REPLACE`) y preservación exacta del valor introducido
+  (almacenado como texto para no perder precisión ni ceros finales).
+- Vista previa de equipo vinculado en diálogo sin perder el contexto del
+  experimento, con acción para ir a su página completa.
+- Botón de cierre en el diálogo de imagen de molécula junto a Copy SVG.
+- Cada cambio de recursos (vincular reactivos, equipos o adjuntos) refresca
+  `modified_at` del experimento mediante ayuda `touch`.
+- Las tablas muestran fechas solo con día (`YYYY-MM-DD`) en experimentos,
+  proyectos, protocolos e historial de uso.
+- Los adjuntos admiten campo descripción editable por el usuario (tabla
+  alineada a la izquierda con diálogo de edición), con borrado físico del
+  fichero, y nombre, extensión y descripción incluidos en prompts de IA y
+  exportaciones.
+
+### Inventario y perfil
+
+- Borrado protegido de reactivos y equipos: el repositorio rechaza borrar
+  mientras haya experimentos que los referencien y el servicio lo traduce a
+  error de negocio; se añade la consulta de historial de uso de equipos que
+  faltaba.
+- En las tablas el botón papelera nace desactivado y gris cuando el registro
+  está en uso; el diálogo de confirmación borra y refresca.
+- Filtro de stock en reactivos (All / In Stock / Out of Stock) combinado con
+  la búsqueda de texto, alineado con el filtro de estado del dashboard.
+- Campo opcional institución en perfil (`AppConfig`, página de perfil,
+  diálogo de edición y formulario de bienvenida) con sustitución desde
+  entorno; la página muestra además un enlace clicable a la carpeta de datos
+  de la aplicación.
+
 ## Relación con el backlog
 
-Las mejoras anteriores enriquecen funcionalidades MVP ya marcadas como
-completadas; no constituyen una nueva funcionalidad de la fase `ai_reports` ni
-cambian los estados de `docs/feature_list.json`. Este documento permite
-distinguir el alcance original del backlog de las capacidades incorporadas de
-forma iterativa después de su definición.
+Las mejoras anteriores al corte `cca6117` enriquecen funcionalidades MVP ya
+marcadas como completadas; no constituyen una nueva funcionalidad de la fase
+`ai_reports` ni cambian los estados de `docs/feature_list.json`.
+
+Las ampliaciones posteriores a `cca6117` parten de un backlog `ai_reports`
+ya completado (`24` a `31` en estado `done` en la versión `7.0`) y lo exceden
+en gestión de informes, generación por streaming, exportación DOCX/tablas,
+recursos de experimento, inventario, adjuntos y perfil. Tampoco modifican los
+estados de `docs/feature_list.json`: este documento permite distinguir el
+alcance original del backlog de las capacidades incorporadas de forma
+iterativa después de su definición.
