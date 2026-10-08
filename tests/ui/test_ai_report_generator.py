@@ -7,6 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from app.config import clear_current_config, load_config, write_config
 from app.services.ollama_client import OllamaStatus
+from app.ui import router
 from app.ui.pages import ai_report_generator
 from app.ui.pages.ai_report_generator import (
     build_ai_report_generator_page,
@@ -603,6 +604,89 @@ def test_shows_progress_while_generating() -> None:
             # then — feedback hidden and draft is final
             assert context.progress.visible is False
             assert context.draft.value == "# Draft"
+
+
+def test_registers_leave_guard_while_generating() -> None:
+    # given
+    context = _UIContext()
+    entered = threading.Event()
+    release = threading.Event()
+
+    def gating_generate(
+        ai_service: Any,
+        experiments_data: Any,
+        model: str,
+        language: str,
+        on_progress: Any = None,
+    ) -> str | None:
+        entered.set()
+        assert release.wait(timeout=5)
+        return "# Draft"
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        with patch.object(
+            ai_report_generator, "generate_draft", side_effect=gating_generate
+        ):
+            try:
+                _build_page(mock_ui, context)
+                assert ai_report_generator.is_generation_in_progress() is False
+                context.buttons["Generate draft"].click()
+                assert entered.wait(timeout=5)
+
+                # then — navigation guard active while streaming
+                assert ai_report_generator.is_generation_in_progress() is True
+                assert router._leave_guard is not None
+            finally:
+                release.set()
+                _pump_until_hidden(mock_ui, context)
+                assert ai_report_generator.is_generation_in_progress() is False
+                assert router._leave_guard is None
+
+
+def test_discards_draft_when_cancel_requested() -> None:
+    # given
+    context = _UIContext()
+    entered = threading.Event()
+    release = threading.Event()
+
+    def cancellable_generate(
+        ai_service: Any,
+        experiments_data: Any,
+        model: str,
+        language: str,
+        on_progress: Any = None,
+    ) -> str | None:
+        if on_progress is not None:
+            on_progress("# Partial")
+        entered.set()
+        assert release.wait(timeout=5)
+        if on_progress is not None:
+            on_progress("# Rest")
+        return "# Draft"
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        with patch.object(
+            ai_report_generator, "generate_draft", side_effect=cancellable_generate
+        ):
+            try:
+                _build_page(mock_ui, context)
+                context.buttons["Generate draft"].click()
+                assert entered.wait(timeout=5)
+                _progress_timer_callback(mock_ui)()
+                assert context.draft.value == "# Partial"
+                ai_report_generator.request_cancel_generation()
+                release.set()
+                _pump_until_hidden(mock_ui, context)
+
+                # then — partial preview kept, final draft discarded
+                assert context.draft.value == "# Partial"
+                assert ai_report_generator.is_generation_in_progress() is False
+                assert router._leave_guard is None
+            finally:
+                release.set()
+                ai_report_generator._set_generation_active(False)
 
 
 def test_saves_edited_draft_to_database() -> None:

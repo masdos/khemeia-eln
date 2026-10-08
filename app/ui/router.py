@@ -21,6 +21,7 @@ _current_view: str = "dashboard"
 _current_kwargs: dict = {}
 _base_dir: Path | None = None
 _navigate_listeners: list[Callable[[str], None]] = []
+_leave_guard: tuple[Callable[[], bool], Callable[[], None]] | None = None
 
 
 def setup(content: ui.column, base_dir: Path) -> None:
@@ -34,11 +35,54 @@ def setup(content: ui.column, base_dir: Path) -> None:
 def navigate(view: str, **kwargs: object) -> None:
     """Clear the content column and render the requested view.
 
+    When a leave guard is registered and reports unsaved work in
+    progress, a confirmation dialog is shown instead of navigating.
+
     Args:
         view: View name matching a key in ``_VIEW_MAP``.
         **kwargs: Extra arguments forwarded to the page builder
             (e.g. ``experiment_id``, ``base_dir``).
     """
+    if _leave_guard is not None:
+        confirm_needed, _ = _leave_guard
+        try:
+            blocked = confirm_needed()
+        except Exception as error:
+            logger.warning("Leave guard check failed error=%s", str(error))
+            blocked = False
+        if blocked:
+            logger.info("Navigation blocked view=%s reason=%s", view, "guard")
+            _confirm_leave(view, kwargs)
+            return
+    _perform_navigate(view, **kwargs)
+
+
+def set_navigation_guard(
+    confirm_needed: Callable[[], bool],
+    on_leave: Callable[[], None],
+) -> None:
+    """Register a guard consulted before leaving the current view.
+
+    Args:
+        confirm_needed: Return True while leaving would discard
+            in-progress work (e.g. a streaming AI draft).
+        on_leave: Cleanup invoked when the user confirms leaving
+            (e.g. cancel generation and clear this guard).
+    """
+    global _leave_guard
+    _leave_guard = (confirm_needed, on_leave)
+    logger.info("Navigation guard registered")
+
+
+def clear_navigation_guard() -> None:
+    """Remove the leave guard registered by the current view."""
+    global _leave_guard
+    _leave_guard = None
+    logger.info("Navigation guard cleared")
+
+
+def _perform_navigate(view: str, **kwargs: object) -> None:
+    """Render the requested view without consulting the leave guard."""
     global _current_view, _current_kwargs
     _current_view = view
     _current_kwargs = kwargs
@@ -46,6 +90,38 @@ def navigate(view: str, **kwargs: object) -> None:
     for listener in _navigate_listeners:
         listener(view)
     logger.info("Navigated to view=%s kwargs=%s", view, kwargs)
+
+
+def _confirm_leave(view: str, kwargs: dict) -> None:
+    """Ask whether to discard in-progress work and leave the view."""
+    from nicegui import ui as _ui
+
+    _, on_leave = _leave_guard or (None, None)
+
+    dialog = _ui.dialog()
+    with dialog, _ui.card().classes("w-[28rem] max-w-full"):
+        _ui.label("Leave this page?").classes("text-xl font-semibold")
+        _ui.label("Work in progress will be discarded.").classes("text-slate-600 mt-2")
+
+        def stay() -> None:
+            dialog.close()
+            logger.info("Navigation cancelled view=%s", view)
+
+        def leave() -> None:
+            dialog.close()
+            if on_leave is not None:
+                try:
+                    on_leave()
+                except Exception as error:
+                    logger.warning("Leave cleanup failed error=%s", str(error))
+            clear_navigation_guard()
+            _perform_navigate(view, **kwargs)
+
+        with _ui.row().classes("w-full justify-end gap-2 mt-4"):
+            _ui.button("Stay", on_click=stay).props("flat")
+            _ui.button("Leave and discard", on_click=leave).props("color=negative")
+
+    dialog.open()
 
 
 def on_navigate(callback: Callable[[str], None]) -> None:

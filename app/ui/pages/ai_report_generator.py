@@ -62,6 +62,43 @@ LANGUAGE_OPTIONS = ["Spanish", "English"]
 
 PROGRESS_POLL_SECONDS = 0.2
 
+_generation_active = False
+_cancel_requested = False
+
+
+class _GenerationCancelled(Exception):
+    """Raised inside the worker when leaving the page discards the draft."""
+
+
+def is_generation_in_progress() -> bool:
+    """Return whether an AI draft is currently streaming."""
+    return _generation_active
+
+
+def request_cancel_generation() -> None:
+    """Ask a running generation to stop at the next streamed chunk."""
+    global _cancel_requested
+    _cancel_requested = True
+    logger.info("Generation cancel requested")
+
+
+def _set_generation_active(active: bool) -> None:
+    """Track streaming state and keep the router leave guard in sync."""
+    global _generation_active, _cancel_requested
+    _generation_active = active
+    if active:
+        _cancel_requested = False
+        router.set_navigation_guard(is_generation_in_progress, _leave_and_cancel)
+    else:
+        router.clear_navigation_guard()
+
+
+def _leave_and_cancel() -> None:
+    """Cancel a running generation when the user confirms leaving."""
+    request_cancel_generation()
+    _set_generation_active(False)
+
+
 GHS_HAZARDS = (
     ("is_explosive", "Explosive"),
     ("is_flammable", "Flammable"),
@@ -382,6 +419,11 @@ def build_ai_report_generator_page(
             )
             updates: queue.Queue[tuple[str, str | None]] = queue.Queue()
 
+            def report_progress(text: str) -> None:
+                if _cancel_requested:
+                    raise _GenerationCancelled()
+                updates.put(("chunk", text))
+
             def worker() -> None:
                 try:
                     draft = generate_draft(
@@ -389,8 +431,12 @@ def build_ai_report_generator_page(
                         experiments_data,
                         model,
                         language,
-                        on_progress=lambda text: updates.put(("chunk", text)),
+                        on_progress=report_progress,
                     )
+                except _GenerationCancelled:
+                    logger.info("Generation discarded after leaving page")
+                    updates.put(("cancelled", None))
+                    return
                 except Exception as error:
                     logger.warning("Report generation failed error=%s", str(error))
                     updates.put(("error", None))
@@ -398,9 +444,12 @@ def build_ai_report_generator_page(
                 updates.put(("done", draft))
 
             def finish_generation(draft: str | None) -> None:
+                _set_generation_active(False)
                 progress_container.visible = False
                 refresh_generate_state()
                 if draft is None:
+                    if progress_container.is_deleted:
+                        return
                     warning_container.visible = True
                     ui.notify(NO_AI_WARNING, type="warning")
                     return
@@ -426,6 +475,7 @@ def build_ai_report_generator_page(
                         poll_timer.cancel()
                         finish_generation(text if kind == "done" else None)
 
+            _set_generation_active(True)
             threading.Thread(target=worker, daemon=True).start()
             poll_timer = ui.timer(PROGRESS_POLL_SECONDS, poll_updates)
 
