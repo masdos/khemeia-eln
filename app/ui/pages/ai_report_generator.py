@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from nicegui import run, ui
+from nicegui.events import GenericEventArguments
 
 from app.config import ConfigValidationError, get_current_config, write_config
 from app.database.connection import get_connection
@@ -54,7 +55,7 @@ logger = logging.getLogger(__name__)
 NO_AI_WARNING = "Ollama is not ready. Check the requirements on the AI Assistant page."
 SELECTION_REQUIRED = "Select at least one experiment."
 MODEL_REQUIRED = "Select a model."
-LANGUAGE_REQUIRED = "Select a language."
+LANGUAGE_REQUIRED = "Select or type a language."
 PROJECT_REQUIRED = "Select a project."
 TITLE_REQUIRED = "Enter a report title."
 SAVE_REQUIRED = "Generate a draft before saving."
@@ -365,10 +366,35 @@ def build_ai_report_generator_page(
         )
 
         language_select = (
-            ui.select(options=LANGUAGE_OPTIONS, value=None, label="Language")
+            ui.select(
+                options=list(LANGUAGE_OPTIONS),
+                value=None,
+                label="Language",
+                new_value_mode="add-unique",
+            )
             .props("outlined")
             .classes("w-full")
         )
+
+        typed_language = ""
+
+        def _remember_typed_language(event: GenericEventArguments) -> None:
+            nonlocal typed_language
+            if isinstance(event.args, str):
+                typed_language = event.args
+
+        def _commit_typed_language(_event: GenericEventArguments) -> None:
+            text = typed_language.strip()
+            if language_select.value or not text:
+                return
+            if text not in language_select.options:
+                language_select.options.append(text)
+                language_select.update()
+            language_select.set_value(text)
+            logger.info("Custom language committed language=%s", text)
+
+        language_select.on("input-value", _remember_typed_language)
+        language_select.on("blur", _commit_typed_language)
 
         title_input = ui.input("Title *").props("outlined").classes("w-full")
 
@@ -397,8 +423,8 @@ def build_ai_report_generator_page(
             if not model:
                 message.text = MODEL_REQUIRED
                 return
-            language = language_select.value
-            if not language:
+            language = language_select.value or typed_language.strip() or None
+            if not language or not str(language).strip():
                 message.text = LANGUAGE_REQUIRED
                 return
             experiments_data = collect_experiments_data(

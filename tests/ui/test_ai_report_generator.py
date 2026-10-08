@@ -980,6 +980,115 @@ def test_builds_language_selector_with_spanish_and_english_options() -> None:
         language_call = mock_ui.select.call_args_list[3]
         assert language_call.kwargs["label"] == "Language"
         assert list(language_call.kwargs["options"]) == ["Spanish", "English"]
+        assert language_call.kwargs["new_value_mode"] == "add-unique"
+
+
+def test_sends_custom_language_when_generating() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, ai_service, _ = _build_page(
+            mock_ui,
+            context,
+            draft="# Report",
+            chosen_model="gemma3:4b",
+            chosen_language="French",
+        )
+        _click_generate(mock_ui, context)
+
+        # then — free text outside the preset options flows through
+        assert ai_service.calls[0][2] == "French"
+        assert context.draft.value == "# Report"
+
+
+def _language_handlers(context: _UIContext) -> dict[str, Any]:
+    return {
+        call.args[0]: call.args[1] for call in context.language_select.on.call_args_list
+    }
+
+
+def _typing_event(text: str) -> MagicMock:
+    event = MagicMock()
+    event.args = text
+    return event
+
+
+def test_commits_typed_language_on_blur() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _build_page(mock_ui, context, chosen_language=None)
+        context.language_select.options = ["Spanish", "English"]
+        handlers = _language_handlers(context)
+        handlers["input-value"](_typing_event("French"))
+        handlers["blur"](MagicMock())
+
+        # then — typed text survives losing focus instead of being erased
+        assert "French" in context.language_select.options
+        context.language_select.set_value.assert_called_once_with("French")
+
+
+def test_uses_typed_language_without_blur_when_generating() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, ai_service, _ = _build_page(
+            mock_ui,
+            context,
+            draft="# Report",
+            chosen_model="gemma3:4b",
+            chosen_language=None,
+        )
+        handlers = _language_handlers(context)
+        handlers["input-value"](_typing_event("Português"))
+        _click_generate(mock_ui, context)
+
+        # then — generation uses the typed text even if blur never fired
+        assert ai_service.calls[0][2] == "Português"
+        assert context.draft.value == "# Report"
+
+
+def test_prefers_selected_option_over_typed_text() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, ai_service, _ = _build_page(
+            mock_ui,
+            context,
+            draft="# Report",
+            chosen_model="gemma3:4b",
+            chosen_language="Spanish",
+        )
+        handlers = _language_handlers(context)
+        handlers["input-value"](_typing_event("French"))
+        _click_generate(mock_ui, context)
+
+        # then
+        assert ai_service.calls[0][2] == "Spanish"
+
+
+def test_rejects_blank_language_before_generating() -> None:
+    # given
+    context = _UIContext()
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        _, ai_service, _ = _build_page(
+            mock_ui, context, chosen_model="gemma3:4b", chosen_language="   "
+        )
+        _click_generate(mock_ui, context)
+
+        # then
+        assert ai_service.calls == []
+        assert context.progress.visible is False
 
 
 def test_sends_chosen_language_when_generating() -> None:
