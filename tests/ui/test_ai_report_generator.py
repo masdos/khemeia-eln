@@ -6,6 +6,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from app.config import clear_current_config, load_config, write_config
+from app.services.ollama_client import OllamaStatus
 from app.ui.pages import ai_report_generator
 from app.ui.pages.ai_report_generator import (
     build_ai_report_generator_page,
@@ -70,13 +71,11 @@ class FakeAIService:
 
 
 class FakeExportService:
-    """Test double saving and exporting drafts without filesystem or SQLite."""
+    """Test double saving drafts without filesystem or SQLite."""
 
     def __init__(self, base: Path) -> None:
         self._base = base
         self.save_calls: list[tuple[str, list[int]]] = []
-        self.markdown_calls: list[str] = []
-        self.pdf_calls: list[str] = []
         self._next_id = 1
 
     def save_report(
@@ -93,14 +92,6 @@ class FakeExportService:
         self._next_id += 1
         return report_id
 
-    def export_ai_report_markdown(self, markdown_content: str) -> Path:
-        self.markdown_calls.append(markdown_content)
-        return self._base / "report.md"
-
-    def export_ai_report_pdf(self, markdown_content: str) -> Path:
-        self.pdf_calls.append(markdown_content)
-        return self._base / "report.pdf"
-
 
 class FakeOllamaClient:
     """Test double listing installed models without HTTP."""
@@ -108,8 +99,8 @@ class FakeOllamaClient:
     def __init__(self, installed: tuple[str, ...] = ("qwen3:4b", "gemma3:4b")) -> None:
         self._installed = installed
 
-    def get_installed_models(self) -> tuple[str, ...]:
-        return self._installed
+    def get_status(self) -> OllamaStatus:
+        return OllamaStatus(is_available=True, installed_models=self._installed)
 
 
 def _chainable(value: Any = None) -> MagicMock:
@@ -628,8 +619,6 @@ def test_saves_edited_draft_to_database() -> None:
         assert export_service.save_calls == [
             ("# Edited draft", [1], 10, "Monthly report")
         ]
-        assert export_service.markdown_calls == []
-        assert export_service.pdf_calls == []
 
 
 def test_shows_empty_dropdown_when_no_model_installed() -> None:
@@ -841,8 +830,6 @@ def test_saves_draft_to_database_without_exporting(tmp_path: Path) -> None:
     # then
     assert report_id == 1
     assert export_service.save_calls == [("# Draft", [1], 10, "Monthly report")]
-    assert export_service.markdown_calls == []
-    assert export_service.pdf_calls == []
 
 
 def test_restores_saved_model_when_still_installed(tmp_path: Path) -> None:
@@ -1000,8 +987,6 @@ def test_requires_saved_draft_before_saving() -> None:
 
         # then
         assert export_service.save_calls == []
-        assert export_service.markdown_calls == []
-        assert export_service.pdf_calls == []
 
 
 def test_requires_experiments_before_saving() -> None:

@@ -167,41 +167,6 @@ def test_reports_not_ready_without_installed_models() -> None:
     assert status.is_ready is False
 
 
-def test_returns_installed_models_when_server_lists_several() -> None:
-    # given
-    client, _, _, _ = _make_client(
-        models=[FakeSdkModel("qwen3:4b"), FakeSdkModel("gemma3:4b")]
-    )
-
-    # when
-    installed = client.get_installed_models()
-
-    # then
-    assert installed == ("qwen3:4b", "gemma3:4b")
-
-
-def test_returns_empty_installed_models_when_server_unreachable() -> None:
-    # given
-    client, _, _, _ = _make_client(models=ConnectionError("Connection refused"))
-
-    # when
-    installed = client.get_installed_models()
-
-    # then
-    assert installed == ()
-
-
-def test_returns_empty_installed_models_when_no_model_installed() -> None:
-    # given
-    client, _, _, _ = _make_client(models=[])
-
-    # when
-    installed = client.get_installed_models()
-
-    # then
-    assert installed == ()
-
-
 def test_uses_long_timeout_for_generation_instead_of_status_timeout() -> None:
     # given
     _, factory, _, _ = _make_client()

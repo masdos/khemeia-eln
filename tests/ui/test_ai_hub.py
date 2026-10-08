@@ -37,9 +37,6 @@ class FakeOllamaClient:
             raise self._status_error
         return self._status
 
-    def get_installed_models(self) -> tuple[str, ...]:
-        return self.get_status().installed_models
-
 
 async def _inline_io_bound(function, *args):
     """Run worker calls inline so async refresh can be tested."""
@@ -118,8 +115,6 @@ def test_renders_guidance_steps_and_menu_without_blocking() -> None:
     with (
         patch.object(hub, "ui") as mock_ui,
         patch.object(hub, "run"),
-        patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
 
@@ -170,8 +165,6 @@ def test_auto_check_updates_header_silently_without_button_feedback() -> None:
     with (
         patch.object(hub, "ui") as mock_ui,
         patch.object(hub, "run") as mock_run,
-        patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
         mock_ui.badge.reset_mock()
@@ -201,8 +194,6 @@ def test_check_button_shows_spinner_and_refreshes_to_ready() -> None:
     with (
         patch.object(hub, "ui") as mock_ui,
         patch.object(hub, "run") as mock_run,
-        patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
         mock_ui.badge.reset_mock()
@@ -225,8 +216,6 @@ def test_open_report_generator_navigates_to_form() -> None:
     with (
         patch.object(hub, "ui") as mock_ui,
         patch.object(hub, "run"),
-        patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run"),
         patch.object(hub.router, "navigate") as mock_navigate,
     ):
         _build_hub(mock_ui, context, client)
@@ -245,8 +234,6 @@ def test_renders_single_feature_card_in_grid() -> None:
     with (
         patch.object(hub, "ui") as mock_ui,
         patch.object(hub, "run"),
-        patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
 
@@ -266,8 +253,6 @@ def test_shows_short_status_without_repeating_resources() -> None:
     with (
         patch.object(hub, "ui") as mock_ui,
         patch.object(hub, "run") as mock_run,
-        patch("app.ui.pages.ai_reports.ui", mock_ui),
-        patch("app.ui.pages.ai_reports.run"),
     ):
         _build_hub(mock_ui, context, client)
         links_before = mock_ui.link.call_count

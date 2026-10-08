@@ -154,14 +154,6 @@ class OllamaClient:
                 f"Ollama stopped without completing the response (model={model})"
             )
 
-    def get_installed_models(self) -> tuple[str, ...]:
-        """Return names of installed local models, or empty when unknown.
-
-        Readiness depends only on the server responding and at least one
-        model being installed; memory-loaded state is never consulted.
-        """
-        return self.get_status().installed_models
-
 
 def _model_names(models: object) -> tuple[str, ...]:
     if not isinstance(models, Sequence) or isinstance(models, (str, bytes)):

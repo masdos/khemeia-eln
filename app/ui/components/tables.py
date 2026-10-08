@@ -47,15 +47,6 @@ VIEW_SLOT = """
 </q-td>
 """
 
-VIEW_HISTORY_SLOT = """
-<q-td :props="props">
-    <q-btn flat dense icon="visibility"
-            @click="() => $parent.$emit('view', props.row)" />
-    <q-btn flat dense icon="history"
-            @click="() => $parent.$emit('history', props.row)" />
-</q-td>
-"""
-
 STATE_BADGE_SLOT = """
 <q-td :props="props">
     <q-badge :color="props.row.state === 'Running' ? 'blue' :
@@ -92,17 +83,6 @@ def add_view_actions(
     """Add the view-only actions column handler."""
     table.add_slot("body-cell-actions", VIEW_SLOT)
     table.on("view", on_view)
-
-
-def add_view_history_actions(
-    table: ui.table,
-    on_view: Callable[[object], None],
-    on_history: Callable[[object], None],
-) -> None:
-    """Add the view/history actions column handlers."""
-    table.add_slot("body-cell-actions", VIEW_HISTORY_SLOT)
-    table.on("view", on_view)
-    table.on("history", on_history)
 
 
 def add_view_history_delete_actions(

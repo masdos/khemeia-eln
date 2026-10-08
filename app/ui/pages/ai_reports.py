@@ -3,8 +3,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from nicegui import run, ui
-
 from app.services.ollama_client import OllamaClient
 
 logger = logging.getLogger(__name__)
@@ -45,6 +43,8 @@ def get_readiness(client: OllamaClient | None = None) -> Readiness:
         return Readiness(is_available=False)
     if not status.is_available:
         return Readiness(is_available=False)
+    if not status.has_models:
+        return Readiness(is_available=True)
     return Readiness(
         is_available=True,
         installed_models=status.installed_models,
@@ -63,48 +63,3 @@ def describe_status(readiness: Readiness) -> tuple[str, str]:
         return MISSING_MODEL, "No local model detected."
     count = len(readiness.installed_models)
     return READY, f"All requirements are ready ({count} local model(s))."
-
-
-async def refresh_status_display(
-    client: OllamaClient, status_container: ui.column
-) -> None:
-    """Check Ollama off the event loop and render the result.
-
-    The network probe can take seconds when Ollama is not running, so it
-    runs in a worker thread to keep the UI responsive. When the user leaves
-    the page mid-check, the worker result is discarded silently.
-    """
-    readiness = await run.io_bound(get_readiness, client)
-    if readiness is None:
-        logger.debug("AI readiness check cancelled")
-        return
-    if status_container.is_deleted:
-        logger.debug("AI readiness render skipped reason=%s", "page left")
-        return
-    state, message = describe_status(readiness)
-    try:
-        _render_status(status_container, readiness, state, message)
-    except RuntimeError as error:
-        logger.debug("AI readiness render skipped error=%s", str(error))
-        return
-    logger.info("AI readiness refreshed state=%s", state)
-
-
-def _render_status(
-    status_container: ui.column,
-    readiness: Readiness,
-    state: str,
-    message: str,
-) -> None:
-    """Render the readiness state into the status container."""
-    status_container.clear()
-    with status_container:
-        if state == READY:
-            ui.badge("Ready", color="green")
-            ui.label(message)
-        elif state == MISSING_OLLAMA:
-            ui.badge("Not ready", color="red")
-            ui.label(message)
-        else:
-            ui.badge("Not ready", color="red")
-            ui.label(message)

@@ -333,43 +333,6 @@ class ExportService:
         logger.info("AI report saved report_id=%s project_id=%s", report_id, project_id)
         return report_id
 
-    def export_ai_report_markdown(self, markdown_content: str) -> Path:
-        """Export AI generated Markdown to a file under BASE_DIR/exports/."""
-        if not markdown_content or not markdown_content.strip():
-            raise ValueError("markdown_content must not be empty")
-
-        _, stored_name = _build_ai_report_names("md")
-        file_path = self._exports_dir() / stored_name
-        content = self._with_user_header(markdown_content)
-        file_path.write_text(content, encoding="utf-8")
-
-        logger.info("AI report exported to markdown stored_name=%s", stored_name)
-        return file_path
-
-    def export_ai_report_pdf(self, markdown_content: str) -> Path:
-        """Export AI generated Markdown as a PDF file under BASE_DIR/exports/."""
-        if not markdown_content or not markdown_content.strip():
-            raise ValueError("markdown_content must not be empty")
-
-        _, stored_name = _build_ai_report_names("pdf")
-        file_path = self._exports_dir() / stored_name
-        _write_markdown_pdf(file_path, self._with_user_header(markdown_content))
-
-        logger.info("AI report exported to pdf stored_name=%s", stored_name)
-        return file_path
-
-    def export_ai_report_docx(self, markdown_content: str) -> Path:
-        """Export AI generated Markdown as a DOCX file under BASE_DIR/exports/."""
-        if not markdown_content or not markdown_content.strip():
-            raise ValueError("markdown_content must not be empty")
-
-        _, stored_name = _build_ai_report_names("docx")
-        file_path = self._exports_dir() / stored_name
-        _write_markdown_docx(file_path, self._with_user_header(markdown_content))
-
-        logger.info("AI report exported to docx stored_name=%s", stored_name)
-        return file_path
-
     def export_report_markdown(self, report_id: int) -> Path:
         """Export a saved report to Markdown under BASE_DIR/exports/."""
         report = self._require_report(report_id)
@@ -608,17 +571,6 @@ def _md_cell(value: Any) -> str:
     if not text:
         return "-"
     return text.replace("|", "\\|")
-
-
-def _build_ai_report_names(extension: str) -> tuple[str, str]:
-    """Build human readable and unique storage names for an AI report."""
-    import uuid
-    from datetime import datetime, timezone
-
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    file_name = f"ai_report_{timestamp}.{extension}"
-    stored_name = f"{uuid.uuid4().hex}.{extension}"
-    return file_name, stored_name
 
 
 def _split_table_row(line: str) -> list[str]:

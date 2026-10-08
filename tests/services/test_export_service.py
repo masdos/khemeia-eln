@@ -592,7 +592,9 @@ class TestMarkdownTables:
         assert result is None
 
     def test_pdf_writer_builds_table_flowable_for_markdown_tables(
-        self, service: ExportService
+        self,
+        ai_service: ExportService,
+        project_repository: InMemoryProjectRepository,
     ) -> None:
         # given
         calls: list = []
@@ -602,9 +604,12 @@ class TestMarkdownTables:
             calls.append((header, rows))
             return real_builder(header, rows, body_style)  # type: ignore[arg-type]
 
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        report_id = ai_service.save_report(self.TABLE_MARKDOWN, [1], 1, "Tables")
+
         # when
         with patch("app.services.export_service._build_pdf_table", side_effect=spy):
-            file_path = service.export_ai_report_pdf(self.TABLE_MARKDOWN)
+            file_path = ai_service.export_report_pdf(report_id)
 
         # then
         assert file_path.read_bytes().startswith(b"%PDF")
@@ -613,13 +618,18 @@ class TestMarkdownTables:
         ]
 
     def test_docx_export_renders_table_with_bold_header(
-        self, service: ExportService
+        self,
+        ai_service: ExportService,
+        project_repository: InMemoryProjectRepository,
     ) -> None:
         # given
         from docx import Document
 
+        project_repository.add_project({"id": 1, "name": "Lab Project"})
+        report_id = ai_service.save_report(self.TABLE_MARKDOWN, [1], 1, "Tables")
+
         # when
-        file_path = service.export_ai_report_docx(self.TABLE_MARKDOWN)
+        file_path = ai_service.export_report_docx(report_id)
 
         # then
         tables = Document(str(file_path)).tables
@@ -654,174 +664,6 @@ def ai_service_fixture(
         attachment_repository,
         report_repo=report_repository,
     )
-
-
-class TestExportAiReportMarkdown:
-    def test_writes_markdown_file_under_exports_with_content(
-        self, service: ExportService, tmp_path: Path
-    ) -> None:
-        # given — the service fixture has no report repository
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        file_path = service.export_ai_report_markdown(markdown)
-
-        # then
-        assert file_path.parent == tmp_path / "exports"
-        assert file_path.suffix == ".md"
-        assert file_path.is_absolute()
-        assert file_path.exists()
-        content = file_path.read_text(encoding="utf-8")
-        assert markdown in content
-        assert "Test User" in content
-        assert "test@example.com" in content
-
-    def test_prepends_user_header_before_draft_content(
-        self, service: ExportService
-    ) -> None:
-        # given
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        file_path = service.export_ai_report_markdown(markdown)
-
-        # then
-        from datetime import date
-
-        lines = file_path.read_text(encoding="utf-8").splitlines()
-        assert lines[0] == date.today().strftime("%Y-%m-%d")
-        assert lines[1] == "Test User | test@example.com"
-        assert lines[2] == ""
-        assert lines[3] == "# AI Report"
-
-    def test_leaves_database_untouched(
-        self,
-        ai_service: ExportService,
-        report_repository: InMemoryReportRepository,
-    ) -> None:
-        # given
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        ai_service.export_ai_report_markdown(markdown)
-
-        # then — file-only export, nothing is registered
-        assert report_repository._reports == {}
-        assert report_repository._links == {}
-
-    def test_stores_only_relative_names_without_absolute_paths(
-        self, service: ExportService
-    ) -> None:
-        # given
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        file_path = service.export_ai_report_markdown(markdown)
-
-        # then
-        assert "/" not in file_path.name
-        assert "\\" not in file_path.name
-
-    def test_rejects_empty_markdown_content(self, service: ExportService) -> None:
-        # given
-        empty_markdown = "   "
-
-        # when / then
-        with pytest.raises(ValueError, match="markdown_content"):
-            service.export_ai_report_markdown(empty_markdown)
-
-
-class TestExportAiReportPdf:
-    def test_writes_pdf_file_under_exports_with_pdf_header(
-        self, service: ExportService, tmp_path: Path
-    ) -> None:
-        # given
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        file_path = service.export_ai_report_pdf(markdown)
-
-        # then
-        assert file_path.parent == tmp_path / "exports"
-        assert file_path.suffix == ".pdf"
-        assert file_path.is_absolute()
-        assert file_path.exists()
-        assert file_path.read_bytes().startswith(b"%PDF")
-
-    def test_leaves_database_untouched(
-        self,
-        ai_service: ExportService,
-        report_repository: InMemoryReportRepository,
-    ) -> None:
-        # given
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        ai_service.export_ai_report_pdf(markdown)
-
-        # then — file-only export, nothing is registered
-        assert report_repository._reports == {}
-        assert report_repository._links == {}
-
-    def test_generates_unique_filenames_for_consecutive_reports(
-        self, service: ExportService
-    ) -> None:
-        # given
-        markdown = "# AI Report"
-
-        # when
-        first = service.export_ai_report_pdf(markdown)
-        second = service.export_ai_report_pdf(markdown)
-
-        # then
-        assert first != second
-
-    def test_rejects_empty_markdown_content(self, service: ExportService) -> None:
-        # given
-        empty_markdown = ""
-
-        # when / then
-        with pytest.raises(ValueError, match="markdown_content"):
-            service.export_ai_report_pdf(empty_markdown)
-
-
-class TestExportAiReportDocx:
-    def test_writes_docx_file_under_exports_with_zip_header(
-        self, service: ExportService, tmp_path: Path
-    ) -> None:
-        # given
-        markdown = "# AI Report\n\nDraft content."
-
-        # when
-        file_path = service.export_ai_report_docx(markdown)
-
-        # then
-        assert file_path.parent == tmp_path / "exports"
-        assert file_path.suffix == ".docx"
-        assert file_path.is_absolute()
-        assert file_path.exists()
-        assert file_path.read_bytes().startswith(b"PK")
-
-    def test_generates_unique_filenames_for_consecutive_reports(
-        self, service: ExportService
-    ) -> None:
-        # given
-        markdown = "# AI Report"
-
-        # when
-        first = service.export_ai_report_docx(markdown)
-        second = service.export_ai_report_docx(markdown)
-
-        # then
-        assert first != second
-
-    def test_rejects_empty_markdown_content(self, service: ExportService) -> None:
-        # given
-        empty_markdown = ""
-
-        # when / then
-        with pytest.raises(ValueError, match="markdown_content"):
-            service.export_ai_report_docx(empty_markdown)
 
 
 class TestExportReportMarkdown:

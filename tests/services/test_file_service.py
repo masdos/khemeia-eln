@@ -1,4 +1,3 @@
-import io
 from pathlib import Path
 
 import pytest
@@ -11,21 +10,15 @@ def service_fixture(tmp_path: Path) -> FileService:
     return FileService(tmp_path)
 
 
-class FakeUploadedFile:
-    def __init__(self, name: str, content: bytes) -> None:
-        self.name = name
-        self.content = io.BytesIO(content)
-
-
-class TestSaveAttachment:
+class TestSaveAttachmentBytes:
     def test_saves_file_under_experiment_directory(
         self, service: FileService, tmp_path: Path
     ) -> None:
-        # given
-        uploaded = FakeUploadedFile("chromatogram.png", b"png-bytes")
-
+        # given — raw bytes as delivered by the async upload handler
         # when
-        stored_name = service.save_attachment(42, uploaded)
+        stored_name = service.save_attachment_bytes(
+            42, "chromatogram.png", b"png-bytes"
+        )
 
         # then
         saved_path = tmp_path / "attachments" / "42" / stored_name
@@ -36,10 +29,8 @@ class TestSaveAttachment:
         self, service: FileService
     ) -> None:
         # given
-        uploaded = FakeUploadedFile("report.pdf", b"pdf-bytes")
-
         # when
-        stored_name = service.save_attachment(1, uploaded)
+        stored_name = service.save_attachment_bytes(1, "report.pdf", b"pdf-bytes")
 
         # then
         assert stored_name.endswith(".pdf")
@@ -51,12 +42,11 @@ class TestSaveAttachment:
         self, service: FileService, tmp_path: Path
     ) -> None:
         # given
-        uploaded = FakeUploadedFile("data.csv", b"a,b,c")
         experiment_dir = tmp_path / "attachments" / "7"
         assert not experiment_dir.exists()
 
         # when
-        service.save_attachment(7, uploaded)
+        service.save_attachment_bytes(7, "data.csv", b"a,b,c")
 
         # then
         assert experiment_dir.exists()
@@ -66,10 +56,8 @@ class TestSaveAttachment:
         self, service: FileService
     ) -> None:
         # given
-        uploaded = FakeUploadedFile("notes", b"content")
-
         # when
-        stored_name = service.save_attachment(1, uploaded)
+        stored_name = service.save_attachment_bytes(1, "notes", b"content")
 
         # then
         assert stored_name == stored_name.rstrip(".txt")
@@ -88,9 +76,7 @@ class TestResolvePath:
 
     def test_resolves_path_for_saved_attachment(self, service: FileService) -> None:
         # given
-        stored_name = service.save_attachment(
-            5, FakeUploadedFile("image.png", b"bytes")
-        )
+        stored_name = service.save_attachment_bytes(5, "image.png", b"bytes")
 
         # when
         path = service.resolve_path(5, stored_name)
@@ -103,7 +89,7 @@ class TestResolvePath:
 class TestDeleteAttachment:
     def test_deletes_attachment_file(self, service: FileService) -> None:
         # given
-        stored_name = service.save_attachment(2, FakeUploadedFile("data.dat", b"data"))
+        stored_name = service.save_attachment_bytes(2, "data.dat", b"data")
         path = service.resolve_path(2, stored_name)
         assert path.exists()
 
@@ -119,10 +105,8 @@ class TestDeleteAttachment:
 
     def test_leaves_other_files_untouched(self, service: FileService) -> None:
         # given
-        first_name = service.save_attachment(2, FakeUploadedFile("keep.txt", b"keep"))
-        second_name = service.save_attachment(
-            2, FakeUploadedFile("remove.txt", b"remove")
-        )
+        first_name = service.save_attachment_bytes(2, "keep.txt", b"keep")
+        second_name = service.save_attachment_bytes(2, "remove.txt", b"remove")
 
         # when
         service.delete_attachment(2, second_name)

@@ -42,7 +42,7 @@ from app.services.inventory_service import (
     SqliteEquipmentRepository,
     SqliteReagentRepository,
 )
-from app.services.ollama_client import OllamaClient
+from app.services.ollama_client import RECOMMENDED_MODEL, OllamaClient
 from app.services.project_service import SqliteProjectRepository
 from app.services.protocol_service import SqliteProtocolRepository
 from app.ui import router
@@ -505,16 +505,22 @@ def build_ai_report_generator_page(
             navigation.
             """
             try:
-                installed_models = await run.io_bound(
-                    lambda: list(ollama_client.get_installed_models())
-                )
+                status = await run.io_bound(ollama_client.get_status)
+                installed_models = list(status.installed_models)
             except Exception as error:
                 logger.warning("Installed models check failed error=%s", str(error))
                 installed_models = []
+                status = None
             if model_select.is_deleted:
                 logger.debug("Model list render skipped reason=%s", "page left")
                 return
             initial_model = saved_model if saved_model in installed_models else None
+            if (
+                initial_model is None
+                and status is not None
+                and status.is_recommended_model_ready
+            ):
+                initial_model = RECOMMENDED_MODEL
             model_select.set_options(installed_models, value=initial_model)
             refresh_generate_state()
             logger.info("Installed models loaded count=%s", len(installed_models))

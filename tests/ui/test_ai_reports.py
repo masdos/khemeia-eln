@@ -1,7 +1,5 @@
-from unittest.mock import MagicMock, patch
-
 from app.services.ollama_client import OllamaStatus
-from app.ui.pages.ai_reports import _render_status, describe_status, get_readiness
+from app.ui.pages.ai_reports import describe_status, get_readiness
 
 
 class FakeOllamaClient:
@@ -21,18 +19,6 @@ class FakeOllamaClient:
         if self._status_error is not None:
             raise self._status_error
         return self._status
-
-    def get_installed_models(self) -> tuple[str, ...]:
-        return self.get_status().installed_models
-
-
-def _container() -> MagicMock:
-    mock = MagicMock()
-    mock.__enter__ = MagicMock(return_value=mock)
-    mock.__exit__ = MagicMock(return_value=False)
-    mock.classes.return_value = mock
-    mock.is_deleted = False
-    return mock
 
 
 def test_accepts_any_installed_model_as_ready() -> None:
@@ -76,6 +62,7 @@ def test_describes_missing_ollama_with_short_message() -> None:
     assert state == "missing_ollama"
     assert message == "Ollama is not installed or has not been started."
 
+
 def test_describes_missing_model_with_short_message() -> None:
     # given
     readiness = get_readiness(
@@ -103,25 +90,3 @@ def test_returns_unavailable_when_status_check_raises() -> None:
     # then
     assert readiness.is_available is False
     assert readiness.state == "missing_ollama"
-
-
-def test_renders_badge_and_message_only() -> None:
-    # given
-    client = FakeOllamaClient(status=OllamaStatus(True, ("gemma3:4b",)))
-
-    # when
-    with patch("app.ui.pages.ai_reports.ui") as mock_ui:
-        status_container = _container()
-        mock_ui.badge.return_value = MagicMock()
-        mock_ui.label.return_value = MagicMock()
-        mock_ui.link.return_value = MagicMock()
-        mock_ui.code.return_value = MagicMock()
-        readiness = get_readiness(client)  # type: ignore[arg-type]
-        state, message = describe_status(readiness)
-        _render_status(status_container, readiness, state, message)
-
-        # then — no links or commands repeated in the status indicator
-        mock_ui.badge.assert_called_once_with("Ready", color="green")
-        mock_ui.label.assert_called_once_with(message)
-        assert mock_ui.link.call_count == 0
-        assert mock_ui.code.call_count == 0

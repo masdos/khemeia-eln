@@ -186,7 +186,7 @@ class AIService:
             logger.warning("AI provider unavailable error=%s", str(error))
             return None
 
-        if not status.is_available:
+        if not status.is_ready:
             logger.warning("AI provider unavailable")
             return None
         if model not in status.installed_models:

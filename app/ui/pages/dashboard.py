@@ -246,10 +246,3 @@ def _open_create_dialog(service: ExperimentService, refresh) -> None:
         dialog_actions("Create", save, dialog.close)
 
     dialog.open()
-
-
-def build_experiment_detail_page(experiment_id: int) -> None:
-    """Placeholder for experiment detail page (feature #22)."""
-    with ui.column().classes("w-full max-w-6xl mt-8 px-4"):
-        ui.label(f"Experiment #{experiment_id}").classes("text-2xl font-semibold")
-        ui.label("Detail page coming soon.").classes("text-slate-500 mt-4")
