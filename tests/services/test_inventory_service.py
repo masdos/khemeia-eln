@@ -80,7 +80,7 @@ class InMemoryReagentRepository:
         self,
         experiment_id: int,
         reagent_id: int,
-        amount: float,
+        amount: str | int | float,
         unit: str,
     ) -> None:
         self._links.append(
@@ -138,9 +138,7 @@ class InMemoryEquipmentRepository:
     def get_by_id(self, equipment_id: int) -> dict[str, Any] | None:
         return self._equipment.get(equipment_id)
 
-    def update(
-        self, equipment_id: int, **fields: object
-    ) -> dict[str, Any] | None:
+    def update(self, equipment_id: int, **fields: object) -> dict[str, Any] | None:
         equipment = self._equipment.get(equipment_id)
         if equipment is None:
             return None
@@ -251,8 +249,47 @@ class TestLinkReagentToExperiment:
         # then
         resources = service.get_experiment_resources(1)
         assert len(resources["reagents"]) == 1
-        assert resources["reagents"][0]["amount_used"] == 5.0
+        assert resources["reagents"][0]["amount_used"] == "5.0"
         assert resources["reagents"][0]["unit"] == "mL"
+
+    def test_preserves_trailing_zeros_without_rounding(
+        self,
+        service: InventoryService,
+    ) -> None:
+        # given
+        reagent_id = service.add_reagent(name="Catalyst")["id"]
+
+        # when
+        service.link_reagent_to_experiment(1, reagent_id, amount="0.5000", unit="g")
+
+        # then
+        resources = service.get_experiment_resources(1)
+        assert resources["reagents"][0]["amount_used"] == "0.5000"
+
+    def test_accepts_comma_decimal_separator(
+        self,
+        service: InventoryService,
+    ) -> None:
+        # given
+        reagent_id = service.add_reagent(name="Catalyst")["id"]
+
+        # when
+        service.link_reagent_to_experiment(1, reagent_id, amount="0,5000", unit="g")
+
+        # then
+        resources = service.get_experiment_resources(1)
+        assert resources["reagents"][0]["amount_used"] == "0.5000"
+
+    def test_rejects_non_numeric_amount(
+        self,
+        service: InventoryService,
+    ) -> None:
+        # given
+        reagent_id = service.add_reagent(name="Catalyst")["id"]
+
+        # when / then
+        with pytest.raises(ValueError, match="decimal number"):
+            service.link_reagent_to_experiment(1, reagent_id, amount="abc", unit="g")
 
     def test_rejects_linking_missing_reagent(self, service: InventoryService) -> None:
         # when / then

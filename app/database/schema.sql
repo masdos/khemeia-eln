@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS equipment (
 CREATE TABLE IF NOT EXISTS experiment_reagents (
     experiment_id  INTEGER NOT NULL,
     reagent_id     INTEGER NOT NULL,
-    amount_used    REAL,
+    amount_used    TEXT,
     unit           TEXT,
     PRIMARY KEY (experiment_id, reagent_id),
     FOREIGN KEY (experiment_id) REFERENCES experiments (id) ON DELETE CASCADE,

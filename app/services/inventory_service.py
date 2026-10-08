@@ -4,6 +4,7 @@ import logging
 import sqlite3
 from collections.abc import Sequence
 from datetime import date
+from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
 
 from app.repositories import equipment_repository, reagent_repository
@@ -31,6 +32,42 @@ class ReagentDeletionError(ValueError):
 
 class EquipmentDeletionError(ValueError):
     """Raised when equipment with associated experiments cannot be deleted."""
+
+
+class InvalidAmountError(ValueError):
+    """Raised when a reagent amount is not a valid decimal number."""
+
+
+def normalize_amount(value: str | int | float) -> str:
+    """Return exact decimal text without rounding or precision loss.
+
+    Trailing zeros are preserved (``0.5000`` stays ``0.5000``).
+    A comma decimal separator (``0,5000``) is accepted and stored
+    with a dot. Thousands separators are not supported.
+    """
+    if isinstance(value, bool):
+        raise InvalidAmountError("Amount must be a decimal number")
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        text = repr(value)
+    elif isinstance(value, str):
+        text = value.strip().replace(" ", "").replace("_", "").replace("'", "")
+        if not text:
+            raise InvalidAmountError("Amount must be a decimal number")
+        if "," in text:
+            if "." in text:
+                raise InvalidAmountError("Amount must be a decimal number")
+            text = text.replace(",", ".")
+    else:
+        raise InvalidAmountError("Amount must be a decimal number")
+    try:
+        parsed = Decimal(text)
+    except InvalidOperation:
+        raise InvalidAmountError("Amount must be a decimal number") from None
+    if not parsed.is_finite():
+        raise InvalidAmountError("Amount must be a decimal number")
+    return text
 
 
 class ReagentRepository(Protocol):
@@ -68,7 +105,7 @@ class ReagentRepository(Protocol):
         self,
         experiment_id: int,
         reagent_id: int,
-        amount: float,
+        amount: str | int | float,
         unit: str,
     ) -> None: ...
 
@@ -172,7 +209,7 @@ class SqliteReagentRepository:
         self,
         experiment_id: int,
         reagent_id: int,
-        amount: float,
+        amount: str | int | float,
         unit: str,
     ) -> None:
         reagent_repository.link_to_experiment(
@@ -431,13 +468,16 @@ class InventoryService:
         self,
         experiment_id: int,
         reagent_id: int,
-        amount: float,
+        amount: str | int | float,
         unit: str,
     ) -> None:
         if self._reagent_repo.get_by_id(reagent_id) is None:
             raise ReagentNotFoundError(f"Reagent with id {reagent_id} does not exist")
 
-        self._reagent_repo.link_to_experiment(experiment_id, reagent_id, amount, unit)
+        normalized = normalize_amount(amount)
+        self._reagent_repo.link_to_experiment(
+            experiment_id, reagent_id, normalized, unit
+        )
         logger.info(
             "Reagent linked to experiment reagent_id=%s experiment_id=%s",
             reagent_id,

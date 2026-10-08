@@ -119,14 +119,22 @@ def link_to_experiment(
     connection: sqlite3.Connection,
     experiment_id: int,
     reagent_id: int,
-    amount: float,
+    amount: str | int | float,
     unit: str,
 ) -> None:
+    if isinstance(amount, bool):
+        raise ValueError("Amount must be a decimal number")
+    if isinstance(amount, float):
+        amount_text = repr(amount)
+    else:
+        amount_text = str(amount).strip()
+        if "," in amount_text and "." not in amount_text:
+            amount_text = amount_text.replace(",", ".")
     connection.execute(
         "INSERT OR REPLACE INTO experiment_reagents "
         "(experiment_id, reagent_id, amount_used, unit) "
         "VALUES (?, ?, ?, ?)",
-        (experiment_id, reagent_id, amount, unit),
+        (experiment_id, reagent_id, amount_text, unit),
     )
     experiment_repository.touch(connection, experiment_id)
     connection.commit()

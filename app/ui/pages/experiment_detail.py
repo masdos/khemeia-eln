@@ -41,9 +41,11 @@ from app.services.export_service import (
 )
 from app.services.file_service import FileService
 from app.services.inventory_service import (
+    InvalidAmountError,
     InventoryService,
     SqliteEquipmentRepository,
     SqliteReagentRepository,
+    normalize_amount,
 )
 from app.services.project_service import (
     SqliteProjectRepository,
@@ -119,6 +121,28 @@ ATTACHMENT_ACTIONS_SLOT = """
 def _strip_svg_rect(svg: str) -> str:
     """Remove background <rect> elements from an RDKit-generated SVG."""
     return re.sub(r"<rect[^>]*>.*?</rect>\s*", "", svg, flags=re.DOTALL)
+
+
+def _format_amount_text(amount_used: object, unit: object) -> str:
+    """Format amount with its unit without rounding or precision loss."""
+    if amount_used is None:
+        return "-"
+    if isinstance(amount_used, float):
+        amount_text = repr(amount_used)
+    else:
+        amount_text = str(amount_used)
+    if not amount_text.strip():
+        return "-"
+    return f"{amount_text.strip()} {(unit or '').strip()}".strip() or "-"
+
+
+def _amount_to_input_value(amount_used: object) -> str:
+    """Convert a stored amount to input text preserving trailing zeros."""
+    if amount_used is None:
+        return ""
+    if isinstance(amount_used, float):
+        return repr(amount_used)
+    return str(amount_used)
 
 
 def _get_services(base_dir: Path) -> dict:
@@ -344,13 +368,12 @@ def _build_resources_section(
                 .classes("flex-1")
             )
             reagent_amount = (
-                ui.number(
+                ui.input(
                     label="Amount",
-                    value=0,
-                    min=0,
+                    placeholder="0.10",
                 )
-                .props("outlined dense step=any")
-                .classes("w-24")
+                .props("outlined dense inputmode=decimal")
+                .classes("w-28")
             )
             reagent_unit = (
                 ui.input(
@@ -369,10 +392,19 @@ def _build_resources_section(
                 if _reagent_id.value is None:
                     ui.notify("Select a reagent", type="warning")
                     return
+                raw_amount = (_amount.value or "").strip()
+                if not raw_amount:
+                    ui.notify("Enter an amount", type="warning")
+                    return
+                try:
+                    amount_text = normalize_amount(raw_amount)
+                except InvalidAmountError:
+                    ui.notify("Amount must be a decimal number", type="negative")
+                    return
                 inv_svc.link_reagent_to_experiment(
                     experiment_id,
                     _reagent_id.value,
-                    _amount.value or 0,
+                    amount_text,
                     _unit.value or "",
                 )
                 ui.notify("Reagent linked", type="positive")
@@ -409,12 +441,7 @@ def _build_resources_section(
         ]
         rows = []
         for r in reagent_rows:
-            amount_used = r.get("amount_used")
-            unit = r.get("unit", "") or ""
-            if amount_used is not None:
-                amount_text = f"{amount_used} {unit}".strip()
-            else:
-                amount_text = "-"
+            amount_text = _format_amount_text(r.get("amount_used"), r.get("unit", ""))
             ghs_labels = [label for field, _code, label in GHS_FIELDS if r.get(field)]
             rows.append(
                 {
@@ -446,12 +473,12 @@ def _build_resources_section(
                         "font-semibold"
                     )
                     amount_input = (
-                        ui.number(
+                        ui.input(
                             label="Amount",
-                            value=reagent.get("amount_used"),
-                            min=0,
+                            value=_amount_to_input_value(reagent.get("amount_used")),
+                            placeholder="0.10",
                         )
-                        .props("outlined dense step=any")
+                        .props("outlined dense inputmode=decimal")
                         .classes("w-full")
                     )
                     unit_input = (
@@ -470,13 +497,21 @@ def _build_resources_section(
                             _amount=amount_input,
                             _unit=unit_input,
                         ) -> None:
-                            if _amount.value is None:
+                            raw_amount = (_amount.value or "").strip()
+                            if not raw_amount:
                                 ui.notify("Enter an amount", type="warning")
+                                return
+                            try:
+                                amount_text = normalize_amount(raw_amount)
+                            except InvalidAmountError:
+                                ui.notify(
+                                    "Amount must be a decimal number", type="negative"
+                                )
                                 return
                             inv_svc.link_reagent_to_experiment(
                                 experiment_id,
                                 _reagent_id,
-                                _amount.value,
+                                amount_text,
                                 (_unit.value or "").strip(),
                             )
                             ui.notify("Amount updated", type="positive")

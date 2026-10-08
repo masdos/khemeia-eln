@@ -243,7 +243,7 @@ class TestLinkToExperiment:
         assert row is not None
         assert row["experiment_id"] == experiment_id
         assert row["reagent_id"] == reagent_id
-        assert row["amount_used"] == 50.0
+        assert row["amount_used"] == "50.0"
         assert row["unit"] == "mL"
 
     def test_links_same_reagent_to_multiple_experiments(
@@ -281,8 +281,28 @@ class TestLinkToExperiment:
             "SELECT amount_used, unit FROM experiment_reagents",
         ).fetchone()
         assert row is not None
-        assert row["amount_used"] == 0.125
+        assert row["amount_used"] == "0.125"
         assert row["unit"] == "mg"
+
+    def test_preserves_trailing_zeros_without_rounding(
+        self, connection: sqlite3.Connection
+    ) -> None:
+        # given
+        experiment_id = _insert_experiment(connection, title="Synthesis")
+        reagent_id = create(connection, name="Catalyst")
+
+        # when
+        link_to_experiment(
+            connection, experiment_id, reagent_id, amount="0.5000", unit="g"
+        )
+
+        # then
+        row = connection.execute(
+            "SELECT amount_used, unit FROM experiment_reagents",
+        ).fetchone()
+        assert row is not None
+        assert row["amount_used"] == "0.5000"
+        assert row["unit"] == "g"
 
     def test_relinking_replaces_amount_and_unit(
         self, connection: sqlite3.Connection
@@ -302,7 +322,7 @@ class TestLinkToExperiment:
             "SELECT amount_used, unit FROM experiment_reagents",
         ).fetchone()
         assert row is not None
-        assert row["amount_used"] == 75.0
+        assert row["amount_used"] == "75.0"
         assert row["unit"] == "L"
 
 
@@ -323,7 +343,7 @@ class TestGetByExperiment:
         # then
         assert len(rows) == 2
         assert {row["name"] for row in rows} == {"Ethanol", "Acetone"}
-        assert {row["amount_used"] for row in rows} == {10.0, 5.0}
+        assert {row["amount_used"] for row in rows} == {"10.0", "5.0"}
 
     def test_returns_empty_list_when_no_reagents_linked(
         self, connection: sqlite3.Connection
@@ -355,7 +375,7 @@ class TestGetExperimentHistory:
         # then
         assert len(rows) == 2
         assert {row["title"] for row in rows} == {"Exp A", "Exp B"}
-        assert {row["amount_used"] for row in rows} == {2.0, 3.0}
+        assert {row["amount_used"] for row in rows} == {"2.0", "3.0"}
 
     def test_returns_empty_list_when_reagent_never_used(
         self, connection: sqlite3.Connection
