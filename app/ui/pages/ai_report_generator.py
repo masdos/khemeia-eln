@@ -372,7 +372,7 @@ def build_ai_report_generator_page(
                 label="Language",
                 new_value_mode="add-unique",
             )
-            .props("outlined")
+            .props('outlined placeholder="Select or type a language"')
             .classes("w-full")
         )
 

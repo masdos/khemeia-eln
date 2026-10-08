@@ -981,6 +981,10 @@ def test_builds_language_selector_with_spanish_and_english_options() -> None:
         assert language_call.kwargs["label"] == "Language"
         assert list(language_call.kwargs["options"]) == ["Spanish", "English"]
         assert language_call.kwargs["new_value_mode"] == "add-unique"
+        props_calls = [
+            str(call) for call in context.language_select.props.call_args_list
+        ]
+        assert any("Select or type a language" in props for props in props_calls)
 
 
 def test_sends_custom_language_when_generating() -> None:
