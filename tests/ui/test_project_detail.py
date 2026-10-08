@@ -76,9 +76,7 @@ def test_detail_page_prefills_current_values() -> None:
                         _mock_page_chrome(mock_ui)
                         mock_forms_ui.label.return_value = MagicMock()
                         mock_meta_ui.label.return_value = MagicMock()
-                        mock_ui.input = MagicMock(
-                            return_value=_make_chainable("Alpha")
-                        )
+                        mock_ui.input = MagicMock(return_value=_make_chainable("Alpha"))
                         mock_ui.textarea = MagicMock(
                             return_value=_make_chainable("First project")
                         )
@@ -173,12 +171,8 @@ def test_back_button_returns_to_projects_list() -> None:
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
                 with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                    with patch(
-                        "app.ui.components.forms.router"
-                    ) as mock_router:
-                        with patch(
-                            "app.ui.components.meta.ui"
-                        ) as mock_meta_ui:
+                    with patch("app.ui.components.forms.router") as mock_router:
+                        with patch("app.ui.components.meta.ui") as mock_meta_ui:
                             _mock_page_chrome(mock_ui)
                             mock_forms_ui.label.return_value = MagicMock()
                             mock_forms_ui.button.return_value = MagicMock()
@@ -211,9 +205,7 @@ def test_back_button_returns_to_projects_list() -> None:
                             back_button.kwargs["on_click"]()
 
                             # then
-                            mock_router.navigate.assert_called_once_with(
-                                "projects"
-                            )
+                            mock_router.navigate.assert_called_once_with("projects")
 
 
 class FakeExperimentRepository:
@@ -328,21 +320,15 @@ def test_experiments_table_lists_project_experiments() -> None:
     exp_repo.create(2, 1, "Other project exp", "Running")
     exp_service = _make_experiment_service(exp_repo)
 
-    with patch(
-        "app.ui.pages.project_detail._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.project_detail._get_service", return_value=service):
         with patch(
             "app.ui.pages.project_detail._get_experiment_service",
             return_value=exp_service,
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
                 with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                    with patch(
-                        "app.ui.components.tables.ui"
-                    ) as mock_tables_ui:
-                        with patch(
-                            "app.ui.components.meta.ui"
-                        ) as mock_meta_ui:
+                    with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                        with patch("app.ui.components.meta.ui") as mock_meta_ui:
                             _mock_page_chrome(mock_ui)
                             mock_forms_ui.label.return_value = MagicMock()
                             mock_forms_ui.button.return_value = MagicMock()
@@ -358,9 +344,7 @@ def test_experiments_table_lists_project_experiments() -> None:
                                 build_project_detail_page,
                             )
 
-                            project = service.create_project(
-                                "Alpha", "First project"
-                            )
+                            project = service.create_project("Alpha", "First project")
 
                             # when
                             with patch(
@@ -382,26 +366,16 @@ def test_experiment_view_action_navigates_to_detail() -> None:
     exp_repo.create(1, 1, "Exp A", "Running")
     exp_service = _make_experiment_service(exp_repo)
 
-    with patch(
-        "app.ui.pages.project_detail._get_service", return_value=service
-    ):
+    with patch("app.ui.pages.project_detail._get_service", return_value=service):
         with patch(
             "app.ui.pages.project_detail._get_experiment_service",
             return_value=exp_service,
         ):
             with patch("app.ui.pages.project_detail.ui") as mock_ui:
-                with patch(
-                    "app.ui.pages.project_detail.router"
-                ) as mock_router:
-                    with patch(
-                        "app.ui.components.forms.ui"
-                    ) as mock_forms_ui:
-                        with patch(
-                            "app.ui.components.tables.ui"
-                        ) as mock_tables_ui:
-                            with patch(
-                                "app.ui.components.meta.ui"
-                            ) as mock_meta_ui:
+                with patch("app.ui.pages.project_detail.router") as mock_router:
+                    with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                        with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                            with patch("app.ui.components.meta.ui") as mock_meta_ui:
                                 _mock_page_chrome(mock_ui)
                                 mock_forms_ui.label.return_value = MagicMock()
                                 mock_forms_ui.button.return_value = MagicMock()
@@ -427,10 +401,8 @@ def test_experiment_view_action_navigates_to_detail() -> None:
                                     build_project_detail_page(project["id"])
 
                                 # when - the view action is triggered
-                                table = (
-                                    mock_tables_ui.table.return_value
-                                    .classes.return_value
-                                )
+                                tables_mock = mock_tables_ui.table.return_value
+                                table = tables_mock.classes.return_value
                                 view_handler = None
                                 for call in table.on.call_args_list:
                                     if call.args and call.args[0] == "view":
@@ -461,9 +433,7 @@ def test_detail_notifies_when_project_missing() -> None:
             build_project_detail_page(999)
 
             # then
-            mock_ui.notify.assert_called_once_with(
-                "Project not found", type="negative"
-            )
+            mock_ui.notify.assert_called_once_with("Project not found", type="negative")
 
 
 def test_reports_table_lists_project_reports() -> None:
@@ -486,12 +456,8 @@ def test_reports_table_lists_project_reports() -> None:
             ):
                 with patch("app.ui.pages.project_detail.ui") as mock_ui:
                     with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                        with patch(
-                            "app.ui.components.tables.ui"
-                        ) as mock_tables_ui:
-                            with patch(
-                                "app.ui.components.meta.ui"
-                            ) as mock_meta_ui:
+                        with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                            with patch("app.ui.components.meta.ui") as mock_meta_ui:
                                 _mock_page_chrome(mock_ui)
                                 mock_forms_ui.label.return_value = MagicMock()
                                 mock_forms_ui.button.return_value = MagicMock()
@@ -537,18 +503,10 @@ def test_report_view_action_navigates_to_detail() -> None:
                 return_value=report_service,
             ):
                 with patch("app.ui.pages.project_detail.ui") as mock_ui:
-                    with patch(
-                        "app.ui.pages.project_detail.router"
-                    ) as mock_router:
-                        with patch(
-                            "app.ui.components.forms.ui"
-                        ) as mock_forms_ui:
-                            with patch(
-                                "app.ui.components.tables.ui"
-                            ) as mock_tables_ui:
-                                with patch(
-                                    "app.ui.components.meta.ui"
-                                ) as mock_meta_ui:
+                    with patch("app.ui.pages.project_detail.router") as mock_router:
+                        with patch("app.ui.components.forms.ui") as mock_forms_ui:
+                            with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                                with patch("app.ui.components.meta.ui") as mock_meta_ui:
                                     _mock_page_chrome(mock_ui)
                                     mock_forms_ui.label.return_value = MagicMock()
                                     mock_forms_ui.button.return_value = MagicMock()
@@ -570,10 +528,8 @@ def test_report_view_action_navigates_to_detail() -> None:
                                     build_project_detail_page(project["id"])
 
                                     # when - the reports view action is triggered
-                                    table = (
-                                        mock_tables_ui.table.return_value
-                                        .classes.return_value
-                                    )
+                                    tables_mock = mock_tables_ui.table.return_value
+                                    table = tables_mock.classes.return_value
                                     view_handlers = [
                                         call.args[1]
                                         for call in table.on.call_args_list

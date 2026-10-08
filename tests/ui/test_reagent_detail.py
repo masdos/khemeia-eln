@@ -115,9 +115,7 @@ class FakeEquipmentRepository:
     def get_by_id(self, equipment_id: int) -> dict[str, Any] | None:
         return self._equipment.get(equipment_id)
 
-    def update(
-        self, equipment_id: int, **fields: object
-    ) -> dict[str, Any] | None:
+    def update(self, equipment_id: int, **fields: object) -> dict[str, Any] | None:
         equipment = self._equipment.get(equipment_id)
         if equipment is None:
             return None
@@ -157,9 +155,7 @@ def _mock_page_chrome(
     mock_ui.label.return_value = MagicMock()
     mock_ui.separator.return_value = MagicMock()
     mock_forms_ui.label.return_value = MagicMock()
-    mock_forms_ui.row.return_value.__enter__ = MagicMock(
-        return_value=MagicMock()
-    )
+    mock_forms_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
     mock_forms_ui.button.return_value = MagicMock()
     mock_ghs_ui.label.return_value = MagicMock()
@@ -202,9 +198,7 @@ def test_detail_page_prefills_current_values() -> None:
     """Detail page must show current reagent values in inputs."""
     # given
     service = _make_service()
-    reagent = service.add_reagent(
-        name="Ethanol", cas_number="64-17-5", smiles="CCO"
-    )
+    reagent = service.add_reagent(name="Ethanol", cas_number="64-17-5", smiles="CCO")
 
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
@@ -267,9 +261,7 @@ def test_saving_from_detail_updates_reagent() -> None:
                         save_button.kwargs["on_click"]()
 
                         # then
-                        assert service.get_reagent(reagent["id"])["name"] == (
-                            "Renamed"
-                        )
+                        assert service.get_reagent(reagent["id"])["name"] == ("Renamed")
                         mock_ui.notify.assert_called_once_with(
                             "Reagent updated", type="positive"
                         )
@@ -335,8 +327,7 @@ def test_cas_and_smiles_enabled_without_history() -> None:
                         # then
                         for key in ("cas", "smiles"):
                             props_calls = [
-                                call.args
-                                for call in mocks[key].props.call_args_list
+                                call.args for call in mocks[key].props.call_args_list
                             ]
                             assert ("disable",) not in props_calls
 
@@ -350,9 +341,7 @@ def test_back_button_returns_to_inventory() -> None:
     with patch("app.ui.pages.reagent_detail._get_service", return_value=service):
         with patch("app.ui.pages.reagent_detail.ui") as mock_ui:
             with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                with patch(
-                    "app.ui.components.forms.router"
-                ) as mock_router:
+                with patch("app.ui.components.forms.router") as mock_router:
                     with patch("app.ui.components.ghs.ui") as mock_ghs_ui:
                         with patch("app.ui.components.meta.ui") as mock_meta_ui:
                             _mock_page_chrome(
@@ -377,9 +366,7 @@ def test_back_button_returns_to_inventory() -> None:
                             back_button.kwargs["on_click"]()
 
                             # then
-                            mock_router.navigate.assert_called_once_with(
-                                "inventory"
-                            )
+                            mock_router.navigate.assert_called_once_with("inventory")
 
 
 def test_detail_notifies_when_reagent_missing() -> None:
@@ -395,6 +382,4 @@ def test_detail_notifies_when_reagent_missing() -> None:
             build_reagent_detail_page(999)
 
             # then
-            mock_ui.notify.assert_called_once_with(
-                "Reagent not found", type="negative"
-            )
+            mock_ui.notify.assert_called_once_with("Reagent not found", type="negative")

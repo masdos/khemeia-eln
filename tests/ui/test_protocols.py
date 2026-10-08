@@ -78,9 +78,7 @@ def test_protocols_page_lists_protocols() -> None:
                     mock_ui.column.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.column.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
                     mock_lists_ui.row.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
@@ -106,21 +104,15 @@ def test_create_protocol_via_dialog() -> None:
     with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
             with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                with patch(
-                    "app.ui.components.markdown_editor.ui"
-                ) as mock_editor_ui:
+                with patch("app.ui.components.markdown_editor.ui") as mock_editor_ui:
                     mock_ui.dialog.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.dialog.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.card.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.card.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.input.return_value = _make_chainable("Test Protocol")
                     mock_ui.label.return_value = MagicMock()
                     mock_editor_ui.label.return_value = MagicMock()
@@ -192,9 +184,7 @@ def test_view_action_navigates_to_protocol_detail() -> None:
                         build_protocols_page()
 
                         # when - the view action of the table row is triggered
-                        table = (
-                            mock_tables_ui.table.return_value.classes.return_value
-                        )
+                        table = mock_tables_ui.table.return_value.classes.return_value
                         view_handler = None
                         for call in table.on.call_args_list:
                             if call.args and call.args[0] == "view":
@@ -242,9 +232,7 @@ def test_delete_protocol_shows_error_for_linked_experiments() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
 
                 from app.ui.pages.protocols import _open_delete_dialog
@@ -294,9 +282,7 @@ def test_delete_protocol_succeeds() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
 
                 from app.ui.pages.protocols import _open_delete_dialog
@@ -325,21 +311,15 @@ def test_create_protocol_rejects_blank_name() -> None:
     with patch("app.ui.pages.protocols._get_service", return_value=service):
         with patch("app.ui.pages.protocols.ui") as mock_ui:
             with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                with patch(
-                    "app.ui.components.markdown_editor.ui"
-                ) as mock_editor_ui:
+                with patch("app.ui.components.markdown_editor.ui") as mock_editor_ui:
                     mock_ui.dialog.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.dialog.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.dialog.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.card.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.card.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.card.return_value.__exit__ = MagicMock(return_value=False)
                     mock_ui.input.return_value = _make_chainable("")
                     mock_ui.label.return_value = MagicMock()
                     mock_editor_ui.label.return_value = MagicMock()
@@ -350,9 +330,7 @@ def test_create_protocol_rejects_blank_name() -> None:
                         return_value=False
                     )
                     mock_editor_ui.button.return_value = MagicMock()
-                    mock_editor_ui.textarea.return_value = _make_chainable(
-                        "# Content"
-                    )
+                    mock_editor_ui.textarea.return_value = _make_chainable("# Content")
                     mock_editor_ui.markdown.return_value = MagicMock()
                     mock_forms_ui.row.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()

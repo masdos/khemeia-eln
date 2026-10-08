@@ -16,9 +16,7 @@ def search_toolbar(
     margin = " mt-4" if top_margin else ""
     with ui.row().classes(f"w-full items-center gap-4{margin}"):
         search = (
-            ui.input(placeholder=placeholder)
-            .props("outlined dense")
-            .classes("flex-1")
+            ui.input(placeholder=placeholder).props("outlined dense").classes("flex-1")
         )
         ui.button(action_label, on_click=on_action).props("color=primary")
     return search

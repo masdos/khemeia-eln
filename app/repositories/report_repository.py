@@ -10,8 +10,7 @@ def create(
 ) -> int:
     """Create a report record and return its identifier."""
     cursor = connection.execute(
-        "INSERT INTO reports (project_id, title, content_markdown)"
-        " VALUES (?, ?, ?)",
+        "INSERT INTO reports (project_id, title, content_markdown) VALUES (?, ?, ?)",
         (project_id, title, content_markdown),
     )
     connection.commit()

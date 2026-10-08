@@ -44,8 +44,6 @@ def confirm_delete_dialog(
             if on_success is not None:
                 on_success()
 
-        dialog_actions(
-            confirm_label, confirm, dialog.close, secondary_props="flat"
-        )
+        dialog_actions(confirm_label, confirm, dialog.close, secondary_props="flat")
 
     dialog.open()

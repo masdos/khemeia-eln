@@ -194,9 +194,7 @@ def test_updates_title_and_content(connection: sqlite3.Connection) -> None:
     report_id = create(connection, project_id, "Old title", "# Old")
 
     # when
-    updated = update(
-        connection, report_id, title="New title", content_markdown="# New"
-    )
+    updated = update(connection, report_id, title="New title", content_markdown="# New")
 
     # then
     assert updated is not None

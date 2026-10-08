@@ -22,9 +22,7 @@ def markdown_editor(label: str, value: str = "") -> ui.textarea:
 
     with ui.row().classes("w-full gap-1 mt-1"):
         ui.button("H1", on_click=lambda: _insert("\n# Title\n")).props("flat dense")
-        ui.button("H2", on_click=lambda: _insert("\n## Subtitle\n")).props(
-            "flat dense"
-        )
+        ui.button("H2", on_click=lambda: _insert("\n## Subtitle\n")).props("flat dense")
         ui.button("H3", on_click=lambda: _insert("\n### Subsubtitle\n")).props(
             "flat dense"
         )

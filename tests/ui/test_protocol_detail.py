@@ -56,9 +56,7 @@ def _mock_page_chrome(mock_ui: MagicMock) -> None:
 
 def _mock_editor_chrome(mock_editor_ui: MagicMock, content: str) -> None:
     mock_editor_ui.label.return_value = MagicMock()
-    mock_editor_ui.row.return_value.__enter__ = MagicMock(
-        return_value=MagicMock()
-    )
+    mock_editor_ui.row.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_editor_ui.row.return_value.__exit__ = MagicMock(return_value=False)
     mock_editor_ui.button.return_value = MagicMock()
     mock_editor_ui.textarea = MagicMock(return_value=_make_chainable(content))
@@ -81,9 +79,7 @@ def test_detail_page_prefills_current_values() -> None:
                         _mock_page_chrome(mock_ui)
                         mock_forms_ui.label.return_value = MagicMock()
                         mock_meta_ui.label.return_value = MagicMock()
-                        mock_ui.input = MagicMock(
-                            return_value=_make_chainable("SOP-A")
-                        )
+                        mock_ui.input = MagicMock(return_value=_make_chainable("SOP-A"))
                         _mock_editor_chrome(mock_editor_ui, "# Content A")
 
                         from app.ui.pages.protocol_detail import (
@@ -95,9 +91,10 @@ def test_detail_page_prefills_current_values() -> None:
 
                         # then
                         assert mock_ui.input.call_args.kwargs["value"] == "SOP-A"
-                        assert mock_editor_ui.textarea.call_args.kwargs[
-                            "value"
-                        ] == "# Content A"
+                        assert (
+                            mock_editor_ui.textarea.call_args.kwargs["value"]
+                            == "# Content A"
+                        )
 
 
 def test_saving_from_detail_updates_protocol() -> None:
@@ -123,9 +120,7 @@ def test_saving_from_detail_updates_protocol() -> None:
                         )
                         mock_forms_ui.button.return_value = MagicMock()
                         mock_meta_ui.label.return_value = MagicMock()
-                        mock_ui.input = MagicMock(
-                            return_value=_make_chainable("SOP-B")
-                        )
+                        mock_ui.input = MagicMock(return_value=_make_chainable("SOP-B"))
                         _mock_editor_chrome(mock_editor_ui, "# Content B")
 
                         from app.ui.pages.protocol_detail import (
@@ -162,9 +157,7 @@ def test_back_button_returns_to_protocols_list() -> None:
     with patch("app.ui.pages.protocol_detail._get_service", return_value=service):
         with patch("app.ui.pages.protocol_detail.ui") as mock_ui:
             with patch("app.ui.components.forms.ui") as mock_forms_ui:
-                with patch(
-                    "app.ui.components.forms.router"
-                ) as mock_router:
+                with patch("app.ui.components.forms.router") as mock_router:
                     with patch("app.ui.components.meta.ui") as mock_meta_ui:
                         with patch(
                             "app.ui.components.markdown_editor.ui"
@@ -195,9 +188,7 @@ def test_back_button_returns_to_protocols_list() -> None:
                             back_button.kwargs["on_click"]()
 
                             # then
-                            mock_router.navigate.assert_called_once_with(
-                                "protocols"
-                            )
+                            mock_router.navigate.assert_called_once_with("protocols")
 
 
 def test_detail_notifies_when_protocol_missing() -> None:

@@ -82,9 +82,7 @@ def test_build_projects_page_lists_projects() -> None:
                     mock_ui.column.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
-                    mock_ui.column.return_value.__exit__ = MagicMock(
-                        return_value=False
-                    )
+                    mock_ui.column.return_value.__exit__ = MagicMock(return_value=False)
                     mock_lists_ui.row.return_value.__enter__ = MagicMock(
                         return_value=MagicMock()
                     )
@@ -127,9 +125,7 @@ def test_create_project_via_dialog() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
                 mock_forms_ui.label.return_value = MagicMock()
 
@@ -237,9 +233,7 @@ def test_delete_project_shows_error_for_linked_experiments() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
 
                 from app.ui.pages.projects import _open_delete_dialog
@@ -292,9 +286,7 @@ def test_delete_project_succeeds() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
 
                 from app.ui.pages.projects import _open_delete_dialog
@@ -340,9 +332,7 @@ def test_create_project_rejects_blank_name() -> None:
                 mock_forms_ui.row.return_value.__enter__ = MagicMock(
                     return_value=MagicMock()
                 )
-                mock_forms_ui.row.return_value.__exit__ = MagicMock(
-                    return_value=False
-                )
+                mock_forms_ui.row.return_value.__exit__ = MagicMock(return_value=False)
                 mock_forms_ui.button.return_value = MagicMock()
                 mock_forms_ui.label.return_value = MagicMock()
 
