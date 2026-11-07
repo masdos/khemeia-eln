@@ -32,9 +32,6 @@ course. Two constraints shaped every technical decision:
 
 ## Product tour
 
-<!-- TODO: record one short GIF per item (<10 MB each) and save it under
-  docs/assets/ with the matching file name. -->
-
 ### 1. Create an experiment from the dashboard
 
 <video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
@@ -112,22 +109,24 @@ and refine iteratively (see `docs/vibe_codign_implementation.md`).
 
 | Model | Commits | Share |
 |---|---|---|
-| `muse-spark-1.3-contributor-free` | 68 | 38.9% |
-| `mimo-v2.5-free` | 45 | 25.7% |
-| `deepseek-v4-flash-free` | 23 | 13.1% |
-| `mimo-v2-free` | 10 | 5.7% |
-| manual / unknown | 10 | 5.7% |
-| uncertain `gemma4:e2b` or manual | 8 | 4.6% |
-| `GPT-5.6 Terra` | 4 | 2.3% |
+| `muse-spark-1.3-contributor-free` | 69 | 38.8% |
+| `mimo-v2.5-free` | 45 | 25.3% |
+| `deepseek-v4-flash-free` | 23 | 12.9% |
+| `mimo-v2-free` | 10 | 5.6% |
+| manual / unknown | 11 | 6.2% |
+| uncertain `gemma4:e2b` or manual | 8 | 4.5% |
+| `GPT-5.6 Terra` | 4 | 2.2% |
 | `Claude Sonnet 5` | 3 | 1.7% |
 | `gpt-3.5-turbo` | 2 | 1.1% |
 | `big-pickle` | 1 | 0.6% |
+| `deepseek-v4.1-flash-free` | 1 | 0.6% |
 | `Claude Sonnet 5 + muse-spark` (shared) | 1 | 0.6% |
-| **Total (`5ffc3cd` → `HEAD`)** | **175** | **100%** |
+| **Total (`5ffc3cd` → `HEAD`)** | **178** | **100%** |
 
-Attribution: 106 commits carry an `AI-Model:` trailer in the commit message
-(since `ead9e7`); the previous 69 commits are attributed by matching commit
-dates with `opencode session export` model data. Reproduce with
+Attribution: 106 commits carry an `AI-Model:` trailer in the commit message.
+The other 72 are attributed by matching commit dates with `opencode session
+export` model data: 69 predate the trailer rule (since `ead9e7`) and 2 belong
+to sessions that omitted it; 1 has no matching session. Reproduce with
 `git log --grep="AI-Model:"` and `opencode session list` /
 `opencode export <sessionID>`.
 
