@@ -30,6 +30,32 @@ course. Two constraints shaped every technical decision:
 * **User profile:** one-time welcome form (name, email, optional institution)
   used for authorship auditing and export headers.
 
+## Product tour
+
+<!-- TODO: record one short GIF per item (<10 MB each) and save it under
+  docs/assets/ with the matching file name. -->
+
+### 1. Create an experiment from the dashboard
+
+<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+
+### 2. Link reagents and equipment to the experiment and render SMILES structure
+
+<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+
+### 3. Attach files to the experiment
+
+<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+
+### 4. Export the experiment to DOCX
+
+<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+
+### 5. Generate an AI draft with live preview
+
+<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+
+
 ## Tech stack
 
 Python 3.12+, NiceGUI (desktop via `pywebview`), SQLite, RDKit, Ollama.
@@ -90,8 +116,8 @@ and refine iteratively (see `docs/vibe_codign_implementation.md`).
 | `mimo-v2.5-free` | 45 | 25.7% |
 | `deepseek-v4-flash-free` | 23 | 13.1% |
 | `mimo-v2-free` | 10 | 5.7% |
-| manual / unknown (28/05–08/06/2026) | 10 | 5.7% |
-| uncertain `gemma4:e2b` or manual (11–23/06/2026) | 8 | 4.6% |
+| manual / unknown | 10 | 5.7% |
+| uncertain `gemma4:e2b` or manual | 8 | 4.6% |
 | `GPT-5.6 Terra` | 4 | 2.3% |
 | `Claude Sonnet 5` | 3 | 1.7% |
 | `gpt-3.5-turbo` | 2 | 1.1% |
@@ -104,17 +130,6 @@ Attribution: 106 commits carry an `AI-Model:` trailer in the commit message
 dates with `opencode session export` model data. Reproduce with
 `git log --grep="AI-Model:"` and `opencode session list` /
 `opencode export <sessionID>`.
-
-### Human review
-
-No agent output reaches `main` unreviewed:
-
-* **Pre-commit hooks** (`.pre-commit-config.yaml`): `uv run ruff check .` and
-  `uv run pytest` run automatically before every commit and block it on failure.
-* **Diff review:** each change is inspected (`git diff`, `git status`) before
-  staging, and only the intended files are committed.
-* **GPG-signed commits:** every commit is signed (`git commit -S`), so authorship
-  and integrity are verifiable.
 
 ## Limitations
 
