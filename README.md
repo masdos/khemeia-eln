@@ -1,3 +1,7 @@
+
+
+
+
 # Khemeia ELN
 
 Khemeia ELN is a local-first electronic laboratory notebook for chemistry researchers.
@@ -34,24 +38,23 @@ course. Two constraints shaped every technical decision:
 
 ### 1. Create an experiment from the dashboard
 
-<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+https://github.com/user-attachments/assets/76c76ed4-c4c9-4336-b1dd-a95da4bad81c
 
 ### 2. Link reagents and equipment to the experiment and render SMILES structure
 
-<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+https://github.com/user-attachments/assets/07e06871-0c59-40e6-8ce0-7c3e8e27e6e4
 
 ### 3. Attach files to the experiment
 
-<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+https://github.com/user-attachments/assets/8eb8348b-2c14-4e51-896d-ea7e9bff63f4
 
 ### 4. Export the experiment to DOCX
 
-<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
+https://github.com/user-attachments/assets/3dac2bb7-265d-4cb0-87c5-d4d45a975065
 
 ### 5. Generate an AI draft with live preview
 
-<video src="https://github.com" autoplay loop muted playsinline width="100%"></video>
-
+https://github.com/user-attachments/assets/da050803-9662-480b-9d35-000ed2cabc3b
 
 ## Tech stack
 
