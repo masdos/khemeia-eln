@@ -112,23 +112,23 @@ and refine iteratively (see `docs/vibe_codign_implementation.md`).
 
 | Model | Commits | Share |
 |---|---|---|
-| `muse-spark-1.3-contributor-free` | 69 | 38.8% |
-| `mimo-v2.5-free` | 45 | 25.3% |
-| `deepseek-v4-flash-free` | 23 | 12.9% |
-| `mimo-v2-free` | 10 | 5.6% |
-| manual / unknown | 11 | 6.2% |
-| uncertain `gemma4:e2b` or manual | 8 | 4.5% |
+| `muse-spark-1.3-contributor-free` | 69 | 37.7% |
+| `mimo-v2.5-free` | 45 | 24.6% |
+| `deepseek-v4-flash-free` | 23 | 12.6% |
+| manual / unknown | 12 | 6.6% |
+| `mimo-v2-free` | 10 | 5.5% |
+| uncertain `gemma4:e2b` or manual | 8 | 4.4% |
+| `deepseek-v4.1-flash-free` | 5 | 2.7% |
 | `GPT-5.6 Terra` | 4 | 2.2% |
-| `Claude Sonnet 5` | 3 | 1.7% |
+| `Claude Sonnet 5` | 3 | 1.6% |
 | `gpt-3.5-turbo` | 2 | 1.1% |
-| `big-pickle` | 1 | 0.6% |
-| `deepseek-v4.1-flash-free` | 1 | 0.6% |
-| `Claude Sonnet 5 + muse-spark` (shared) | 1 | 0.6% |
-| **Total (`5ffc3cd` → `HEAD`)** | **178** | **100%** |
+| `big-pickle` | 1 | 0.5% |
+| `Claude Sonnet 5 + muse-spark` (shared) | 1 | 0.5% |
+| **Total (all commits)** | **183** | **100%** |
 
-Attribution: 106 commits carry an `AI-Model:` trailer in the commit message.
-The other 72 are attributed by matching commit dates with `opencode session
-export` model data: 69 predate the trailer rule (since `ead9e7`) and 2 belong
+Attribution: 110 commits carry an `AI-Model:` trailer in the commit message.
+The other 73 are attributed by matching commit dates with `opencode session
+export` model data: 70 predate the trailer rule (since `ead9e7`) and 2 belong
 to sessions that omitted it; 1 has no matching session. Reproduce with
 `git log --grep="AI-Model:"` and `opencode session list` /
 `opencode export <sessionID>`.
@@ -142,8 +142,8 @@ to sessions that omitted it; 1 has no matching session. Reproduce with
   generation by design.
 * RDKit is optional at runtime: SMILES rendering returns `None` when the package
   is unavailable or the SMILES string is invalid.
-* Commit authorship before the `AI-Model:` trailer era (69 commits) is
-  reconstructed from session dates, so 18 of them remain manual or uncertain.
+* Commit authorship before the `AI-Model:` trailer era (70 commits) is
+  reconstructed from session dates, so 19 of them remain manual or uncertain.
 
 ## Credits and Attributions
 
