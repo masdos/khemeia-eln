@@ -803,7 +803,7 @@ def _add_docx_table(
 
 
 def _set_docx_cell_text(cell: Any, text: str, bold: bool = False) -> None:
-    """Fill a table cell with **bold** and _italic_ markdown as styled runs."""
+    """Fill a table cell with **bold** and *italic* markdown as styled runs."""
     paragraph = cell.paragraphs[0]
     for chunk, chunk_bold, italic in _iter_inline_runs(text):
         run = paragraph.add_run(chunk)
@@ -814,7 +814,7 @@ def _set_docx_cell_text(cell: Any, text: str, bold: bool = False) -> None:
 def _add_docx_paragraph(
     document: Document, text: str, style: str | None = None
 ) -> None:
-    """Add a paragraph with **bold** and _italic_ markdown as styled runs."""
+    """Add a paragraph with **bold** and *italic* markdown as styled runs."""
     paragraph = (
         document.add_paragraph(style=style) if style else document.add_paragraph()
     )
@@ -825,18 +825,22 @@ def _add_docx_paragraph(
 
 
 def _iter_inline_runs(text: str) -> Iterator[tuple[str, bool, bool]]:
-    """Split **bold** and _italic_ markdown into (text, bold, italic) runs."""
+    """Split **bold** and *italic*/_italic_ markdown into styled runs."""
     import re
 
-    pattern = re.compile(r"\*\*(.+?)\*\*|(?<!\w)_(.+?)_(?!\w)")
+    pattern = re.compile(
+        r"\*\*(.+?)\*\*|(?<!\w)_(.+?)_(?!\w)|(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)"
+    )
     pos = 0
     for match in pattern.finditer(text):
         if match.start() > pos:
             yield text[pos : match.start()], False, False
         if match.group(1) is not None:
             yield match.group(1), True, False
-        else:
+        elif match.group(2) is not None:
             yield match.group(2), False, True
+        else:
+            yield match.group(3), False, True
         pos = match.end()
     if pos < len(text):
         yield text[pos:], False, False
@@ -847,9 +851,10 @@ def _escape_html(text: str) -> str:
 
 
 def _convert_inline_markdown(text: str) -> str:
-    """Convert **bold** and _italic_ markdown to ReportLab HTML tags."""
+    """Convert **bold** and *italic*/_italic_ markdown to ReportLab HTML tags."""
     import re
 
     text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"(?<!\*)\*(?!\s)(.+?)(?<!\s)\*(?!\*)", r"<i>\1</i>", text)
     text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"<i>\1</i>", text)
     return text

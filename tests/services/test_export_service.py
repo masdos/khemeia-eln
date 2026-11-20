@@ -12,6 +12,7 @@ from app.services.export_service import (
     _build_pdf_table,
     _collect_table_block,
     _convert_inline_markdown,
+    _iter_inline_runs,
 )
 
 
@@ -537,6 +538,16 @@ class TestConvertInlineMarkdown:
         # then
         assert result == "<i>No notes recorded.</i>"
 
+    def test_converts_asterisk_italic_markers_to_html_tags(self) -> None:
+        # given
+        text = "This is *italic* text"
+
+        # when
+        result = _convert_inline_markdown(text)
+
+        # then
+        assert result == "This is <i>italic</i> text"
+
     def test_preserves_text_without_inline_formatting(self) -> None:
         # given
         text = "Plain text without formatting"
@@ -556,6 +567,52 @@ class TestConvertInlineMarkdown:
 
         # then
         assert result == "<b>Bold1</b> and <b>Bold2</b>"
+
+    def test_keeps_bold_markers_out_of_italic_conversion(self) -> None:
+        # given
+        text = "**Bold** and *italic*"
+
+        # when
+        result = _convert_inline_markdown(text)
+
+        # then
+        assert result == "<b>Bold</b> and <i>italic</i>"
+
+
+class TestIterInlineRuns:
+    def test_marks_asterisk_wrapped_word_as_italic(self) -> None:
+        # given
+        text = "This is *italic* text"
+
+        # when
+        result = list(_iter_inline_runs(text))
+
+        # then
+        assert result == [
+            ("This is ", False, False),
+            ("italic", False, True),
+            (" text", False, False),
+        ]
+
+    def test_marks_double_asterisk_wrapped_word_as_bold(self) -> None:
+        # given
+        text = "**Bold**"
+
+        # when
+        result = list(_iter_inline_runs(text))
+
+        # then
+        assert result == [("Bold", True, False)]
+
+    def test_marks_underscore_wrapped_word_as_italic(self) -> None:
+        # given
+        text = "_italic_"
+
+        # when
+        result = list(_iter_inline_runs(text))
+
+        # then
+        assert result == [("italic", False, True)]
 
 
 class TestMarkdownTables:
