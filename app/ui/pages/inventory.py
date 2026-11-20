@@ -379,7 +379,7 @@ def _render_equipment_list(
         {
             "id": e["id"],
             "name": e["name"],
-            "description": e.get("description", ""),
+            "description": (e.get("description") or "")[:80],
             "in_use": bool(service.get_equipment_history(e["id"])),
         }
         for e in equipment

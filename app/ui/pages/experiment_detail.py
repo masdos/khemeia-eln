@@ -79,6 +79,10 @@ GHS_FIELDS = [
 
 REAGENT_ACTIONS_SLOT = """
 <q-td :props="props">
+    <q-btn flat dense icon="visibility"
+            @click="() => $parent.$emit('view', props.row)">
+        <q-tooltip>View reagent</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="image" color="primary"
             :disable="!props.row.has_structure"
             @click="() => $parent.$emit('structure', props.row)">
@@ -97,6 +101,10 @@ REAGENT_ACTIONS_SLOT = """
 
 EQUIPMENT_ACTIONS_SLOT = """
 <q-td :props="props">
+    <q-btn flat dense icon="visibility"
+            @click="() => $parent.$emit('view', props.row)">
+        <q-tooltip>View equipment</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="delete" color="negative"
             @click="() => $parent.$emit('unlink', props.row)">
         <q-tooltip>Unlink equipment</q-tooltip>
@@ -527,6 +535,10 @@ def _build_resources_section(
             ui.notify("Reagent unlinked", type="positive")
             router.refresh()
 
+        reagent_table.on(
+            "view",
+            lambda e: router.navigate("reagent_detail", reagent_id=e.args["id"]),
+        )
         reagent_table.on("edit", _edit_reagent_amount)
         reagent_table.on("unlink", _unlink_reagent)
     else:
@@ -588,7 +600,7 @@ def _build_resources_section(
             {
                 "id": e["id"],
                 "name": e.get("name", ""),
-                "description": e.get("description", "") or "-",
+                "description": (e.get("description") or "-")[:80],
             }
             for e in equip_rows
         ]
@@ -600,6 +612,10 @@ def _build_resources_section(
             ui.notify("Equipment unlinked", type="positive")
             router.refresh()
 
+        equipment_table.on(
+            "view",
+            lambda e: router.navigate("equipment_detail", equipment_id=e.args["id"]),
+        )
         equipment_table.on("unlink", _unlink_equipment)
     else:
         ui.label("No equipment linked.").classes("text-slate-500 text-sm")
