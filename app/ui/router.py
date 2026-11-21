@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 _content: ui.column | None = None
 _current_view: str = "dashboard"
 _current_kwargs: dict = {}
+_history: list[tuple[str, dict[str, object]]] = []
 _base_dir: Path | None = None
 _navigate_listeners: list[Callable[[str], None]] = []
 _leave_guard: tuple[Callable[[], bool], Callable[[], None]] | None = None
@@ -29,6 +30,7 @@ def setup(content: ui.column, base_dir: Path) -> None:
     global _content, _base_dir
     _content = content
     _base_dir = base_dir
+    _history.clear()
     logger.info("Router initialized view=%s", _current_view)
 
 
@@ -43,18 +45,47 @@ def navigate(view: str, **kwargs: object) -> None:
         **kwargs: Extra arguments forwarded to the page builder
             (e.g. ``experiment_id``, ``base_dir``).
     """
-    if _leave_guard is not None:
-        confirm_needed, _ = _leave_guard
-        try:
-            blocked = confirm_needed()
-        except Exception as error:
-            logger.warning("Leave guard check failed error=%s", str(error))
-            blocked = False
-        if blocked:
-            logger.info("Navigation blocked view=%s reason=%s", view, "guard")
-            _confirm_leave(view, kwargs)
+    push = view != _current_view
+    if _is_blocked(view):
+        _confirm_leave(view, kwargs, push=push, pop_history=False)
+        return
+    _perform_navigate(view, kwargs, push=push)
+
+
+def back(fallback_view: str) -> None:
+    """Return to the previous view, or to ``fallback_view`` without history.
+
+    When a leave guard reports unsaved work, the same confirmation dialog
+    used by :func:`navigate` is shown before leaving.
+    """
+    if not _history:
+        if _is_blocked(fallback_view):
+            _confirm_leave(fallback_view, {}, push=False, pop_history=False)
             return
-    _perform_navigate(view, **kwargs)
+        _perform_navigate(fallback_view, {}, push=False)
+        return
+
+    view, kwargs = _history[-1]
+    if _is_blocked(view):
+        _confirm_leave(view, kwargs, push=False, pop_history=True)
+        return
+    _history.pop()
+    _perform_navigate(view, kwargs, push=False)
+
+
+def _is_blocked(view: str) -> bool:
+    """Return True when the registered leave guard reports unsaved work."""
+    if _leave_guard is None:
+        return False
+    confirm_needed, _ = _leave_guard
+    try:
+        blocked = confirm_needed()
+    except Exception as error:
+        logger.warning("Leave guard check failed error=%s", str(error))
+        return False
+    if blocked:
+        logger.info("Navigation blocked view=%s reason=%s", view, "guard")
+    return blocked
 
 
 def set_navigation_guard(
@@ -81,9 +112,16 @@ def clear_navigation_guard() -> None:
     logger.info("Navigation guard cleared")
 
 
-def _perform_navigate(view: str, **kwargs: object) -> None:
+def _perform_navigate(
+    view: str,
+    kwargs: dict[str, object],
+    *,
+    push: bool,
+) -> None:
     """Render the requested view without consulting the leave guard."""
     global _current_view, _current_kwargs
+    if push:
+        _history.append((_current_view, dict(_current_kwargs)))
     _current_view = view
     _current_kwargs = kwargs
     _refresh_internal()
@@ -92,7 +130,13 @@ def _perform_navigate(view: str, **kwargs: object) -> None:
     logger.info("Navigated to view=%s kwargs=%s", view, kwargs)
 
 
-def _confirm_leave(view: str, kwargs: dict) -> None:
+def _confirm_leave(
+    view: str,
+    kwargs: dict[str, object],
+    *,
+    push: bool,
+    pop_history: bool,
+) -> None:
     """Ask whether to discard in-progress work and leave the view."""
     from nicegui import ui as _ui
 
@@ -115,7 +159,9 @@ def _confirm_leave(view: str, kwargs: dict) -> None:
                 except Exception as error:
                     logger.warning("Leave cleanup failed error=%s", str(error))
             clear_navigation_guard()
-            _perform_navigate(view, **kwargs)
+            if pop_history and _history:
+                _history.pop()
+            _perform_navigate(view, kwargs, push=push)
 
         with _ui.row().classes("w-full justify-end gap-2 mt-4"):
             _ui.button("Stay", on_click=stay).props("flat")

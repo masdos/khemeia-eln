@@ -205,7 +205,7 @@ def test_back_button_returns_to_projects_list() -> None:
                             back_button.kwargs["on_click"]()
 
                             # then
-                            mock_router.navigate.assert_called_once_with("projects")
+                            mock_router.back.assert_called_once_with("projects")
 
 
 class FakeExperimentRepository:

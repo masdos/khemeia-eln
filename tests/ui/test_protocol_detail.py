@@ -188,7 +188,7 @@ def test_back_button_returns_to_protocols_list() -> None:
                             back_button.kwargs["on_click"]()
 
                             # then
-                            mock_router.navigate.assert_called_once_with("protocols")
+                            mock_router.back.assert_called_once_with("protocols")
 
 
 def test_detail_notifies_when_protocol_missing() -> None:

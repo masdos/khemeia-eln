@@ -998,11 +998,11 @@ def test_back_button_returns_to_hub() -> None:
 
         forms_ui.button.side_effect = capture_button
         _build_page(mock_ui, context)
-        with patch.object(ai_report_generator.router, "navigate") as mock_navigate:
+        with patch.object(ai_report_generator.router, "back") as mock_back:
             captured["on_click"]()
 
             # then
-            mock_navigate.assert_called_once_with("ai_assistant")
+            mock_back.assert_called_once_with("ai_assistant")
 
 
 def test_builds_language_selector_with_spanish_and_english_options() -> None:

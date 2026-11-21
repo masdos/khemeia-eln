@@ -34,8 +34,11 @@ def detail_save_row(on_save: Callable[[], None]) -> None:
 
 
 def back_button(target_view: str) -> None:
-    """Create the back button returning to a parent list view."""
+    """Create the back button returning to the previous view.
+
+    ``target_view`` is used only when there is no navigation history.
+    """
     ui.button(
         icon="arrow_back",
-        on_click=lambda: router.navigate(target_view),
+        on_click=lambda: router.back(target_view),
     ).props("flat round").classes("mt-4")

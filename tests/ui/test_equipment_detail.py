@@ -196,7 +196,7 @@ def test_back_button_returns_to_inventory() -> None:
                         back_button.kwargs["on_click"]()
 
                         # then
-                        mock_router.navigate.assert_called_once_with("inventory")
+                        mock_router.back.assert_called_once_with("inventory")
 
 
 def test_detail_notifies_when_equipment_missing() -> None:

@@ -11,6 +11,7 @@ def router_state_fixture() -> None:
     saved_content = router._content
     saved_view = router._current_view
     saved_kwargs = dict(router._current_kwargs)
+    saved_history = list(router._history)
     saved_listeners = list(router._navigate_listeners)
     saved_guard = router._leave_guard
     router._content = MagicMock()
@@ -19,6 +20,7 @@ def router_state_fixture() -> None:
     router._content.__exit__ = MagicMock(return_value=False)
     router._current_view = "dashboard"
     router._current_kwargs = {}
+    router._history = []
     router._navigate_listeners = []
     router._leave_guard = None
     try:
@@ -27,6 +29,7 @@ def router_state_fixture() -> None:
         router._content = saved_content
         router._current_view = saved_view
         router._current_kwargs = saved_kwargs
+        router._history = saved_history
         router._navigate_listeners = saved_listeners
         router._leave_guard = saved_guard
 
