@@ -1,7 +1,3 @@
-
-
-
-
 # Khemeia ELN
 
 Khemeia ELN is a local-first electronic laboratory notebook for chemistry researchers.
@@ -110,23 +106,23 @@ architectural context, and drives it to `done`. Fixes and small additions
 outside the backlog are done as vibecoding: describe the need by chat, adjust,
 and refine iteratively (see `docs/vibe_codign_implementation.md`).
 
-| Model | Commits | Share |
-|---|---|---|
-| `muse-spark-1.3-contributor-free` | 69 | 37.7% |
-| `mimo-v2.5-free` | 45 | 24.6% |
-| `deepseek-v4-flash-free` | 23 | 12.6% |
-| manual / unknown | 12 | 6.6% |
-| `mimo-v2-free` | 10 | 5.5% |
-| uncertain `gemma4:e2b` or manual | 8 | 4.4% |
-| `deepseek-v4.1-flash-free` | 5 | 2.7% |
-| `GPT-5.6 Terra` | 4 | 2.2% |
-| `Claude Sonnet 5` | 3 | 1.6% |
-| `gpt-3.5-turbo` | 2 | 1.1% |
-| `big-pickle` | 1 | 0.5% |
-| `Claude Sonnet 5 + muse-spark` (shared) | 1 | 0.5% |
-| **Total (all commits)** | **183** | **100%** |
+| Model | Commits | Share | Agent |
+|---|---|---|---|
+| `muse-spark-1.3-contributor-free` | 69 | 36.5% | OpenCode
+| `mimo-v2.5-free` | 45 | 23.8% | OpenCode
+| `deepseek-v4-flash-free` | 23 | 12.2% | OpenCode
+| `mimo-v2-free` | 10 | 5.3% | OpenCode
+| `big-pickle` | 1 | 0.5% | OpenCode
+| `deepseek-v4.1-flash-free` | 7 | 3.7% | OpenCode
+| manual / unknown | 20 | 10.6% | OpenCode
+| `gpt-5.6-terra` | 4 | 2.1% | Codex
+| `claude-sonnet-5` | 3 | 1.6% | claude.ai
+| `claude-sonnet-5 + muse-spark (shared)` | 1 | 0.5% | claude.ai + OpenCode
+| `gpt-3.5-turbo` | 3 | 1.6% | Copilot
+| `gpt-6-luna` | 3 | 1.6% | Copilot
+| **Total (all commits)** | **189** | **100%** |
 
-Attribution: 110 commits carry an `AI-Model:` trailer in the commit message.
+Attribution: 116 commits carry an `AI-Model:` trailer in the commit message.
 The other 73 are attributed by matching commit dates with `opencode session
 export` model data: 70 predate the trailer rule (since `ead9e7`) and 2 belong
 to sessions that omitted it; 1 has no matching session. Reproduce with
@@ -143,7 +139,7 @@ to sessions that omitted it; 1 has no matching session. Reproduce with
 * RDKit is optional at runtime: SMILES rendering returns `None` when the package
   is unavailable or the SMILES string is invalid.
 * Commit authorship before the `AI-Model:` trailer era (70 commits) is
-  reconstructed from session dates, so 19 of them remain manual or uncertain.
+  reconstructed from session dates, so 20 of them remain manual or uncertain.
 
 ## Credits and Attributions
 

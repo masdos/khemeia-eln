@@ -21,10 +21,13 @@ nuevas funcionalidades formalizadas previamente en el backlog.
 
 ## Periodo cubierto
 
-La práctica descrita abarca los commits posteriores a
-`444f9aaee42b60361f6aa47ee65b759bfee741f1` y hasta
-`aa7a3f385b1a9b2333578743e3250ad145dae938`, último commit de la
-rama `main` al elaborar esta actualización (8 de octubre de 2026).
+La práctica descrita se documenta por intervalos. La actualización anterior
+cubría los commits posteriores a `444f9aaee42b60361f6aa47ee65b759bfee741f1`
+y hasta `aa7a3f385b1a9b2333578743e3250ad145dae938` (8 de octubre de 2026).
+Esta actualización añade los cambios posteriores a
+`e97d0d422b10d5b765d52f1aad1bb5d2ac7ef846` y hasta
+`a4f790cc581c25a5521efdb4abafe91293fe69fb`, último commit de `main`
+analizado (21 de noviembre de 2026).
 
 El registro inicial cubría hasta
 `cca6117f80c6961e2b9a6a239417d25d92abb8e4` (10 de septiembre de 2026).
@@ -37,8 +40,7 @@ sin modificar las secciones ya consolidadas.
 El registro se obtuvo al contrastar las funcionalidades declaradas en
 `docs/feature_list.json` (versión `7.0`, todas las funcionalidades en estado
 `done`, incluidas las de la fase `ai_reports` hasta la número `31`) con los
-mensajes de los commits posteriores a la referencia indicada y hasta el último
-commit de la rama `main` analizado.
+mensajes de los commits incluidos en cada intervalo documentado.
 
 Se incluyen capacidades nuevas o ampliaciones visibles para el usuario que no
 están definidas explícitamente en el backlog. Se excluyen correcciones aisladas,
@@ -280,6 +282,35 @@ Amplían Experiment Detail e Inventory más allá del CRUD MVP.
   entorno; la página muestra además un enlace clicable a la carpeta de datos
   de la aplicación.
 
+## Ampliaciones posteriores a `e97d0d4` (hasta `a4f790c`)
+
+Intervalo `e97d0d422b10d5b765d52f1aad1bb5d2ac7ef846..a4f790cc581c25a5521efdb4abafe91293fe69fb`
+(20–21 de noviembre de 2026). Se excluyen cambios de documentación y ajustes
+visuales aislados.
+
+### Informes de IA y exportación
+
+- Si Ollama detiene la generación antes de completar el informe por alcanzar
+  el límite de tokens, se conserva el borrador parcial. La interfaz avisa al
+  usuario para que lo revise antes de guardarlo.
+- Se amplían los límites de generación a 4096 tokens de salida y 12288 tokens
+  de contexto para admitir informes más largos.
+- Las exportaciones PDF y DOCX interpretan `*texto*` como cursiva, además de
+  las marcas de cursiva y negrita ya admitidas.
+
+### Navegación y acciones
+
+- El botón de volver recupera la vista desde la que se abrió la ficha, en
+  lugar de enviar siempre a una lista fija. Si no hay historial, usa la vista
+  de retorno predeterminada; la navegación a la misma vista no añade una
+  entrada inútil al historial.
+- Las acciones con iconos de las tablas de experimentos, proyectos, informes,
+  protocolos e inventario muestran textos de ayuda. El aviso de que un recurso
+  está en uso se conserva en las acciones de borrado deshabilitadas.
+- En la ficha de proyecto se pueden borrar directamente experimentos e
+  informes. La interfaz pide confirmación y actualiza la lista después de
+  completar el borrado.
+
 ## Relación con el backlog
 
 Las mejoras anteriores al corte `cca6117` enriquecen funcionalidades MVP ya
@@ -293,3 +324,7 @@ recursos de experimento, inventario, adjuntos y perfil. Tampoco modifican los
 estados de `docs/feature_list.json`: este documento permite distinguir el
 alcance original del backlog de las capacidades incorporadas de forma
 iterativa después de su definición.
+
+Los cambios posteriores a `e97d0d4` también amplían funcionalidades ya
+existentes —generación y exportación de informes, navegación y gestión desde
+la ficha de proyecto— sin cambiar los estados de `docs/feature_list.json`.
