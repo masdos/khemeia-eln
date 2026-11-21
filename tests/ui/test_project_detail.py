@@ -232,6 +232,9 @@ class FakeExperimentRepository:
         }
         return exp_id
 
+    def get_by_id(self, experiment_id: int) -> dict[str, Any] | None:
+        return self._experiments.get(experiment_id)
+
     def get_all(
         self,
         state: str | None = None,
@@ -242,6 +245,9 @@ class FakeExperimentRepository:
         if project_id is not None:
             results = [e for e in results if e["project_id"] == project_id]
         return results
+
+    def delete(self, experiment_id: int) -> None:
+        del self._experiments[experiment_id]
 
 
 class FakeRefRepository:
@@ -420,6 +426,46 @@ def test_experiment_view_action_navigates_to_detail() -> None:
                                 )
 
 
+def test_experiment_delete_action_removes_the_experiment_and_refreshes() -> None:
+    # given
+    exp_repo = FakeExperimentRepository()
+    experiment_id = exp_repo.create(1, 1, "Exp A", "Running")
+    exp_service = _make_experiment_service(exp_repo)
+
+    with patch(
+        "app.ui.pages.project_detail._get_experiment_service",
+        return_value=exp_service,
+    ):
+        with patch("app.ui.pages.project_detail.ui") as mock_ui:
+            with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                with patch(
+                    "app.ui.pages.project_detail.confirm_delete_dialog"
+                ) as mock_confirm:
+                    from app.ui.pages.project_detail import _build_experiments_section
+
+                    # when
+                    _build_experiments_section(1)
+                    table = mock_tables_ui.table.return_value.classes.return_value
+                    delete_handler = next(
+                        call.args[1]
+                        for call in table.on.call_args_list
+                        if call.args and call.args[0] == "delete"
+                    )
+                    event = MagicMock()
+                    event.args = {"id": experiment_id, "title": "Exp A"}
+                    delete_handler(event)
+
+                    confirmation = mock_confirm.call_args.kwargs
+                    confirmation["on_confirm"]()
+                    confirmation["on_success"]()
+
+                    # then
+                    assert exp_service.list_experiments({"project_id": 1}) == []
+                    assert mock_ui.label.call_args_list[-1].args[0] == (
+                        "No experiments in this project."
+                    )
+
+
 def test_detail_notifies_when_project_missing() -> None:
     """Detail page must notify when the project does not exist."""
     # given
@@ -547,3 +593,43 @@ def test_report_view_action_navigates_to_detail() -> None:
                                     mock_router.navigate.assert_called_with(
                                         "report_detail", report_id=report_id
                                     )
+
+
+def test_report_delete_action_removes_the_report_and_refreshes() -> None:
+    # given
+    report_repo = FakeReportRepository()
+    report_id = report_repo.seed(1, "Report A")
+    report_service = ReportService(report_repo)
+
+    with patch(
+        "app.ui.pages.project_detail._get_report_service",
+        return_value=report_service,
+    ):
+        with patch("app.ui.pages.project_detail.ui") as mock_ui:
+            with patch("app.ui.components.tables.ui") as mock_tables_ui:
+                with patch(
+                    "app.ui.pages.project_detail.confirm_delete_dialog"
+                ) as mock_confirm:
+                    from app.ui.pages.project_detail import _build_reports_section
+
+                    # when
+                    _build_reports_section(1)
+                    table = mock_tables_ui.table.return_value.classes.return_value
+                    delete_handler = next(
+                        call.args[1]
+                        for call in table.on.call_args_list
+                        if call.args and call.args[0] == "delete"
+                    )
+                    event = MagicMock()
+                    event.args = {"id": report_id, "title": "Report A"}
+                    delete_handler(event)
+
+                    confirmation = mock_confirm.call_args.kwargs
+                    confirmation["on_confirm"]()
+                    confirmation["on_success"]()
+
+                    # then
+                    assert report_service.list_reports({"project_id": 1}) == []
+                    assert mock_ui.label.call_args_list[-1].args[0] == (
+                        "No reports in this project."
+                    )
