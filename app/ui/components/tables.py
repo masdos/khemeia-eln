@@ -7,12 +7,15 @@ from nicegui import ui
 VIEW_DELETE_SLOT = """
 <q-td :props="props">
     <q-btn flat dense icon="visibility"
-            @click="() => $parent.$emit('view', props.row)" />
+            @click="() => $parent.$emit('view', props.row)">
+        <q-tooltip>VIEW_TOOLTIP</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="delete"
             :color="props.row.in_use ? 'grey-5' : 'negative'"
             :disable="!!props.row.in_use"
             @click="() => $parent.$emit('delete', props.row)">
         <q-tooltip v-if="props.row.in_use">In use in experiments</q-tooltip>
+        <q-tooltip v-else>DELETE_TOOLTIP</q-tooltip>
     </q-btn>
 </q-td>
 """
@@ -20,14 +23,19 @@ VIEW_DELETE_SLOT = """
 VIEW_HISTORY_DELETE_SLOT = """
 <q-td :props="props">
     <q-btn flat dense icon="visibility"
-            @click="() => $parent.$emit('view', props.row)" />
+            @click="() => $parent.$emit('view', props.row)">
+        <q-tooltip>VIEW_TOOLTIP</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="history"
-            @click="() => $parent.$emit('history', props.row)" />
+            @click="() => $parent.$emit('history', props.row)">
+        <q-tooltip>HISTORY_TOOLTIP</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="delete"
             :color="props.row.in_use ? 'grey-5' : 'negative'"
             :disable="!!props.row.in_use"
             @click="() => $parent.$emit('delete', props.row)">
         <q-tooltip v-if="props.row.in_use">In use in experiments</q-tooltip>
+        <q-tooltip v-else>DELETE_TOOLTIP</q-tooltip>
     </q-btn>
 </q-td>
 """
@@ -43,7 +51,9 @@ def entity_table(columns: list, rows: list) -> ui.table:
 VIEW_SLOT = """
 <q-td :props="props">
     <q-btn flat dense icon="visibility"
-            @click="() => $parent.$emit('view', props.row)" />
+            @click="() => $parent.$emit('view', props.row)">
+        <q-tooltip>VIEW_TOOLTIP</q-tooltip>
+    </q-btn>
 </q-td>
 """
 
@@ -58,9 +68,13 @@ STATE_BADGE_SLOT = """
 EXPERIMENT_ACTIONS_SLOT = """
 <q-td :props="props">
     <q-btn flat dense icon="visibility"
-            @click.stop="$parent.$emit('view', props.row)" />
+            @click.stop="$parent.$emit('view', props.row)">
+        <q-tooltip>View experiment</q-tooltip>
+    </q-btn>
     <q-btn flat dense icon="delete" color="negative"
-            @click.stop="$parent.$emit('request-delete', props.row)" />
+            @click.stop="$parent.$emit('request-delete', props.row)">
+        <q-tooltip>Delete experiment</q-tooltip>
+    </q-btn>
 </q-td>
 """
 
@@ -69,9 +83,15 @@ def add_view_delete_actions(
     table: ui.table,
     on_view: Callable[[object], None],
     on_delete: Callable[[object], None],
+    *,
+    view_tooltip: str,
+    delete_tooltip: str,
 ) -> None:
     """Add the standard view/delete actions column handlers."""
-    table.add_slot("body-cell-actions", VIEW_DELETE_SLOT)
+    slot = VIEW_DELETE_SLOT.replace("VIEW_TOOLTIP", view_tooltip).replace(
+        "DELETE_TOOLTIP", delete_tooltip
+    )
+    table.add_slot("body-cell-actions", slot)
     table.on("view", on_view)
     table.on("delete", on_delete)
 
@@ -79,9 +99,13 @@ def add_view_delete_actions(
 def add_view_actions(
     table: ui.table,
     on_view: Callable[[object], None],
+    *,
+    view_tooltip: str,
 ) -> None:
     """Add the view-only actions column handler."""
-    table.add_slot("body-cell-actions", VIEW_SLOT)
+    table.add_slot(
+        "body-cell-actions", VIEW_SLOT.replace("VIEW_TOOLTIP", view_tooltip)
+    )
     table.on("view", on_view)
 
 
@@ -90,9 +114,18 @@ def add_view_history_delete_actions(
     on_view: Callable[[object], None],
     on_history: Callable[[object], None],
     on_delete: Callable[[object], None],
+    *,
+    view_tooltip: str,
+    history_tooltip: str,
+    delete_tooltip: str,
 ) -> None:
     """Add view/history/delete actions with delete disabled when in use."""
-    table.add_slot("body-cell-actions", VIEW_HISTORY_DELETE_SLOT)
+    slot = (
+        VIEW_HISTORY_DELETE_SLOT.replace("VIEW_TOOLTIP", view_tooltip)
+        .replace("HISTORY_TOOLTIP", history_tooltip)
+        .replace("DELETE_TOOLTIP", delete_tooltip)
+    )
+    table.add_slot("body-cell-actions", slot)
     table.on("view", on_view)
     table.on("history", on_history)
     table.on("delete", on_delete)

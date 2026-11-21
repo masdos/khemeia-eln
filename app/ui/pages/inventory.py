@@ -189,7 +189,15 @@ def _render_reagent_list(
     def on_delete(e) -> None:
         _open_reagent_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-    add_view_history_delete_actions(table, on_view, on_history, on_delete)
+    add_view_history_delete_actions(
+        table,
+        on_view,
+        on_history,
+        on_delete,
+        view_tooltip="View reagent",
+        history_tooltip="View reagent history",
+        delete_tooltip="Delete reagent",
+    )
 
 
 def _open_reagent_dialog(service: InventoryService, refresh: callable) -> None:
@@ -393,7 +401,13 @@ def _render_equipment_list(
     def on_delete(e) -> None:
         _open_equipment_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-    add_view_delete_actions(table, on_view, on_delete)
+    add_view_delete_actions(
+        table,
+        on_view,
+        on_delete,
+        view_tooltip="View equipment",
+        delete_tooltip="Delete equipment",
+    )
 
 
 def _open_equipment_dialog(service: InventoryService, refresh: callable) -> None:

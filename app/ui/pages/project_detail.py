@@ -139,7 +139,7 @@ def _build_experiments_section(project_id: int) -> None:
     def on_view(e) -> None:
         router.navigate("experiment_detail", experiment_id=e.args["id"])
 
-    add_view_actions(table, on_view)
+    add_view_actions(table, on_view, view_tooltip="View experiment")
 
 
 def _build_reports_section(project_id: int) -> None:
@@ -181,4 +181,4 @@ def _build_reports_section(project_id: int) -> None:
     def on_view(e) -> None:
         router.navigate("report_detail", report_id=e.args["id"])
 
-    add_view_actions(table, on_view)
+    add_view_actions(table, on_view, view_tooltip="View report")

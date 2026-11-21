@@ -100,7 +100,13 @@ def _render_table(
         def on_delete(e) -> None:
             _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-        add_view_delete_actions(table, on_view, on_delete)
+        add_view_delete_actions(
+            table,
+            on_view,
+            on_delete,
+            view_tooltip="View protocol",
+            delete_tooltip="Delete protocol",
+        )
 
 
 def _open_create_dialog(service: ProtocolService, refresh: callable) -> None:

@@ -101,7 +101,13 @@ def _render_table(
         def on_delete(e) -> None:
             _open_delete_dialog(service, e.args["id"], e.args["name"], refresh)
 
-        add_view_delete_actions(table, on_view, on_delete)
+        add_view_delete_actions(
+            table,
+            on_view,
+            on_delete,
+            view_tooltip="View project",
+            delete_tooltip="Delete project",
+        )
 
 
 def _open_create_dialog(service: ProjectService, refresh: callable) -> None:

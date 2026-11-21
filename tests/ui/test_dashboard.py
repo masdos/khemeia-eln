@@ -4,6 +4,7 @@ from typing import Any, Sequence
 from unittest.mock import MagicMock, patch
 
 from app.services.experiment_service import ExperimentService
+from app.ui.components.tables import add_experiment_actions
 
 
 class FakeExperimentRepository:
@@ -70,6 +71,19 @@ def _make_chainable(value: str = "") -> MagicMock:
     mock.props.return_value = mock
     mock.classes.return_value = mock
     return mock
+
+
+def test_experiment_actions_explain_their_purpose() -> None:
+    # given
+    table = MagicMock()
+
+    # when
+    add_experiment_actions(table, MagicMock(), MagicMock())
+
+    # then
+    action_slot = table.add_slot.call_args.args[1]
+    assert "<q-tooltip>View experiment</q-tooltip>" in action_slot
+    assert "<q-tooltip>Delete experiment</q-tooltip>" in action_slot
 
 
 def test_dashboard_lists_experiments() -> None:
