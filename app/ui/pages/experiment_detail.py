@@ -83,12 +83,12 @@ REAGENT_ACTIONS_SLOT = """
             @click="() => $parent.$emit('view', props.row)">
         <q-tooltip>View reagent</q-tooltip>
     </q-btn>
-    <q-btn flat dense icon="image" color="primary"
+    <q-btn flat dense icon="image" color="black"
             :disable="!props.row.has_structure"
             @click="() => $parent.$emit('structure', props.row)">
         <q-tooltip>View structure</q-tooltip>
     </q-btn>
-    <q-btn flat dense icon="edit" color="primary"
+    <q-btn flat dense icon="edit" color="black"
             @click="() => $parent.$emit('edit', props.row)">
         <q-tooltip>Edit amount</q-tooltip>
     </q-btn>
@@ -114,7 +114,7 @@ EQUIPMENT_ACTIONS_SLOT = """
 
 ATTACHMENT_ACTIONS_SLOT = """
 <q-td :props="props">
-    <q-btn flat dense icon="edit" color="primary"
+    <q-btn flat dense icon="edit" color="black"
             @click="() => $parent.$emit('edit', props.row)">
         <q-tooltip>Edit description</q-tooltip>
     </q-btn>
