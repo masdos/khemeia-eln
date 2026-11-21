@@ -22,11 +22,13 @@ class FakeOllamaClient:
         response: str = "# Draft",
         status_error: Exception | None = None,
         generate_error: Exception | None = None,
+        partial_before_error: str = "",
     ) -> None:
         self._status = status
         self._response = response
         self._status_error = status_error
         self._generate_error = generate_error
+        self._partial_before_error = partial_before_error
         self.seen_models: list[str] = []
         self.seen_system: list[str] = []
         self.seen_prompts: list[str] = []
@@ -40,6 +42,8 @@ class FakeOllamaClient:
         self.seen_models.append(model)
         self.seen_system.append(system_prompt)
         self.seen_prompts.append(user_prompt)
+        if self._partial_before_error:
+            yield self._partial_before_error
         if self._generate_error is not None:
             raise self._generate_error
         midpoint = len(self._response) // 2
@@ -227,6 +231,29 @@ def test_returns_none_when_generation_is_incomplete() -> None:
 
     # then
     assert report is None
+
+
+def test_keeps_partial_draft_when_generation_is_truncated() -> None:
+    # given
+    client = FakeOllamaClient(
+        status=_ready_status("qwen3:4b"),
+        generate_error=IncompleteGenerationError("truncated"),
+        partial_before_error="# Partial draft",
+    )
+    service = AIService(client)  # type: ignore[arg-type]
+    truncated_calls: list[bool] = []
+
+    # when
+    report = service.generate_report(
+        _experiment(),
+        "qwen3:4b",
+        "English",
+        on_truncated=lambda: truncated_calls.append(True),
+    )
+
+    # then
+    assert report == "# Partial draft"
+    assert truncated_calls == [True]
 
 
 def test_builds_system_prompt_with_requested_language() -> None:

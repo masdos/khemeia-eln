@@ -5,7 +5,7 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from app.services.ollama_client import OllamaClient
+from app.services.ollama_client import IncompleteGenerationError, OllamaClient
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +49,8 @@ TRUTH RULES (highest priority)
    - Fail: say clearly that the experiment failed. Give causes only if the
      records mention them.
    - Running: the experiment is not finished. Write only the title, Summary,
-     Objective and Methods. Under Results, Discussion and Conclusions write
-     only "Pending: experiment still running." in the report language.
+     Objective and Methods. Under Results and Conclusions write only
+     "Pending: experiment still running." in the report language.
 
 FORMAT RULES
 - Use only standard Markdown (headings, bold, italic, lists, tables).
@@ -97,11 +97,6 @@ in this order, and no others (no References section):
   Mention a figure only if it is in the Attachments list. Refer to it by
   file name in plain text, without Markdown image or link syntax.
   Never invent figures.
-- Discussion: continuous prose that tells a logical story. Never use bullet
-  points or numbered lists here. Analyze the recorded results and the
-  chemist's Conclusions. Compare with literature values only if they appear
-  in the records. Discuss sources of error only if the records support them.
-  Suggest concrete improvements. Do not add new calculations.
 - Conclusions: one paragraph. Base it on the Conclusions field and do not
   contradict it. If it is NOT RECORDED, summarize only what the Results and
   the State support. Say whether the Research question was answered,
@@ -116,7 +111,7 @@ in this order, and no others (no References section):
 SEVERAL EXPERIMENTS
 Give each experiment its own subsection in Procedures & Observations.
 Use one table in Results with one row per experiment. Compare the
-experiments in the Discussion.
+experiments in the Conclusions.
 In Appendices use one combined table with one row per attachment and an
 extra first column Experiment with the experiment title.
 
@@ -161,13 +156,16 @@ class AIService:
         model: str,
         language: str,
         on_progress: Callable[[str], None] | None = None,
+        on_truncated: Callable[[], None] | None = None,
     ) -> str | None:
         """Return a Markdown report draft, or None when AI is not ready.
 
         The model and the language are always chosen by the caller; the
         model must be installed at call time or no report is generated.
         Generation always streams; when on_progress is given, the callback
-        receives the accumulated text after each chunk.
+        receives the accumulated text after each chunk. When Ollama stops
+        before finishing, the partial draft is kept and on_truncated is
+        called so the caller can warn the user.
         """
         experiments = _normalize_experiments(experiments_data)
         if not experiments:
@@ -213,10 +211,14 @@ class AIService:
                 parts.append(chunk)
                 if on_progress is not None:
                     on_progress("".join(parts))
-            report = "".join(parts)
+        except IncompleteGenerationError:
+            logger.warning("Report truncated model=%s", model)
+            if on_truncated is not None:
+                on_truncated()
         except Exception as error:
             logger.warning("Report generation failed error=%s", str(error))
             return None
+        report = "".join(parts)
 
         if not report or not report.strip():
             logger.warning("Empty report received count=%s", len(experiments))

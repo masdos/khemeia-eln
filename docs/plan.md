@@ -1,6 +1,6 @@
 # Documento de Planificación (PLAN): Khemeia ELN
 
-**Versión:** 6.0
+**Versión:** 7.0
 **Stack Principal:** Python, NiceGUI, SQLite.
 
 ---
@@ -77,7 +77,7 @@ Detalles vigentes (`app/services/ollama_client.py`, `app/services/ai_service.py`
 * `RECOMMENDED_MODEL = "qwen3.5:4b"` solo como sugerencia informativa; listo = servidor responde y hay al menos un modelo instalado (`OllamaStatus.is_ready`), sin consultar modelos en memoria.
 * Generación solo por streaming (`generate_stream` + callback `on_progress` en `AIService`); la UI la ejecuta en hilo de trabajo con previsualización en vivo y guardia de salida Stay/Leave.
 * Llamada con `system` propio (no concatenación), `think=False` explícito y `done_reason` verificado.
-* Opciones deterministas: `num_ctx 8192`, `num_predict 2000`, `temperature 0.1`, `top_p 0.2`, `top_k 10`; timeout de generación 1800 s, timeout de estado 2 s.
+* Opciones deterministas: `num_ctx 12288`, `num_predict 4096`, `temperature 0.1`, `top_p 0.2`, `top_k 10`; timeout de generación 1800 s, timeout de estado 2 s.
 * Prompt con reglas de verdad (solo hechos de los registros, sin inventar ni calcular), fórmulas planas (`H2SO4`, sin LaTeX/HTML/Unicode), apéndices con tabla de adjuntos y título en el idioma del informe. El selector de idioma acepta valores tecleados.
 
 ### **D. Gestión de Adjuntos**

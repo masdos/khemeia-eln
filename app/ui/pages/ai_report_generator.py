@@ -59,6 +59,7 @@ LANGUAGE_REQUIRED = "Select or type a language."
 PROJECT_REQUIRED = "Select a project."
 TITLE_REQUIRED = "Enter a report title."
 SAVE_REQUIRED = "Generate a draft before saving."
+TRUNCATED_WARNING = "Draft truncated by token limit. Review it before saving."
 LANGUAGE_OPTIONS = ["Spanish", "English"]
 
 PROGRESS_POLL_SECONDS = 0.2
@@ -209,10 +210,15 @@ def generate_draft(
     model: str,
     language: str,
     on_progress: Callable[[str], None] | None = None,
+    on_truncated: Callable[[], None] | None = None,
 ) -> str | None:
     """Generate a report draft with the chosen model, or None when not ready."""
     draft = ai_service.generate_report(
-        experiments_data, model, language, on_progress=on_progress
+        experiments_data,
+        model,
+        language,
+        on_progress=on_progress,
+        on_truncated=on_truncated,
     )
     if draft is None:
         logger.warning("AI draft generation returned no content")
@@ -444,11 +450,15 @@ def build_ai_report_generator_page(
                 type="info",
             )
             updates: queue.Queue[tuple[str, str | None]] = queue.Queue()
+            truncated = False
 
             def report_progress(text: str) -> None:
                 if _cancel_requested:
                     raise _GenerationCancelled()
                 updates.put(("chunk", text))
+
+            def report_truncated() -> None:
+                updates.put(("truncated", None))
 
             def worker() -> None:
                 try:
@@ -458,6 +468,7 @@ def build_ai_report_generator_page(
                         model,
                         language,
                         on_progress=report_progress,
+                        on_truncated=report_truncated,
                     )
                 except _GenerationCancelled:
                     logger.info("Generation discarded after leaving page")
@@ -480,13 +491,18 @@ def build_ai_report_generator_page(
                     ui.notify(NO_AI_WARNING, type="warning")
                     return
                 warning_container.visible = False
-                message.text = ""
+                if truncated:
+                    message.text = TRUNCATED_WARNING
+                    ui.notify(TRUNCATED_WARNING, type="warning")
+                else:
+                    message.text = ""
+                    ui.notify("Draft generated", type="positive")
                 draft_area.value = draft
                 refresh_save_state()
                 _persist_last_used_model(base_dir, model)
-                ui.notify("Draft generated", type="positive")
 
             def poll_updates() -> None:
+                nonlocal truncated
                 if progress_container.is_deleted:
                     poll_timer.cancel()
                     return
@@ -497,6 +513,8 @@ def build_ai_report_generator_page(
                         return
                     if kind == "chunk":
                         draft_area.value = text or ""
+                    elif kind == "truncated":
+                        truncated = True
                     else:
                         poll_timer.cancel()
                         finish_generation(text if kind == "done" else None)

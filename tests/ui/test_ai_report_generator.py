@@ -63,6 +63,7 @@ class FakeAIService:
         model: str,
         language: str = "English",
         on_progress: Any = None,
+        on_truncated: Any = None,
     ) -> str | None:
         self.calls.append((list(experiments_data), model, language))
         if self._draft is not None and on_progress is not None:
@@ -575,6 +576,7 @@ def test_shows_progress_while_generating() -> None:
         model: str,
         language: str,
         on_progress: Any = None,
+        on_truncated: Any = None,
     ) -> str | None:
         if on_progress is not None:
             on_progress("# Partial")
@@ -606,6 +608,39 @@ def test_shows_progress_while_generating() -> None:
             assert context.draft.value == "# Draft"
 
 
+def test_keeps_truncated_draft_and_warns_it_is_incomplete() -> None:
+    # given
+    context = _UIContext()
+
+    def truncated_generate(
+        ai_service: Any,
+        experiments_data: Any,
+        model: str,
+        language: str,
+        on_progress: Any = None,
+        on_truncated: Any = None,
+    ) -> str | None:
+        if on_progress is not None:
+            on_progress("# Partial")
+        if on_truncated is not None:
+            on_truncated()
+        return "# Partial"
+
+    # when
+    with patch.object(ai_report_generator, "ui") as mock_ui:
+        mock_ui.label.return_value = context.message
+        with patch.object(
+            ai_report_generator, "generate_draft", side_effect=truncated_generate
+        ):
+            _build_page(mock_ui, context)
+            _click_generate(mock_ui, context)
+
+    # then — the partial draft stays editable and savable with a warning
+    assert context.draft.value == "# Partial"
+    assert context.message.text == ai_report_generator.TRUNCATED_WARNING
+    assert context.buttons["Save report"].enable.called
+
+
 def test_registers_leave_guard_while_generating() -> None:
     # given
     context = _UIContext()
@@ -618,6 +653,7 @@ def test_registers_leave_guard_while_generating() -> None:
         model: str,
         language: str,
         on_progress: Any = None,
+        on_truncated: Any = None,
     ) -> str | None:
         entered.set()
         assert release.wait(timeout=5)
@@ -656,6 +692,7 @@ def test_discards_draft_when_cancel_requested() -> None:
         model: str,
         language: str,
         on_progress: Any = None,
+        on_truncated: Any = None,
     ) -> str | None:
         if on_progress is not None:
             on_progress("# Partial")
